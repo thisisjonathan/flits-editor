@@ -1,0 +1,47 @@
+{
+    "version": 6,
+    "width": 640,
+    "height": 480,
+    "frame_rate": 60,
+    
+    "symbols": [
+        {"Bitmap": {
+            "name": "smiley.png",
+            "path": "assets/smiley.png"
+        }},{"Bitmap": {
+            "name": "flower.png",
+            "path": "assets/flower.png"
+        }},{"MovieClip": {
+            "name": "Two flowers",
+            "place_symbols": [{
+                "symbol_id": 1,
+                "x": 0,
+                "y": 0
+            },{
+                "symbol_id": 1,
+                "x": 50,
+                "y": 0
+            }]
+        }}
+    ],
+    
+    "root": [
+        {
+            "symbol_id": 0,
+            "x": 10,
+            "y": 10
+        },{
+            "symbol_id": 1,
+            "x": 60,
+            "y": 10
+        },{
+            "symbol_id": 1,
+            "x": 100,
+            "y": 10
+        },{
+            "symbol_id": 2,
+            "x": 10,
+            "y": 60
+        }
+    ]
+}
