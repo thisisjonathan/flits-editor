@@ -53,7 +53,7 @@ impl GuiController {
         let surface = unsafe { instance.create_surface(window.as_ref()) }?;
         let (adapter, device, queue) = futures::executor::block_on(request_adapter_and_device(
             backend,
-            instance,
+            &instance,
             Some(&surface),
             power_preference,
             trace_path,
@@ -78,7 +78,7 @@ impl GuiController {
                 view_formats: Default::default(),
             },
         );
-        let descriptors = Descriptors::new(adapter, device, queue);
+        let descriptors = Descriptors::new(instance, adapter, device, queue);
         let egui_ctx = Context::default();
         let mut egui_winit = egui_winit::State::new(event_loop);
         egui_winit.set_pixels_per_point(window.scale_factor() as f32);

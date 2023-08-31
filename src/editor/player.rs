@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use ruffle_render::{backend::RenderBackend, commands::{CommandList, Command}, matrix::Matrix, bitmap::{Bitmap, BitmapFormat, BitmapHandle}, transform::Transform};
+use ruffle_render::{backend::RenderBackend, commands::{CommandList, Command}, matrix::Matrix, bitmap::{Bitmap, BitmapFormat, BitmapHandle, PixelSnapping}, transform::Transform};
 use swf::{Color, Twips, ColorTransform};
 use tracing::instrument;
 use crate::editor::main::Movie;
@@ -70,7 +70,7 @@ impl Player {
             symbols,
             placed_symbols
         ));
-        self.renderer.submit_frame(Color::from_rgb(0x222222, 255), commands);
+        self.renderer.submit_frame(Color::from_rgb(0x222222, 255), commands, vec![]);
     }
     
     fn render_placed_symbols(renderer: &mut Box<dyn RenderBackend>, symbols: &Vec<Symbol>, placed_symbols: &Vec<PlaceSymbol>) -> Vec<Command> {
@@ -88,6 +88,7 @@ impl Player {
                             color_transform: ColorTransform::IDENTITY
                         },
                         smoothing: false,
+                        pixel_snapping: PixelSnapping::Never, // TODO: figure out a good default
                     });
                 }
                 Symbol::MovieClip(movieclip) => {

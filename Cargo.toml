@@ -10,7 +10,7 @@ edition = "2021"
 flate2 = {version = "1.0"}
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-swf = { path = "../ruffle/swf" }
+swf = { git = "https://github.com/ruffle-rs/ruffle" }
 image = "0.24.6"
 
 # gui dependencies
@@ -18,8 +18,8 @@ clap = { version = "4.3.0", features = ["derive"] }
 egui = "0.22.0"
 egui-wgpu = { version = "0.22.0", features = ["winit"] }
 egui-winit = "0.22.0"
-ruffle_render = { path = "../ruffle/render", features = ["clap"] }
-ruffle_render_wgpu = { path = "../ruffle/render/wgpu", features = ["clap"] }
+ruffle_render = { git = "https://github.com/ruffle-rs/ruffle", features = ["clap"] }
+ruffle_render_wgpu = { git = "https://github.com/ruffle-rs/ruffle", features = ["clap"] }
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
 generational-arena = "0.2.8"
 tracing = "0.1.37"
