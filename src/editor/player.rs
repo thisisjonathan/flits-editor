@@ -66,12 +66,18 @@ impl Player {
         commands.commands.extend(Player::render_placed_symbols(
             renderer,
             symbols,
-            placed_symbols
+            placed_symbols,
+            Transform::default()
         ));
         self.renderer.submit_frame(Color::from_rgb(0x222222, 255), commands, vec![]);
     }
     
-    fn render_placed_symbols(renderer: &mut Box<dyn RenderBackend>, symbols: &Vec<Symbol>, placed_symbols: &Vec<PlaceSymbol>) -> Vec<Command> {
+    fn render_placed_symbols(
+        renderer: &mut Box<dyn RenderBackend>,
+        symbols: &Vec<Symbol>,
+        placed_symbols: &Vec<PlaceSymbol>,
+        transform: Transform,
+    ) -> Vec<Command> {
         let mut commands = vec![];
         for i in 0..placed_symbols.len() {
             let place_symbol = placed_symbols.get(i).unwrap();
@@ -82,7 +88,7 @@ impl Player {
                     commands.push(Command::RenderBitmap {
                         bitmap: bitmap_handle.clone(),
                         transform: Transform {
-                            matrix: Matrix::translate(Twips::from_pixels(place_symbol.x), Twips::from_pixels(place_symbol.y)),
+                            matrix: transform.matrix*Matrix::translate(Twips::from_pixels(place_symbol.x), Twips::from_pixels(place_symbol.y)),
                             color_transform: ColorTransform::IDENTITY
                         },
                         smoothing: false,
@@ -93,8 +99,15 @@ impl Player {
                     commands.extend(Player::render_placed_symbols(
                         renderer,
                         symbols,
-                        &movieclip.place_symbols)
-                    );
+                        &movieclip.place_symbols,
+                        Transform {
+                            matrix: transform.matrix*Matrix::translate(
+                                Twips::from_pixels(place_symbol.x),
+                                Twips::from_pixels(place_symbol.y),
+                            ),
+                            color_transform: transform.color_transform
+                        }
+                    ));
                 }
             }
         }
