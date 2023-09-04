@@ -68,16 +68,16 @@ pub fn load_movie(path: PathBuf) -> Movie {
     movie
 }
 
-fn main() {
+/*fn main() {
     let args: Vec<String> = std::env::args().collect();
     let filename = &args.get(1).unwrap_or(&"./movie.json".to_owned()).clone();
     let directory = Path::new(&filename).parent().unwrap();
     let movie = load_json(Path::new(&filename)).unwrap();
     
     movie_to_swf(movie, directory, directory.join("output.swf"));
-}
+}*/
 
-fn movie_to_swf<'a>(movie: Movie, project_directory: &Path, swf_path: PathBuf) {
+pub fn movie_to_swf<'a>(movie: &Movie, project_directory: PathBuf, swf_path: PathBuf) {
     let header = Header {
         compression: Compression::Zlib,
         version: movie.version,
@@ -104,11 +104,11 @@ fn movie_to_swf<'a>(movie: Movie, project_directory: &Path, swf_path: PathBuf) {
         symbol_id_to_character_id: HashMap::new()
     };
     build_library(
-        movie.symbols,
+        &movie.symbols,
         &mut swf_builder,
         project_directory
     );
-    build_placed_symbols(movie.root, &mut swf_builder);
+    build_placed_symbols(&movie.root, &mut swf_builder);
     
     let mut data_storage = Vec::new();
     swf_builder.tags.iter().for_each(|builder_tag| {
@@ -142,24 +142,24 @@ fn movie_to_swf<'a>(movie: Movie, project_directory: &Path, swf_path: PathBuf) {
     swf::write_swf(&header, &tags, writer).unwrap();
 }
 
-fn build_library<'a>(symbols: Vec<Symbol>, swf_builder: &mut SwfBuilder, directory: &Path) {
+fn build_library<'a>(symbols: &Vec<Symbol>, swf_builder: &mut SwfBuilder, directory: PathBuf) {
     let mut symbol_id = 0;
     for symbol in symbols {
         match symbol {
-            Symbol::Bitmap(bitmap) => build_bitmap(symbol_id, bitmap, swf_builder, directory),
+            Symbol::Bitmap(bitmap) => build_bitmap(symbol_id, bitmap, swf_builder, directory.clone()),
             Symbol::MovieClip(movieclip) => build_movieclip(symbol_id, movieclip, swf_builder)
         }
         symbol_id += 1;
     }
 }
 
-fn build_movieclip(symbol_id: u16, movieclip: MovieClip, swf_builder: &mut SwfBuilder) {
+fn build_movieclip(symbol_id: u16, movieclip: &MovieClip, swf_builder: &mut SwfBuilder) {
     let character_id = swf_builder.next_character_id();
     swf_builder.symbol_id_to_character_id.insert(symbol_id, character_id);
     swf_builder.tags.push(SwfBuilderTag::Tag(Tag::DefineSprite(Sprite {
         id: character_id,
         num_frames: 1,
-        tags: get_placed_symbols_tags(movieclip.place_symbols, swf_builder)
+        tags: get_placed_symbols_tags(&movieclip.place_symbols, swf_builder)
     })));
     
 }
@@ -190,8 +190,9 @@ struct SwfBuilderBitmap {
     data: Vec<u8>,
 }
 
-fn build_bitmap<'a>(symbol_id: u16, bitmap: Bitmap, swf_builder: &mut SwfBuilder, directory: &Path) {
-    let img = ImageReader::open(directory.join(bitmap.path)).expect("Unable to read image").decode().expect("Unable to decode image");    
+fn build_bitmap<'a>(symbol_id: u16, bitmap: &Bitmap, swf_builder: &mut SwfBuilder, directory: PathBuf) {
+    // TODO: the images are probably already loaded when exporting a movie you are editing, maybe reuse that?
+    let img = ImageReader::open(directory.join(bitmap.path.clone())).expect("Unable to read image").decode().expect("Unable to decode image");    
     let image_width = img.width();
     let image_height = img.height();
     let rgba8 = img.into_rgba8();
@@ -273,14 +274,14 @@ fn build_bitmap<'a>(symbol_id: u16, bitmap: Bitmap, swf_builder: &mut SwfBuilder
         ])
 }
 
-fn build_placed_symbols(placed_symbols: Vec<PlaceSymbol>, swf_builder: &mut SwfBuilder) {
+fn build_placed_symbols(placed_symbols: &Vec<PlaceSymbol>, swf_builder: &mut SwfBuilder) {
     let mut tags = vec![];
     for tag in get_placed_symbols_tags(placed_symbols, swf_builder) {
         tags.push(SwfBuilderTag::Tag(tag));
     }
     swf_builder.tags.extend(tags);
 }
-fn get_placed_symbols_tags<'a>(placed_symbols: Vec<PlaceSymbol>, swf_builder: &SwfBuilder) -> Vec<Tag<'a>> {
+fn get_placed_symbols_tags<'a>(placed_symbols: &Vec<PlaceSymbol>, swf_builder: &SwfBuilder) -> Vec<Tag<'a>> {
     let mut i = 0;
     let mut tags = vec![];
     for place_symbol in placed_symbols {

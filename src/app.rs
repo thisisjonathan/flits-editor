@@ -455,6 +455,12 @@ impl App {
                         self.gui.lock().expect("Gui lock").create_movie_view(),
                     );
                 }
+                
+                winit::event::Event::UserEvent(RuffleEvent::ExportSWF) => {
+                    if let Some(player) = self.player.get() {
+                        player.export_swf();
+                    }
+                }
 
                 winit::event::Event::UserEvent(RuffleEvent::CloseFile) => {
                     self.player.destroy();

@@ -13,6 +13,9 @@ pub enum RuffleEvent {
 
     /// The user requested to open a URL.
     OpenURL(url::Url),
+    
+    /// The user requested to export an SWF
+    ExportSWF,
 
     /// The user requested to close the current SWF.
     CloseFile,

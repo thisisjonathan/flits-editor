@@ -55,9 +55,9 @@ pub const MENU_HEIGHT: u32 = 24;
 /// The main controller for the Ruffle GUI.
 pub struct RuffleGui {
     event_loop: EventLoopProxy<RuffleEvent>,
-    open_url_text: String,
+    //open_url_text: String,
     is_about_visible: bool,
-    is_open_url_prompt_visible: bool,
+    //is_open_url_prompt_visible: bool,
     //context_menu: Vec<ruffle_core::ContextMenuItem>,
     locale: LanguageIdentifier,
 }
@@ -74,9 +74,9 @@ impl RuffleGui {
 
         Self {
             event_loop,
-            open_url_text: String::new(),
+            //open_url_text: String::new(),
             is_about_visible: false,
-            is_open_url_prompt_visible: false,
+            //is_open_url_prompt_visible: false,
             //context_menu: vec![],
             locale,
         }
@@ -135,6 +135,10 @@ impl RuffleGui {
                     /*if Button::new(text(&self.locale, "file-menu-open-url")).ui(ui).clicked() {
                         self.show_open_url_prompt(ui);
                     }*/
+                    
+                    if ui.add_enabled(has_movie, Button::new("Export SWF")).clicked() {
+                        self.export_swf(ui);
+                    }
 
                     if ui.add_enabled(has_movie, Button::new(text(&self.locale, "file-menu-close"))).clicked() {
                         self.close_movie(ui);
@@ -256,8 +260,8 @@ impl RuffleGui {
     }
 
     /// Renders the right-click context menu.
-    fn context_menu(&mut self, egui_ctx: &egui::Context) {
-        /*let mut item_clicked = false;
+    /*fn context_menu(&mut self, egui_ctx: &egui::Context) {
+        let mut item_clicked = false;
         let mut menu_visible = false;
         // TODO: What is the proper way in egui to spawn a random context menu?
         egui::CentralPanel::default()
@@ -290,14 +294,19 @@ impl RuffleGui {
         {
             // Hide menu.
             self.context_menu.clear();
-        }*/
-    }
+        }
+    }*/
 
     fn open_file(&mut self, ui: &mut egui::Ui) {
         let _ = self.event_loop.send_event(RuffleEvent::OpenFile);
         ui.close_menu();
     }
-
+    
+    fn export_swf(&mut self, ui: &mut egui::Ui) {
+        let _ = self.event_loop.send_event(RuffleEvent::ExportSWF);
+        ui.close_menu();
+    }
+    
     fn close_movie(&mut self, ui: &mut egui::Ui) {
         let _ = self.event_loop.send_event(RuffleEvent::CloseFile);
         ui.close_menu();
@@ -355,8 +364,8 @@ impl RuffleGui {
         ui.close_menu();
     }
 
-    fn show_open_url_prompt(&mut self, ui: &mut egui::Ui) {
+    /*fn show_open_url_prompt(&mut self, ui: &mut egui::Ui) {
         self.is_open_url_prompt_visible = true;
         ui.close_menu();
-    }
+    }*/
 }

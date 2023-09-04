@@ -4,8 +4,7 @@ use ruffle_render::{backend::RenderBackend, commands::{CommandList, Command}, ma
 use swf::{Color, Twips, ColorTransform};
 use tracing::instrument;
 use crate::editor::main::Movie;
-
-use super::main::{Symbol, PlaceSymbol};
+use super::main::{Symbol, PlaceSymbol, movie_to_swf};
 
 
 type Renderer = Box<dyn RenderBackend>;
@@ -13,17 +12,16 @@ type Renderer = Box<dyn RenderBackend>;
 
 pub struct Player {
     movie: Movie,
+    directory: PathBuf,
     renderer: Renderer,
 }
 
 impl Player {
     pub fn new(renderer: Renderer, path: PathBuf) -> Player {
-        /*let directory = path.parent().unwrap();
-        let file = std::fs::File::open(path.clone()).expect("Unable to load file");
-        let movie: Movie = serde_json::from_reader(file).expect("Unable to load file");*/
-        let movie = crate::editor::main::load_movie(path);
+        let movie = crate::editor::main::load_movie(path.clone());
         Player {
             movie,
+            directory: PathBuf::from(path.parent().unwrap()),
             renderer
         }
     }
@@ -105,5 +103,15 @@ impl Player {
     
     pub fn renderer_mut(&mut self) -> &mut Renderer {
         &mut self.renderer
+    }
+    
+    pub fn export_swf(&self) {
+        let directory = self.directory.clone();
+        let swf_path = directory.clone().join("output.swf");
+        movie_to_swf(
+            &self.movie,
+            directory, 
+            swf_path
+        );
     }
 }
