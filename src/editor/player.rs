@@ -1,19 +1,27 @@
 use std::path::PathBuf;
 
-use ruffle_render::{backend::RenderBackend, commands::{CommandList, Command}, matrix::Matrix, bitmap::{Bitmap, BitmapFormat, BitmapHandle, PixelSnapping}, transform::Transform};
+use ruffle_render::{backend::RenderBackend, commands::{CommandList, Command}, matrix::Matrix, bitmap::{Bitmap, BitmapFormat, PixelSnapping}, transform::Transform};
 use swf::{Color, Twips, ColorTransform};
 use tracing::instrument;
+use winit::event::{MouseButton, ElementState};
 use crate::editor::main::Movie;
 use super::main::{Symbol, PlaceSymbol, movie_to_swf};
 
 
 type Renderer = Box<dyn RenderBackend>;
 
+struct DragData {
+    start_x: f64,
+    start_y: f64,
+    place_symbol_index: usize,
+}
 
 pub struct Player {
     movie: Movie,
     directory: PathBuf,
     renderer: Renderer,
+    
+    drag_data: Option<DragData>
 }
 
 impl Player {
@@ -22,7 +30,9 @@ impl Player {
         Player {
             movie,
             directory: PathBuf::from(path.parent().unwrap()),
-            renderer
+            renderer,
+            
+            drag_data: None
         }
     }
     #[instrument(level = "debug", skip_all)]
@@ -112,6 +122,45 @@ impl Player {
             }
         }
         commands
+    }
+    
+    pub fn handle_mouse_event(&mut self, mouse_x: f64, mouse_y: f64, button: MouseButton, state: ElementState) {
+        if button == MouseButton::Left && state == ElementState::Pressed {
+            // iterate from top to bottom to get the item that's on top
+            for i in (0..self.movie.root.len()).rev() {
+                let place_symbol = self.movie.root.get_mut(i).unwrap();
+                let mut width = 32.0;
+                let mut height = 32.0;
+                let symbol = self.movie.symbols.get(place_symbol.symbol_id as usize).expect("Invalid symbol placed");
+                // TODO: movieclip size
+                if let Symbol::Bitmap(bitmap) = symbol {
+                    if let Some(image) = &bitmap.image {
+                        width = image.width() as f64;
+                        height = image.height() as f64;
+                    }
+                }
+                if mouse_x > place_symbol.x &&
+                   mouse_y > place_symbol.y &&
+                   mouse_x < place_symbol.x+width &&
+                   mouse_y < place_symbol.y+height
+                {
+                    self.drag_data = Some(DragData {
+                        start_x: mouse_x,
+                        start_y: mouse_y,
+                        place_symbol_index: i,
+                    });
+                    break;
+                }
+            }
+        }
+        if button == MouseButton::Left && state == ElementState::Released {
+            if let Some(drag_data) = &self.drag_data {
+                let place_symbol = self.movie.root.get_mut(drag_data.place_symbol_index).unwrap();
+                place_symbol.x += mouse_x-drag_data.start_x;
+                place_symbol.y += mouse_y-drag_data.start_y;
+                self.drag_data = None;
+            }
+        }
     }
     
     pub fn renderer_mut(&mut self) -> &mut Renderer {

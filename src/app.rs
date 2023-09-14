@@ -193,14 +193,14 @@ impl App {
                                 return;
                             }*/
 
-                            /*if let Some(mut player) = self.player.get() {
+                            if let Some(mut player) = self.player.get() {
                                 mouse_pos = position;
-                                let event = PlayerEvent::MouseMove {
+                                /*let event = PlayerEvent::MouseMove {
                                     x: position.x,
                                     y: position.y - height_offset as f64,
                                 };
-                                player.handle_event(event);
-                            }*/
+                                player.handle_event(event);*/
+                            }
                             check_redraw = true;
                         }
                         WindowEvent::MouseInput { button, state, .. } => {
@@ -208,24 +208,10 @@ impl App {
                                 return;
                             }*/
 
-                            /*use ruffle_core::events::MouseButton as RuffleMouseButton;
-                            use winit::event::MouseButton;
                             if let Some(mut player) = self.player.get() {
                                 let x = mouse_pos.x;
                                 let y = mouse_pos.y - height_offset as f64;
-                                let button = match button {
-                                    MouseButton::Left => RuffleMouseButton::Left,
-                                    MouseButton::Right => RuffleMouseButton::Right,
-                                    MouseButton::Middle => RuffleMouseButton::Middle,
-                                    MouseButton::Other(_) => RuffleMouseButton::Unknown,
-                                };
-                                let event = match state {
-                                    ElementState::Pressed => {
-                                        PlayerEvent::MouseDown { x, y, button }
-                                    }
-                                    ElementState::Released => PlayerEvent::MouseUp { x, y, button },
-                                };
-                                if state == ElementState::Pressed
+                                /*if state == ElementState::Pressed
                                     && button == RuffleMouseButton::Right
                                 {
                                     // Show context menu.
@@ -235,9 +221,9 @@ impl App {
                                         .lock()
                                         .expect("Gui lock")
                                         .show_context_menu(context_menu);
-                                }
-                                player.handle_event(event);
-                            }*/
+                                }*/
+                                player.handle_mouse_event(x, y, button, state);
+                            }
                             check_redraw = true;
                         }
                         WindowEvent::MouseWheel { delta, .. } => {
