@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use ruffle_render::{backend::RenderBackend, commands::{CommandList, Command}, matrix::Matrix, bitmap::{Bitmap, BitmapFormat, PixelSnapping}, transform::Transform};
+use ruffle_render::{backend::{RenderBackend, ViewportDimensions}, commands::{CommandList, Command}, matrix::Matrix, bitmap::{Bitmap, BitmapFormat, PixelSnapping}, transform::Transform};
 use swf::{Color, Twips, ColorTransform};
 use tracing::instrument;
 use winit::event::{MouseButton, ElementState};
@@ -165,6 +165,10 @@ impl Player {
     
     pub fn renderer_mut(&mut self) -> &mut Renderer {
         &mut self.renderer
+    }
+    
+    pub fn set_viewport_dimensions(&mut self, dimensions: ViewportDimensions) {
+        self.renderer.set_viewport_dimensions(dimensions);
     }
     
     pub fn export_swf(&self) {

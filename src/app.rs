@@ -175,14 +175,14 @@ impl App {
                             // TODO: Change this when winit adds a `Window::minimzed` or `WindowEvent::Minimize`.
                             minimized = size.width == 0 && size.height == 0;
 
-                            /*if let Some(mut player) = self.player.get() {
+                            if let Some(mut player) = self.player.get() {
                                 let viewport_scale_factor = self.window.scale_factor();
                                 player.set_viewport_dimensions(ViewportDimensions {
                                     width: size.width,
                                     height: size.height - height_offset,
                                     scale_factor: viewport_scale_factor,
                                 });
-                            }*/
+                            }
                             self.window.request_redraw();
                             if matches!(loaded, LoadingState::WaitingForResize) {
                                 loaded = LoadingState::Loaded;
