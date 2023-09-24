@@ -7,6 +7,7 @@ use egui::Context;
 use ruffle_render_wgpu::backend::{request_adapter_and_device, WgpuRenderBackend};
 use ruffle_render_wgpu::descriptors::Descriptors;
 use ruffle_render_wgpu::utils::{format_list, get_backend_names};
+use wgpu::PresentMode;
 use std::path::Path;
 use std::rc::Rc;
 use std::sync::{Arc, MutexGuard};
@@ -74,7 +75,7 @@ impl GuiController {
                 format: surface_format,
                 width: size.width,
                 height: size.height,
-                present_mode: Default::default(),
+                present_mode: PresentMode::Immediate,
                 alpha_mode: Default::default(),
                 view_formats: Default::default(),
             },
@@ -124,7 +125,7 @@ impl GuiController {
                     format: self.surface_format,
                     width: size.width,
                     height: size.height,
-                    present_mode: Default::default(),
+                    present_mode: PresentMode::Immediate,
                     alpha_mode: Default::default(),
                     view_formats: Default::default(),
                 },

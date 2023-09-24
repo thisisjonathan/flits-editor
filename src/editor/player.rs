@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, time::{Instant, Duration}};
 
 use ruffle_render::{backend::{RenderBackend, ViewportDimensions}, commands::{CommandList, Command}, matrix::Matrix, bitmap::{Bitmap, BitmapFormat, PixelSnapping}, transform::Transform};
 use swf::{Color, Twips, ColorTransform};
@@ -11,6 +11,8 @@ use super::main::{Symbol, PlaceSymbol, movie_to_swf};
 type Renderer = Box<dyn RenderBackend>;
 
 struct DragData {
+    symbol_start_x: f64,
+    symbol_start_y: f64,
     start_x: f64,
     start_y: f64,
     place_symbol_index: usize,
@@ -21,7 +23,7 @@ pub struct Player {
     directory: PathBuf,
     renderer: Renderer,
     
-    drag_data: Option<DragData>
+    drag_data: Option<DragData>,
 }
 
 impl Player {
@@ -32,11 +34,11 @@ impl Player {
             directory: PathBuf::from(path.parent().unwrap()),
             renderer,
             
-            drag_data: None
+            drag_data: None,
         }
     }
     #[instrument(level = "debug", skip_all)]
-    pub fn render(&mut self) {
+    pub fn render(&mut self) { 
         let mut commands = CommandList::new();
         // stage background
         commands.commands.push(Command::DrawRect {
@@ -124,7 +126,15 @@ impl Player {
         commands
     }
     
-    pub fn handle_mouse_event(&mut self, mouse_x: f64, mouse_y: f64, button: MouseButton, state: ElementState) {
+    pub fn handle_mouse_move(&mut self, mouse_x: f64, mouse_y: f64) {
+        if let Some(drag_data) = &self.drag_data {
+            let place_symbol = self.movie.root.get_mut(drag_data.place_symbol_index).unwrap();
+            place_symbol.x = drag_data.symbol_start_x+mouse_x-drag_data.start_x;
+            place_symbol.y = drag_data.symbol_start_y+mouse_y-drag_data.start_y;
+        }
+    }
+    
+    pub fn handle_mouse_input(&mut self, mouse_x: f64, mouse_y: f64, button: MouseButton, state: ElementState) {
         if button == MouseButton::Left && state == ElementState::Pressed {
             // iterate from top to bottom to get the item that's on top
             for i in (0..self.movie.root.len()).rev() {
@@ -145,6 +155,8 @@ impl Player {
                    mouse_y < place_symbol.y+height
                 {
                     self.drag_data = Some(DragData {
+                        symbol_start_x: place_symbol.x,
+                        symbol_start_y: place_symbol.y,
                         start_x: mouse_x,
                         start_y: mouse_y,
                         place_symbol_index: i,
@@ -156,8 +168,8 @@ impl Player {
         if button == MouseButton::Left && state == ElementState::Released {
             if let Some(drag_data) = &self.drag_data {
                 let place_symbol = self.movie.root.get_mut(drag_data.place_symbol_index).unwrap();
-                place_symbol.x += mouse_x-drag_data.start_x;
-                place_symbol.y += mouse_y-drag_data.start_y;
+                place_symbol.x = drag_data.symbol_start_x+mouse_x-drag_data.start_x;
+                place_symbol.y = drag_data.symbol_start_y+mouse_y-drag_data.start_y;
                 self.drag_data = None;
             }
         }

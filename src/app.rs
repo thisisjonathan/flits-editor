@@ -138,10 +138,10 @@ impl App {
                     if !minimized {
                         if let Some(mut player) = self.player.get() {
                             player.render();
-                            let renderer = player
+                            /*let renderer = player
                                 .renderer_mut()
                                 .downcast_mut::<WgpuRenderBackend<MovieView>>()
-                                .expect("Renderer must be correct type");
+                                .expect("Renderer must be correct type");*/
                             let has_mutated = self.gui
                                 .lock()
                                 .expect("Gui lock")
@@ -197,12 +197,16 @@ impl App {
                             }*/
 
                             if let Some(mut player) = self.player.get() {
-                                mouse_pos = position;
+                                mouse_pos = PhysicalPosition {
+                                    x: position.x,
+                                    y: position.y - height_offset as f64,
+                                };
                                 /*let event = PlayerEvent::MouseMove {
                                     x: position.x,
                                     y: position.y - height_offset as f64,
                                 };
                                 player.handle_event(event);*/
+                                player.handle_mouse_move(mouse_pos.x, mouse_pos.y);
                             }
                             check_redraw = true;
                         }
@@ -213,7 +217,7 @@ impl App {
 
                             if let Some(mut player) = self.player.get() {
                                 let x = mouse_pos.x;
-                                let y = mouse_pos.y - height_offset as f64;
+                                let y = mouse_pos.y;
                                 /*if state == ElementState::Pressed
                                     && button == RuffleMouseButton::Right
                                 {
@@ -225,7 +229,7 @@ impl App {
                                         .expect("Gui lock")
                                         .show_context_menu(context_menu);
                                 }*/
-                                player.handle_mouse_event(x, y, button, state);
+                                player.handle_mouse_input(x, y, button, state);
                             }
                             check_redraw = true;
                         }
