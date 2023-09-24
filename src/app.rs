@@ -142,10 +142,13 @@ impl App {
                                 .renderer_mut()
                                 .downcast_mut::<WgpuRenderBackend<MovieView>>()
                                 .expect("Renderer must be correct type");
-                            self.gui
+                            let has_mutated = self.gui
                                 .lock()
                                 .expect("Gui lock")
-                                .render(Some(renderer.target()));
+                                .render(Some(player));
+                            if has_mutated {
+                                self.window.request_redraw();
+                            }
                         } else {
                             self.gui.lock().expect("Gui lock").render(None);
                         }

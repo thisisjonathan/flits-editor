@@ -6,6 +6,7 @@ pub use movie::MovieView;
 use std::borrow::Cow;
 
 use crate::custom_event::RuffleEvent;
+use crate::editor::player::Player;
 use chrono::DateTime;
 use egui::*;
 use fluent_templates::fluent_bundle::FluentValue;
@@ -83,17 +84,25 @@ impl RuffleGui {
     }
 
     /// Renders all of the main Ruffle UI, including the main menu and context menus.
-    fn update(&mut self, egui_ctx: &egui::Context, show_menu: bool, has_movie: bool) {
+    fn update(&mut self, egui_ctx: &egui::Context, show_menu: bool, player: Option<&mut Player>) -> bool {
         if show_menu {
-            self.main_menu_bar(egui_ctx, has_movie);
+            self.main_menu_bar(egui_ctx, player.is_some());
         }
-
-        self.about_window(egui_ctx);
-        self.open_url_prompt(egui_ctx);
 
         /*if !self.context_menu.is_empty() {
             self.context_menu(egui_ctx);
         }*/
+        
+        let mut has_mutated = false;
+        if let Some(player) = player {
+            has_mutated = player.do_ui(egui_ctx);
+        }
+        
+        // windows must be after panels
+        self.about_window(egui_ctx);
+        self.open_url_prompt(egui_ctx);
+        
+        has_mutated
     }
 
     /*pub fn show_context_menu(&mut self, menu: Vec<ruffle_core::ContextMenuItem>) {

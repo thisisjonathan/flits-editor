@@ -1,14 +1,15 @@
 use crate::custom_event::RuffleEvent;
+use crate::editor::player::Player;
 use crate::gui::movie::{MovieView, MovieViewRenderer};
 use crate::gui::RuffleGui;
 use anyhow::anyhow;
 use egui::Context;
-use ruffle_render_wgpu::backend::request_adapter_and_device;
+use ruffle_render_wgpu::backend::{request_adapter_and_device, WgpuRenderBackend};
 use ruffle_render_wgpu::descriptors::Descriptors;
 use ruffle_render_wgpu::utils::{format_list, get_backend_names};
 use std::path::Path;
 use std::rc::Rc;
-use std::sync::Arc;
+use std::sync::{Arc, MutexGuard};
 use std::time::{Duration, Instant};
 use winit::dpi::PhysicalSize;
 use winit::event_loop::EventLoop;
@@ -151,16 +152,18 @@ impl GuiController {
         )
     }
 
-    pub fn render(&mut self, movie: Option<&MovieView>) {
+    pub fn render(&mut self, mut player: Option<MutexGuard<Player>>) -> bool {
         let surface_texture = self
             .surface
             .get_current_texture()
             .expect("Surface became unavailable");
 
+        let mut has_mutated = false;
+        
         let raw_input = self.egui_winit.take_egui_input(&self.window);
         let full_output = self.egui_ctx.run(raw_input, |context| {
-            self.gui
-                .update(context, self.window.fullscreen().is_none(), movie.is_some());
+            has_mutated = self.gui
+                .update(context, self.window.fullscreen().is_none(), player.as_deref_mut());
         });
         self.repaint_after = full_output.repaint_after;
 
@@ -200,6 +203,16 @@ impl GuiController {
             &clipped_primitives,
             &screen_descriptor,
         );
+        
+        let movie_view = if let Some(player) = player.as_deref_mut() {
+            let renderer = player
+                .renderer_mut()
+                .downcast_mut::<WgpuRenderBackend<MovieView>>()
+                .expect("Renderer must be correct type");
+            Some(renderer.target())
+        } else {
+            None
+        };
 
         {
             let surface_view = surface_texture.texture.create_view(&Default::default());
@@ -217,8 +230,8 @@ impl GuiController {
                 label: Some("egui_render"),
             });
 
-            if let Some(movie) = movie {
-                movie.render(&self.movie_view_renderer, &mut render_pass);
+            if let Some(movie_view) = movie_view {
+                movie_view.render(&self.movie_view_renderer, &mut render_pass);
             }
 
             self.egui_renderer
@@ -232,6 +245,8 @@ impl GuiController {
         command_buffers.push(encoder.finish());
         self.descriptors.queue.submit(command_buffers);
         surface_texture.present();
+        
+        has_mutated
     }
 
     /*pub fn show_context_menu(&mut self, menu: Vec<ruffle_core::ContextMenuItem>) {

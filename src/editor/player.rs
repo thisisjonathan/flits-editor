@@ -163,6 +163,29 @@ impl Player {
         }
     }
     
+    pub fn do_ui(&mut self, egui_ctx: &egui::Context) -> bool {
+        let mut has_mutated = false;
+        egui::SidePanel::right("library")
+            .resizable(false) // resizing causes glitches
+            .min_width(150.0)
+            .show(egui_ctx, |ui| {
+            ui.heading("Library");
+            for i in 0..self.movie.symbols.len() {
+                let symbol = self.movie.symbols.get(i).unwrap();
+                let response = ui.selectable_label(false, symbol.name());
+                let response = response.interact(egui::Sense::drag());
+                
+                if response.drag_released() {
+                    let mouse_pos = response.interact_pointer_pos().unwrap();
+                    // TODO: don't hardcode the menu height
+                    self.movie.root.push(PlaceSymbol { symbol_id: i as u16, x: mouse_pos.x as f64, y: mouse_pos.y as f64 - 24.0 });
+                    has_mutated = true;
+                }
+            }
+        });
+        has_mutated
+    }
+    
     pub fn renderer_mut(&mut self) -> &mut Renderer {
         &mut self.renderer
     }

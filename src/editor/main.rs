@@ -22,6 +22,15 @@ pub enum Symbol {
     MovieClip(MovieClip),
 }
 
+impl Symbol {
+    pub fn name(&self) -> String {
+        match self {
+            Symbol::Bitmap(bitmap) => bitmap.name.clone(),
+            Symbol::MovieClip(movieclip) => movieclip.name.clone(),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct Bitmap {
     pub name: String,
