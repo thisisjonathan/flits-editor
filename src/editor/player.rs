@@ -23,6 +23,8 @@ pub struct Player {
     directory: PathBuf,
     renderer: Renderer,
     
+    selection: Vec<usize>,
+    
     drag_data: Option<DragData>,
 }
 
@@ -33,6 +35,8 @@ impl Player {
             movie,
             directory: PathBuf::from(path.parent().unwrap()),
             renderer,
+            
+            selection: vec![],
             
             drag_data: None,
         }
@@ -136,6 +140,7 @@ impl Player {
     
     pub fn handle_mouse_input(&mut self, mouse_x: f64, mouse_y: f64, button: MouseButton, state: ElementState) {
         if button == MouseButton::Left && state == ElementState::Pressed {
+            self.selection = vec![];
             // iterate from top to bottom to get the item that's on top
             for i in (0..self.movie.root.len()).rev() {
                 let place_symbol = self.movie.root.get_mut(i).unwrap();
@@ -161,6 +166,7 @@ impl Player {
                         start_y: mouse_y,
                         place_symbol_index: i,
                     });
+                    self.selection = vec![i];
                     break;
                 }
             }
@@ -195,7 +201,45 @@ impl Player {
                 }
             }
         });
+        
+        egui::TopBottomPanel::bottom("properties").show(egui_ctx, |ui| {
+            if self.selection.len() == 0 {
+                ui.heading("Movie properties");
+                self.show_movie_properties(ui);
+            } else if self.selection.len() == 1 {
+                ui.heading("Placed symbol properties");
+                self.show_placed_symbol_properties(ui, *self.selection.get(0).unwrap());
+            } else {
+                ui.label("Multiple items selected");
+            }
+        });
+        
         has_mutated
+    }
+    
+    fn show_movie_properties(&mut self, ui: &mut egui::Ui) {
+        egui::Grid::new("movie_properties_grid").show(ui, |ui| {
+            ui.label("Width:");
+            ui.add(egui::DragValue::new(&mut self.movie.width));
+            ui.end_row();
+            
+            ui.label("Height:");
+            ui.add(egui::DragValue::new(&mut self.movie.height));
+            ui.end_row();
+        });
+    }
+    
+    fn show_placed_symbol_properties(&mut self, ui: &mut egui::Ui, placed_symbol_index: usize) {
+        let placed_symbol = self.movie.root.get_mut(placed_symbol_index).unwrap();
+        egui::Grid::new(format!("placed_symbol_{placed_symbol_index}_properties_grid")).show(ui, |ui| {
+            ui.label("x");
+            ui.add(egui::DragValue::new(&mut placed_symbol.x));
+            ui.end_row();
+            
+            ui.label("y");
+            ui.add(egui::DragValue::new(&mut placed_symbol.y));
+            ui.end_row();
+        });
     }
     
     pub fn renderer_mut(&mut self) -> &mut Renderer {
