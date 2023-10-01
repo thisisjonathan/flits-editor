@@ -183,6 +183,13 @@ impl Player {
     
     pub fn do_ui(&mut self, egui_ctx: &egui::Context) -> bool {
         let mut has_mutated = false;
+        
+        if self.selection.len() > 0 && egui_ctx.input_mut(|input| {
+                input.consume_shortcut(&egui::KeyboardShortcut::new(egui::Modifiers::NONE, egui::Key::Delete))
+        }) {
+            self.delete_selection();
+        }
+        
         egui::SidePanel::right("library")
             .resizable(false) // resizing causes glitches
             .min_width(150.0)
@@ -215,6 +222,17 @@ impl Player {
         });
         
         has_mutated
+    }
+    
+    fn delete_selection(&mut self) {
+        // because the list is sorted and we are traversing from the end to the beginning
+        // we can safely remove placed items without changing the indices of the rest of the selection
+        self.selection.sort();
+        for i in (0..self.selection.len()).rev() {
+            let placed_symbol_index = *self.selection.get(i).unwrap();
+            self.movie.root.remove(placed_symbol_index);
+        }
+        self.selection = vec![];
     }
     
     fn show_movie_properties(&mut self, ui: &mut egui::Ui) {
