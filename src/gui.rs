@@ -81,16 +81,46 @@ impl RuffleGui {
     }
 
     /// Renders all of the main Ruffle UI, including the main menu and context menus.
-    fn update(&mut self, egui_ctx: &egui::Context, _show_menu: bool, player: Option<&mut Player>) -> bool {        
+    fn update(
+        &mut self,
+        egui_ctx: &egui::Context,
+        _show_menu: bool,
+        player: Option<&mut Player>,
+    ) -> bool {
         let mut has_mutated = false;
         if let Some(player) = player {
             has_mutated = player.do_ui(egui_ctx, &self.event_loop);
+        } else {
+            self.show_welcome_screen(egui_ctx);
         }
-        
+
         // windows must be after panels
         self.about_window(egui_ctx);
-        
+
         has_mutated
+    }
+
+    fn show_welcome_screen(&mut self, egui_ctx: &egui::Context) {
+        egui::Window::new("Welcome")
+            .collapsible(false)
+            .title_bar(false)
+            .resizable(false)
+            .anchor(Align2::CENTER_CENTER, egui::Vec2::ZERO)
+            .show(egui_ctx, |ui| {
+                ui.allocate_ui_with_layout(
+                    egui::vec2(200.0, 100.0),
+                    egui::Layout::top_down_justified(egui::Align::Center),
+                    |ui| {
+                        ui.style_mut().override_text_style = Some(egui::TextStyle::Heading);
+                        if ui.button("Open project...").clicked() {
+                            let _ = self.event_loop.send_event(RuffleEvent::OpenFile);
+                        }
+                        if ui.button("About...").clicked() {
+                            let _ = self.event_loop.send_event(RuffleEvent::About);
+                        }
+                    },
+                );
+            });
     }
 
     fn about_window(&mut self, egui_ctx: &egui::Context) {
@@ -120,8 +150,9 @@ impl RuffleGui {
                             ui.label(text(&self.locale, "about-ruffle-build-time"));
                             ui.label(
                                 /*DateTime::parse_from_rfc3339(env!("VERGEN_BUILD_TIMESTAMP"))
-                                    .map(|t| t.format("%c").to_string())
-                                    .unwrap_or_else(|_|*/ env!("VERGEN_BUILD_TIMESTAMP").to_string()//),
+                                .map(|t| t.format("%c").to_string())
+                                .unwrap_or_else(|_|*/
+                                env!("VERGEN_BUILD_TIMESTAMP").to_string(), //),
                             );
                             ui.end_row();
 
@@ -138,10 +169,9 @@ impl RuffleGui {
                             ui.label(text(&self.locale, "about-ruffle-commit-time"));
                             ui.label(
                                 /*DateTime::parse_from_rfc3339(env!("VERGEN_GIT_COMMIT_TIMESTAMP"))
-                                    .map(|t| t.format("%c").to_string())
-                                    .unwrap_or_else(|_| {*/
-                                        env!("VERGEN_GIT_COMMIT_TIMESTAMP").to_string()
-                                    //}),
+                                .map(|t| t.format("%c").to_string())
+                                .unwrap_or_else(|_| {*/
+                                env!("VERGEN_GIT_COMMIT_TIMESTAMP").to_string(), //}),
                             );
                             ui.end_row();
 
