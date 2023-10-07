@@ -197,9 +197,9 @@ impl GlutinAsyncExecutor {
                 task.set_ready();
                 if !self.waiting_for_poll {
                     self.waiting_for_poll = true;
-                    if self.event_loop.send_event(RuffleEvent::TaskPoll).is_err() {
+                    /*if self.event_loop.send_event(RuffleEvent::TaskPoll).is_err() {
                         tracing::warn!("A task was queued on an event loop that has already ended. It will not be polled.");
-                    }
+                    }*/
                 } else {
                     tracing::info!("Double polling");
                 }

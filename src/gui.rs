@@ -75,115 +75,22 @@ impl RuffleGui {
 
         Self {
             event_loop,
-            //open_url_text: String::new(),
             is_about_visible: false,
-            //is_open_url_prompt_visible: false,
-            //context_menu: vec![],
             locale,
         }
     }
 
     /// Renders all of the main Ruffle UI, including the main menu and context menus.
-    fn update(&mut self, egui_ctx: &egui::Context, show_menu: bool, player: Option<&mut Player>) -> bool {
-        if show_menu {
-            self.main_menu_bar(egui_ctx, player.is_some());
-        }
-
-        /*if !self.context_menu.is_empty() {
-            self.context_menu(egui_ctx);
-        }*/
-        
+    fn update(&mut self, egui_ctx: &egui::Context, _show_menu: bool, player: Option<&mut Player>) -> bool {        
         let mut has_mutated = false;
         if let Some(player) = player {
-            has_mutated = player.do_ui(egui_ctx);
+            has_mutated = player.do_ui(egui_ctx, &self.event_loop);
         }
         
         // windows must be after panels
         self.about_window(egui_ctx);
-        self.open_url_prompt(egui_ctx);
         
         has_mutated
-    }
-
-    /*pub fn show_context_menu(&mut self, menu: Vec<ruffle_core::ContextMenuItem>) {
-        self.context_menu = menu;
-    }*/
-
-    /*pub fn is_context_menu_visible(&self) -> bool {
-        !self.context_menu.is_empty()
-    }*/
-
-    /// Renders the main menu bar at the top of the window.
-    fn main_menu_bar(&mut self, egui_ctx: &egui::Context, has_movie: bool) {
-        egui::TopBottomPanel::top("menu_bar").show(egui_ctx, |ui| {
-            // TODO(mike): Make some MenuItem struct with shortcut info to handle this more cleanly.
-            if ui.ctx().input_mut(|input| {
-                input.consume_shortcut(&KeyboardShortcut::new(Modifiers::COMMAND, Key::O))
-            }) {
-                self.open_file(ui);
-            }
-            if ui.ctx().input_mut(|input| {
-                input.consume_shortcut(&KeyboardShortcut::new(Modifiers::COMMAND, Key::Q))
-            }) {
-                self.request_exit(ui);
-            }
-
-            menu::bar(ui, |ui| {
-                menu::menu_button(ui, text(&self.locale, "file-menu"), |ui| {
-                    let mut shortcut;
-                    shortcut = KeyboardShortcut::new(Modifiers::COMMAND, Key::O);
-
-                    if Button::new(text(&self.locale, "file-menu-open-file"))
-                        .shortcut_text(ui.ctx().format_shortcut(&shortcut))
-                        .ui(ui)
-                        .clicked()
-                    {
-                        self.open_file(ui);
-                    }
-
-                    /*if Button::new(text(&self.locale, "file-menu-open-url")).ui(ui).clicked() {
-                        self.show_open_url_prompt(ui);
-                    }*/
-                    
-                    if ui.add_enabled(has_movie, Button::new("Export SWF")).clicked() {
-                        self.export_swf(ui);
-                    }
-
-                    if ui.add_enabled(has_movie, Button::new(text(&self.locale, "file-menu-close"))).clicked() {
-                        self.close_movie(ui);
-                    }
-
-                    ui.separator();
-
-                    shortcut = KeyboardShortcut::new(Modifiers::COMMAND, Key::Q);
-                    if Button::new(text(&self.locale, "file-menu-exit"))
-                        .shortcut_text(ui.ctx().format_shortcut(&shortcut))
-                        .ui(ui)
-                        .clicked()
-                    {
-                        self.request_exit(ui);
-                    }
-                });
-                menu::menu_button(ui, text(&self.locale, "help-menu"), |ui| {
-                    if ui.button(text(&self.locale, "help-menu-join-discord")).clicked() {
-                        self.launch_website(ui, "https://discord.gg/ruffle");
-                    }
-                    if ui.button(text(&self.locale, "help-menu-report-a-bug")).clicked() {
-                        self.launch_website(ui, "https://github.com/ruffle-rs/ruffle/issues/new?assignees=&labels=bug&projects=&template=bug_report.yml");
-                    }
-                    if ui.button(text(&self.locale, "help-menu-sponsor-development")).clicked() {
-                        self.launch_website(ui, "https://opencollective.com/ruffle/");
-                    }
-                    if ui.button(text(&self.locale, "help-menu-translate-ruffle")).clicked() {
-                        self.launch_website(ui, "https://crowdin.com/project/ruffle");
-                    }
-                    ui.separator();
-                    if ui.button(text(&self.locale, "help-menu-about")).clicked() {
-                        self.show_about_screen(ui);
-                    }
-                })
-            });
-        });
     }
 
     fn about_window(&mut self, egui_ctx: &egui::Context) {
@@ -268,113 +175,7 @@ impl RuffleGui {
             });
     }
 
-    /// Renders the right-click context menu.
-    /*fn context_menu(&mut self, egui_ctx: &egui::Context) {
-        let mut item_clicked = false;
-        let mut menu_visible = false;
-        // TODO: What is the proper way in egui to spawn a random context menu?
-        egui::CentralPanel::default()
-            .frame(Frame::none())
-            .show(egui_ctx, |_| {})
-            .response
-            .context_menu(|ui| {
-                menu_visible = true;
-                for (i, item) in self.context_menu.iter().enumerate() {
-                    if i != 0 && item.separator_before {
-                        ui.separator();
-                    }
-                    let clicked = if item.checked {
-                        Checkbox::new(&mut true, &item.caption).ui(ui).clicked()
-                    } else {
-                        Button::new(&item.caption).ui(ui).clicked()
-                    };
-                    if clicked {
-                        let _ = self
-                            .event_loop
-                            .send_event(RuffleEvent::ContextMenuItemClicked(i));
-                        item_clicked = true;
-                    }
-                }
-            });
-
-        if item_clicked
-            || !menu_visible
-            || egui_ctx.input_mut(|input| input.consume_key(Modifiers::NONE, Key::Escape))
-        {
-            // Hide menu.
-            self.context_menu.clear();
-        }
-    }*/
-
-    fn open_file(&mut self, ui: &mut egui::Ui) {
-        let _ = self.event_loop.send_event(RuffleEvent::OpenFile);
-        ui.close_menu();
-    }
-    
-    fn export_swf(&mut self, ui: &mut egui::Ui) {
-        let _ = self.event_loop.send_event(RuffleEvent::ExportSWF);
-        ui.close_menu();
-    }
-    
-    fn close_movie(&mut self, ui: &mut egui::Ui) {
-        let _ = self.event_loop.send_event(RuffleEvent::CloseFile);
-        ui.close_menu();
-    }
-
-    fn open_url_prompt(&mut self, egui_ctx: &egui::Context) {
-        /*let mut close_prompt = false;
-        egui::Window::new(text(&self.locale, "open-url"))
-            .anchor(Align2::CENTER_CENTER, egui::Vec2::ZERO)
-            .collapsible(false)
-            .resizable(false)
-            .open(&mut self.is_open_url_prompt_visible)
-            .show(egui_ctx, |ui| {
-                ui.vertical_centered(|ui| {
-                    let (enter_pressed, esc_pressed) = ui.ctx().input_mut(|input| {
-                        (
-                            input.consume_key(Modifiers::NONE, Key::Enter),
-                            input.consume_key(Modifiers::NONE, Key::Escape),
-                        )
-                    });
-                    ui.text_edit_singleline(&mut self.open_url_text);
-                    ui.horizontal(|ui| {
-                        if ui.button(text(&self.locale, "dialog-ok")).clicked() || enter_pressed {
-                            if let Ok(url) = url::Url::parse(&self.open_url_text) {
-                                let _ = self.event_loop.send_event(RuffleEvent::OpenURL(url));
-                            } else {
-                                // TODO: Show error prompt.
-                                tracing::error!("Invalid URL: {}", self.open_url_text);
-                            }
-                            close_prompt = true;
-                        }
-                        if ui.button(text(&self.locale, "dialog-cancel")).clicked() || esc_pressed {
-                            close_prompt = true;
-                        }
-                    });
-                });
-            });
-        if close_prompt {
-            self.is_open_url_prompt_visible = false;
-        }*/
-    }
-
-    fn request_exit(&mut self, ui: &mut egui::Ui) {
-        let _ = self.event_loop.send_event(RuffleEvent::ExitRequested);
-        ui.close_menu();
-    }
-
-    fn launch_website(&mut self, ui: &mut egui::Ui, url: &str) {
-        let _ = webbrowser::open(url);
-        ui.close_menu();
-    }
-
-    fn show_about_screen(&mut self, ui: &mut egui::Ui) {
+    pub fn show_about_screen(&mut self) {
         self.is_about_visible = true;
-        ui.close_menu();
     }
-
-    /*fn show_open_url_prompt(&mut self, ui: &mut egui::Ui) {
-        self.is_open_url_prompt_visible = true;
-        ui.close_menu();
-    }*/
 }

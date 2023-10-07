@@ -337,7 +337,7 @@ impl App {
                                 }
                             }*/
                         }
-                        WindowEvent::ReceivedCharacter(codepoint) => {
+                        WindowEvent::ReceivedCharacter(_codepoint) => {
                             /*if let Some(mut player) = self.player.get() {
                                 let event = PlayerEvent::TextInput { codepoint };
                                 player.handle_event(event);
@@ -347,7 +347,6 @@ impl App {
                         _ => (),
                     }
                 }
-                winit::event::Event::UserEvent(RuffleEvent::TaskPoll) => self.player.poll(),
                 /*winit::event::Event::UserEvent(RuffleEvent::OnMetadata(swf_header)) => {
                     let movie_width = swf_header.stage_size().width().to_pixels();
                     let movie_height = swf_header.stage_size().height().to_pixels();
@@ -423,12 +422,6 @@ impl App {
                     }
                 }*/
 
-                winit::event::Event::UserEvent(RuffleEvent::ContextMenuItemClicked(index)) => {
-                    /*if let Some(mut player) = self.player.get() {
-                        player.run_context_menu_callback(index);
-                    }*/
-                }
-
                 winit::event::Event::UserEvent(RuffleEvent::OpenFile) => {
                     if let Some(path) = pick_file() {
                         // TODO: Show dialog on error.
@@ -441,20 +434,6 @@ impl App {
                     }
                 }
 
-                winit::event::Event::UserEvent(RuffleEvent::OpenURL(url)) => {
-                    self.player.create(
-                        &self.opt,
-                        url,
-                        self.gui.lock().expect("Gui lock").create_movie_view(),
-                    );
-                }
-                
-                winit::event::Event::UserEvent(RuffleEvent::ExportSWF) => {
-                    if let Some(player) = self.player.get() {
-                        player.export_swf();
-                    }
-                }
-
                 winit::event::Event::UserEvent(RuffleEvent::CloseFile) => {
                     self.player.destroy();
                 }
@@ -462,6 +441,10 @@ impl App {
                 winit::event::Event::UserEvent(RuffleEvent::ExitRequested) => {
                     *control_flow = ControlFlow::Exit;
                     return;
+                }
+                
+                winit::event::Event::UserEvent(RuffleEvent::About) => {
+                    self.gui.lock().expect("Gui locked").show_about_screen();
                 }
 
                 _ => (),

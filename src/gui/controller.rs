@@ -249,6 +249,10 @@ impl GuiController {
         
         has_mutated
     }
+    
+    pub fn show_about_screen(&mut self) {
+        self.gui.show_about_screen();
+    }
 
     /*pub fn show_context_menu(&mut self, menu: Vec<ruffle_core::ContextMenuItem>) {
         self.gui.show_context_menu(menu);
