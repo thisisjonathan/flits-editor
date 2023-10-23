@@ -421,6 +421,27 @@ impl App {
                         });
                     }
                 }*/
+                
+                winit::event::Event::UserEvent(RuffleEvent::NewFile(new_project_data)) => {
+                    if !new_project_data.path.is_dir() {
+                        rfd::MessageDialog::new()
+                            .set_description("Invalid path.")
+                            .show();
+                        return;
+                    }
+                    if !new_project_data.path.read_dir().unwrap().next().is_none() {
+                        if !rfd::MessageDialog::new()
+                            .set_buttons(rfd::MessageButtons::OkCancel)
+                            .set_description("The directory is not empty, are you sure you want to create a project in this directory?")
+                            .show() {
+                            return;
+                        }
+                    }
+                    let json_path = new_project_data.path.join("movie.json");
+                    new_project_data.movie.save(&json_path);
+                    let url = parse_url(&json_path).expect("Couldn't load specified path");
+                    self.player.create(&self.opt, url, self.gui.lock().expect("Gui lock").create_movie_view());
+                }
 
                 winit::event::Event::UserEvent(RuffleEvent::OpenFile) => {
                     if let Some(path) = pick_file() {

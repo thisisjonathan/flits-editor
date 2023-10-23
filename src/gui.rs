@@ -4,8 +4,10 @@ mod movie;
 pub use controller::GuiController;
 pub use movie::MovieView;
 use std::borrow::Cow;
+use std::path::PathBuf;
 
-use crate::custom_event::RuffleEvent;
+use crate::custom_event::{RuffleEvent, NewProjectData};
+use crate::editor::main::Movie;
 use crate::editor::player::Player;
 use chrono::DateTime;
 use egui::*;
@@ -15,7 +17,7 @@ use fluent_templates::{static_loader, Loader};
 use std::collections::HashMap;
 use sys_locale::get_locale;
 use unic_langid::LanguageIdentifier;
-use winit::event_loop::EventLoopProxy;
+use winit::event_loop::{EventLoopProxy, self};
 
 static US_ENGLISH: LanguageIdentifier = langid!("en-US");
 
@@ -56,10 +58,8 @@ pub const MENU_HEIGHT: u32 = 24;
 /// The main controller for the Ruffle GUI.
 pub struct RuffleGui {
     event_loop: EventLoopProxy<RuffleEvent>,
-    //open_url_text: String,
     is_about_visible: bool,
-    //is_open_url_prompt_visible: bool,
-    //context_menu: Vec<ruffle_core::ContextMenuItem>,
+    new_project: Option<NewProjectData>,
     locale: LanguageIdentifier,
 }
 
@@ -76,6 +76,7 @@ impl RuffleGui {
         Self {
             event_loop,
             is_about_visible: false,
+            new_project: None,
             locale,
         }
     }
@@ -95,6 +96,7 @@ impl RuffleGui {
         }
 
         // windows must be after panels
+        self.new_project_window(egui_ctx);
         self.about_window(egui_ctx);
 
         has_mutated
@@ -112,6 +114,9 @@ impl RuffleGui {
                     egui::Layout::top_down_justified(egui::Align::Center),
                     |ui| {
                         ui.style_mut().override_text_style = Some(egui::TextStyle::Heading);
+                        if ui.button("New project...").clicked() {
+                            self.open_new_project_window();
+                        }
                         if ui.button("Open project...").clicked() {
                             let _ = self.event_loop.send_event(RuffleEvent::OpenFile);
                         }
@@ -121,6 +126,61 @@ impl RuffleGui {
                     },
                 );
             });
+    }
+
+    fn open_new_project_window(&mut self) {
+        self.new_project = Some(NewProjectData {
+            movie: Movie::default(),
+            path: PathBuf::default()
+        });
+    }
+
+    fn new_project_window(&mut self, egui_ctx: &egui::Context) {
+        if self.new_project.is_some() {
+            let event_loop = &self.event_loop;
+            
+            egui::Window::new("New project")
+                .collapsible(false)
+                .resizable(false)
+                .anchor(Align2::CENTER_CENTER, egui::Vec2::ZERO)
+                .show(egui_ctx, |ui| {
+                    egui::Grid::new("movie_properties_grid").show(ui, |ui| {
+                        let new_project = self.new_project.as_mut().unwrap();
+                        ui.label("Directory:");
+                        ui.label(new_project.path.to_str().unwrap());
+                        if ui.button("Change...").clicked() {
+                            if let Some(directory) = rfd::FileDialog::new().pick_folder() {
+                                new_project.path = directory;
+                            }
+                        }
+                        ui.end_row();
+                        
+                        ui.label("Width:");
+                        ui.add(egui::DragValue::new(&mut new_project.movie.width));
+                        ui.end_row();
+
+                        ui.label("Height:");
+                        ui.add(egui::DragValue::new(&mut new_project.movie.height));
+                        ui.end_row();
+                        
+                        if ui.button("Create").clicked() {
+                            let _ = event_loop.send_event(RuffleEvent::NewFile(NewProjectData {
+                                movie: Movie { // TODO: do this in a less hacky way
+                                    swf_version: new_project.movie.swf_version,
+                                    width: new_project.movie.width,
+                                    height: new_project.movie.height,
+                                    frame_rate: new_project.movie.frame_rate,
+                                    symbols: vec![],
+                                    root: vec![],
+                                },
+                                path: new_project.path.clone(),
+                            }));
+                            self.new_project = None;
+                        }
+                        ui.end_row();
+                    });
+                });
+        }
     }
 
     fn about_window(&mut self, egui_ctx: &egui::Context) {

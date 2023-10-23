@@ -7,13 +7,32 @@ use image::{io::Reader as ImageReader, EncodableLayout, DynamicImage};
 
 #[derive(Serialize, Deserialize)]
 pub struct Movie {
-    pub version: u8,
+    pub swf_version: u8,
     pub width: f64,
     pub height: f64,
     pub frame_rate: f32,
     
     pub symbols: Vec<Symbol>,
     pub root: Vec<PlaceSymbol>,
+}
+impl Default for Movie {
+    fn default() -> Self {
+        Movie {
+            // TODO: are these good defaults?
+            swf_version: 43, // latest flash player version
+            width: 640.0,
+            height: 360.0,
+            frame_rate: 60.0,
+            symbols: vec![],
+            root: vec![],
+        }
+    }
+}
+impl Movie {
+    pub fn save(&self, path: &Path) {
+        let file = std::fs::File::options().write(true).create(true).open(path).unwrap();
+        serde_json::to_writer(file, self).unwrap();
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -89,7 +108,7 @@ pub fn load_movie(path: PathBuf) -> Movie {
 pub fn movie_to_swf<'a>(movie: &Movie, project_directory: PathBuf, swf_path: PathBuf) {
     let header = Header {
         compression: Compression::Zlib,
-        version: movie.version,
+        version: movie.swf_version,
         stage_size: Rectangle {
             x_min: Twips::from_pixels(0.0),
             x_max: Twips::from_pixels(movie.width),
