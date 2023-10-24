@@ -29,6 +29,7 @@ struct DragData {
 
 pub struct Player {
     movie: Movie,
+    project_file_path: PathBuf,
     directory: PathBuf,
     renderer: Renderer,
 
@@ -56,7 +57,14 @@ const MENUS: &[Menu] = &[Menu {
             egui::Modifiers::COMMAND,
             egui::Key::O,
         )),
-        action: open_file,
+        action: open_project,
+    },MenuItem {
+        name: "Save",
+        keyboard_shortcut: Some(egui::KeyboardShortcut::new(
+            egui::Modifiers::COMMAND,
+            egui::Key::S,
+        )),
+        action: save_project,
     },MenuItem {
         name: "Export",
         keyboard_shortcut: Some(egui::KeyboardShortcut::new(
@@ -70,7 +78,7 @@ const MENUS: &[Menu] = &[Menu {
             egui::Modifiers::COMMAND,
             egui::Key::W,
         )),
-        action: close_movie,
+        action: close_project,
     },MenuItem {
         name: "Exit",
         keyboard_shortcut: Some(egui::KeyboardShortcut::new(
@@ -98,15 +106,19 @@ const MENUS: &[Menu] = &[Menu {
     }]
 }];
 
-fn open_file(_player: &mut Player, event_loop: &EventLoopProxy<RuffleEvent>) {
+fn open_project(_player: &mut Player, event_loop: &EventLoopProxy<RuffleEvent>) {
     let _ = event_loop.send_event(RuffleEvent::OpenFile);
+}
+
+fn save_project(player: &mut Player, _event_loop: &EventLoopProxy<RuffleEvent>) {
+    player.movie.save(&player.project_file_path);
 }
 
 fn export_swf(player: &mut Player, _event_loop: &EventLoopProxy<RuffleEvent>) {
     player.export_swf();
 }
     
-fn close_movie(_player: &mut Player, event_loop: &EventLoopProxy<RuffleEvent>) {
+fn close_project(_player: &mut Player, event_loop: &EventLoopProxy<RuffleEvent>) {
     let _ = event_loop.send_event(RuffleEvent::CloseFile);
 }
 
@@ -127,6 +139,7 @@ impl Player {
         let movie = crate::editor::main::load_movie(path.clone());
         Player {
             movie,
+            project_file_path: path.clone(),
             directory: PathBuf::from(path.parent().unwrap()),
             renderer,
 
