@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use super::main::{movie_to_swf, PlaceSymbol, Symbol};
+use super::main::{PlaceSymbol, Symbol};
 use crate::{custom_event::RuffleEvent, editor::main::Movie};
 use egui::Widget;
 use ruffle_render::{
@@ -447,6 +447,6 @@ impl Player {
     pub fn export_swf(&self) {
         let directory = self.directory.clone();
         let swf_path = directory.clone().join("output.swf");
-        movie_to_swf(&self.movie, directory, swf_path);
+        self.movie.export(directory, swf_path);
     }
 }

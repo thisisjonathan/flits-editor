@@ -85,6 +85,10 @@ impl Movie {
         let file = std::fs::File::options().write(true).create(true).open(path).unwrap();
         serde_json::to_writer(file, self).unwrap();
     }
+    
+    pub fn export(&self, project_directory: PathBuf, swf_path: PathBuf) {
+        movie_to_swf(self, project_directory, swf_path);
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -126,7 +130,7 @@ pub struct PlaceSymbol {
     pub y: f64,
 }
 
-pub fn movie_to_swf<'a>(movie: &Movie, project_directory: PathBuf, swf_path: PathBuf) {
+fn movie_to_swf<'a>(movie: &Movie, project_directory: PathBuf, swf_path: PathBuf) {
     let header = Header {
         compression: Compression::Zlib,
         version: movie.swf_version,
