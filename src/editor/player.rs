@@ -98,6 +98,16 @@ const MENUS: &[Menu] = &[Menu {
         action: delete_selection
     }]
 },Menu {
+    name: "Control",
+    items: &[MenuItem {
+        name: "Test Movie",
+        keyboard_shortcut: Some(egui::KeyboardShortcut::new(
+            egui::Modifiers::CTRL,
+            egui::Key::Enter,
+        )),
+        action: run_project
+    }]
+},Menu {
     name: "Help",
     items: &[MenuItem {
         name: "About...",
@@ -124,6 +134,10 @@ fn close_project(_player: &mut Player, event_loop: &EventLoopProxy<RuffleEvent>)
 
 fn request_exit(_player: &mut Player, event_loop: &EventLoopProxy<RuffleEvent>) {
     let _ = event_loop.send_event(RuffleEvent::ExitRequested);
+}
+
+fn run_project(player: &mut Player, _event_loop: &EventLoopProxy<RuffleEvent>) {
+    Movie::run(&player.directory.join("output.swf"));
 }
 
 fn show_about_screen(_player: &mut Player, event_loop: &EventLoopProxy<RuffleEvent>) {

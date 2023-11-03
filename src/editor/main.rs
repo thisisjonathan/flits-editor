@@ -1,4 +1,4 @@
-use std::{path::Path, path::PathBuf, io::Write, collections::HashMap};
+use std::{path::Path, path::PathBuf, io::Write, collections::HashMap, fmt::Debug};
 
 use ruffle_render::bitmap::BitmapHandle;
 use swf::*;
@@ -88,6 +88,12 @@ impl Movie {
     
     pub fn export(&self, project_directory: PathBuf, swf_path: PathBuf) {
         movie_to_swf(self, project_directory, swf_path);
+    }
+    
+    pub fn run(swf_path: &PathBuf) {
+        // No need to add .exe on windows, Command does that automatically
+        let ruffle_path = std::env::current_exe().unwrap().parent().unwrap().join("dependencies/ruffle");
+        std::process::Command::new(ruffle_path).arg(swf_path).spawn().unwrap();
     }
 }
 
