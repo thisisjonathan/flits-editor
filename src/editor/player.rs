@@ -136,7 +136,7 @@ fn delete_selection(player: &mut Player, _event_loop: &EventLoopProxy<RuffleEven
 
 impl Player {
     pub fn new(renderer: Renderer, path: PathBuf) -> Player {
-        let movie = crate::editor::main::load_movie(path.clone());
+        let movie = crate::editor::main::Movie::load(path.clone());
         Player {
             movie,
             project_file_path: path.clone(),

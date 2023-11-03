@@ -29,6 +29,21 @@ impl Default for Movie {
     }
 }
 impl Movie {
+    pub fn load(path: PathBuf) -> Movie {
+        let directory = path.parent().unwrap();
+        let file = std::fs::File::open(path.clone()).expect("Unable to load file");
+        let mut movie: Movie = serde_json::from_reader(file).expect("Unable to load file");
+    
+        for symbol in movie.symbols.iter_mut() {
+            let Symbol::Bitmap(bitmap) = symbol else {
+                continue;
+            };
+            let path = &bitmap.path;
+            bitmap.image = Some(ImageReader::open(directory.join(path)).expect("Unable to read image").decode().expect("Unable to decode image"));
+        }
+        
+        movie
+    }
     pub fn save(&self, path: &Path) {
         let file = std::fs::File::options().write(true).create(true).open(path).unwrap();
         serde_json::to_writer(file, self).unwrap();
@@ -73,37 +88,6 @@ pub struct PlaceSymbol {
     pub x: f64,
     pub y: f64,
 }
-
-fn load_json(path:&Path) -> Result<Movie, Box<dyn std::error::Error>> {
-    let file = std::fs::File::open(path)?;
-    let movie: Movie = serde_json::from_reader(file)?;
-    Ok(movie)
-}
-
-pub fn load_movie(path: PathBuf) -> Movie {
-    let directory = path.parent().unwrap();
-    let file = std::fs::File::open(path.clone()).expect("Unable to load file");
-    let mut movie: Movie = serde_json::from_reader(file).expect("Unable to load file");
-
-    for symbol in movie.symbols.iter_mut() {
-        let Symbol::Bitmap(bitmap) = symbol else {
-            continue;
-        };
-        let path = &bitmap.path;
-        bitmap.image = Some(ImageReader::open(directory.join(path)).expect("Unable to read image").decode().expect("Unable to decode image"));
-    }
-    
-    movie
-}
-
-/*fn main() {
-    let args: Vec<String> = std::env::args().collect();
-    let filename = &args.get(1).unwrap_or(&"./movie.json".to_owned()).clone();
-    let directory = Path::new(&filename).parent().unwrap();
-    let movie = load_json(Path::new(&filename)).unwrap();
-    
-    movie_to_swf(movie, directory, directory.join("output.swf"));
-}*/
 
 pub fn movie_to_swf<'a>(movie: &Movie, project_directory: PathBuf, swf_path: PathBuf) {
     let header = Header {
