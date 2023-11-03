@@ -33,6 +33,8 @@ impl Movie {
         let directory = path.parent().unwrap();
         let file = std::fs::File::open(path.clone()).expect("Unable to load file");
         let mut movie: Movie = serde_json::from_reader(file).expect("Unable to load file");
+        
+        movie.add_unimported_assets(directory);
     
         for symbol in movie.symbols.iter_mut() {
             let Symbol::Bitmap(bitmap) = symbol else {
@@ -44,6 +46,41 @@ impl Movie {
         
         movie
     }
+    
+    fn add_unimported_assets(&mut self, directory: &Path) {
+        let asset_dir = directory.join("assets");
+        std::fs::create_dir_all(asset_dir.clone()).unwrap();
+        
+        let mut existing_assets: Vec<String> = self.symbols.iter().filter_map(|symbol| {
+            match symbol {
+                Symbol::Bitmap(bitmap) => Some(bitmap.path.clone()),
+                _ => None,
+            }
+        }).collect();
+        
+        let fs_assets = std::fs::read_dir(asset_dir).unwrap();
+        for fs_asset in fs_assets {
+            let file = fs_asset.unwrap();
+            let file_name = file.file_name().into_string().unwrap();
+            let file_path = format!("assets/{}", file_name);
+            let existing_index = existing_assets.iter().position(|asset| {
+                asset == file_path.as_str()
+            });
+            if let Some(existing_index) = existing_index {
+                // asset is in the list, remove so we don't check it for all the other ones
+                existing_assets.remove(existing_index);
+            } else {
+                // asset doesn't exist yet, add it
+                self.symbols.push(Symbol::Bitmap(Bitmap {
+                    name: file_name,
+                    path: file_path,
+                    image: None,
+                    bitmap_handle: None,
+                }));
+            }
+        }
+    }
+    
     pub fn save(&self, path: &Path) {
         let file = std::fs::File::options().write(true).create(true).open(path).unwrap();
         serde_json::to_writer(file, self).unwrap();
