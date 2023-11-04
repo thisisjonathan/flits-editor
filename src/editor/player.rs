@@ -137,6 +137,7 @@ fn request_exit(_player: &mut Player, event_loop: &EventLoopProxy<RuffleEvent>) 
 }
 
 fn run_project(player: &mut Player, _event_loop: &EventLoopProxy<RuffleEvent>) {
+    player.export_swf();
     Movie::run(&player.directory.join("output.swf"));
 }
 

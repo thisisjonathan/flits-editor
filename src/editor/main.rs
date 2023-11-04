@@ -1,7 +1,7 @@
-use std::{path::Path, path::PathBuf, io::Write, collections::HashMap, fmt::Debug};
+use std::{path::Path, path::PathBuf, io::Write, collections::HashMap};
 
 use ruffle_render::bitmap::BitmapHandle;
-use swf::*;
+use swf::{*, avm1::types::{Action, ConstantPool, Push}};
 use serde::{Deserialize, Serialize};
 use image::{io::Reader as ImageReader, EncodableLayout, DynamicImage};
 
@@ -126,6 +126,7 @@ pub struct Bitmap {
 #[derive(Serialize, Deserialize)]
 pub struct MovieClip {
     pub name: String,
+    pub class_name: String,
     pub place_symbols: Vec<PlaceSymbol>,
 }
 
@@ -165,18 +166,31 @@ fn movie_to_swf<'a>(movie: &Movie, project_directory: PathBuf, swf_path: PathBuf
     build_library(
         &movie.symbols,
         &mut swf_builder,
-        project_directory
+        project_directory.clone()
     );
     build_placed_symbols(&movie.root, &mut swf_builder);
     
-    let mut data_storage = Vec::new();
-    swf_builder.tags.iter().for_each(|builder_tag| {
+    let mut data_storage = vec![];
+    let mut string_storage: Vec<String> = vec![];
+    let mut swf_string_storage: Vec<&SwfStr> = vec![];
+    for i in 0..swf_builder.tags.len() {
+        let builder_tag = &swf_builder.tags[i];
         if let SwfBuilderTag::Bitmap(bitmap) = builder_tag {
             data_storage.push(bitmap.data.clone());
         }
-    });
+        if let SwfBuilderTag::ExportAssets(asset) = builder_tag {
+            string_storage.push(asset.name.clone());
+        }
+    }
+    for i in 0..swf_builder.tags.len() { 
+        let builder_tag = &swf_builder.tags[i];
+        if let SwfBuilderTag::ExportAssets(_asset) = builder_tag {
+            swf_string_storage.push(SwfStr::from_utf8_str(&string_storage[string_storage.len()-1]));
+        }
+    }
     
     let mut bitmap_nr = 0;
+    let mut swf_string_nr = 0;
     for builder_tag in swf_builder.tags {
         let tag: Tag = match builder_tag {
             SwfBuilderTag::Tag(tag) => tag,
@@ -191,14 +205,20 @@ fn movie_to_swf<'a>(movie: &Movie, project_directory: PathBuf, swf_path: PathBuf
                     data: &data_storage[bitmap_nr-1]
                 })
             },
+            SwfBuilderTag::ExportAssets(asset) => {
+                swf_string_nr += 1;
+                Tag::ExportAssets(vec![ExportedAsset { id: asset.character_id, name: &swf_string_storage[swf_string_nr-1] }])
+            }
         };
         tags.push(tag);
     }
 
     
-    let file = std::fs::File::create(swf_path).unwrap();
+    let file = std::fs::File::create(swf_path.clone()).unwrap();
     let writer = std::io::BufWriter::new(file);
     swf::write_swf(&header, &tags, writer).unwrap();
+    
+    compile_as2(&movie, &swf_builder.symbol_id_to_character_id, project_directory, swf_path);
 }
 
 fn build_library<'a>(symbols: &Vec<Symbol>, swf_builder: &mut SwfBuilder, directory: PathBuf) {
@@ -220,7 +240,10 @@ fn build_movieclip(symbol_id: u16, movieclip: &MovieClip, swf_builder: &mut SwfB
         num_frames: 1,
         tags: get_placed_symbols_tags(&movieclip.place_symbols, swf_builder)
     })));
-    
+    if movieclip.class_name.len() > 0 {
+        // the movieclip needs to be exported to be able to add a tag to it
+        swf_builder.tags.push(SwfBuilderTag::ExportAssets(SwfBuilderExportedAsset { character_id: character_id, name: movieclip.name.clone()}));
+    }
 }
 
 struct SwfBuilder<'a> {
@@ -241,12 +264,19 @@ enum SwfBuilderTag<'a> {
     Tag(Tag<'a>),
     // we need this to avoid lifetime issues with DefineBitsLossless because data is &[u8] instead of Vec<u8>
     Bitmap(SwfBuilderBitmap),
+    // avoid lifetime issues with &str, own it instead
+    // only export one asset per tag to make the code simpler
+    ExportAssets(SwfBuilderExportedAsset)
 }
 struct SwfBuilderBitmap {
     character_id: CharacterId,
     width: u32,
     height: u32,
     data: Vec<u8>,
+}
+struct SwfBuilderExportedAsset {
+    character_id: CharacterId,
+    name: String,
 }
 
 fn build_bitmap<'a>(symbol_id: u16, bitmap: &Bitmap, swf_builder: &mut SwfBuilder, directory: PathBuf) {
@@ -372,4 +402,123 @@ fn get_placed_symbols_tags<'a>(placed_symbols: &Vec<PlaceSymbol>, swf_builder: &
     tags.push(Tag::ShowFrame);
     
     tags
+}
+
+fn compile_as2(movie: &Movie, symbol_id_to_character_id: &HashMap<u16, CharacterId>, project_directory: PathBuf, swf_path: PathBuf) {
+    let dependencies_dir = std::env::current_exe().unwrap().parent().unwrap().join("dependencies");
+    // No need to add .exe on windows, Command does that automatically
+    let mtasc_path = dependencies_dir.join("mtasc");
+    
+    let mut command = std::process::Command::new(mtasc_path);
+    command.arg("-swf").arg(swf_path.clone());
+    command.arg("-version").arg("8"); // use newer as2 standard library
+    command.arg("-cp").arg(dependencies_dir.join("std")); // set class path
+    command.arg("-cp").arg(dependencies_dir.join("std8")); // set class path for version 8
+    
+    let mut at_least_one_file = false;
+    let src_dir = project_directory.join("src");
+    std::fs::create_dir_all(src_dir.clone()).unwrap();
+    // TODO: subdirectories
+    for src_file in src_dir.read_dir().unwrap() {
+        command.arg(src_file.unwrap().path());
+        at_least_one_file = true;
+    }
+    
+    if at_least_one_file {
+         let output = command.output().unwrap();
+        println!("mtasc status: {}", output.status);
+        std::io::stdout().write_all(&output.stdout).unwrap();
+        std::io::stderr().write_all(&output.stderr).unwrap();
+        // TODO: error handling
+        
+        // put placeobject after the class definitions, otherwise it won't work
+       let file = std::fs::File::open(swf_path.clone()).unwrap();
+        let reader = std::io::BufReader::new(file);
+        let swf_buf = swf::decompress_swf(reader).unwrap();
+        let mut swf = swf::parse_swf(&swf_buf).unwrap();
+        
+        // add actions to call Object.registerClass for each movieclip with a class
+        let mut symbol_id = 0;
+        let mut action_datas = vec![];
+        for symbol in &movie.symbols {
+            if let Symbol::MovieClip(movieclip) = symbol {
+                if movieclip.class_name.len() > 0 {
+                    let mut action_data:Vec<u8> = vec![];
+                    let mut action_writer = swf::avm1::write::Writer::new(&mut action_data, swf.header.version());
+                    let action = Action::ConstantPool(ConstantPool {
+                        strings: vec![
+                            SwfStr::from_utf8_str("Object"),
+                            SwfStr::from_utf8_str("registerClass"),
+                            SwfStr::from_utf8_str(&movieclip.name),
+                            SwfStr::from_utf8_str(&movieclip.class_name),
+                        ],
+                    });
+                    action_writer.write_action(&action).unwrap();
+                    let action = Action::Push(Push {
+                        values: vec![swf::avm1::types::Value::ConstantPool(3)],
+                    });
+                    action_writer.write_action(&action).unwrap();
+                    let action = Action::GetVariable;
+                    action_writer.write_action(&action).unwrap();
+                    let action = Action::Push(Push {
+                        values: vec![
+                            swf::avm1::types::Value::ConstantPool(2),
+                            swf::avm1::types::Value::Int(2), 
+                            swf::avm1::types::Value::ConstantPool(0),
+                        ],
+                    });
+                    action_writer.write_action(&action).unwrap();
+                    let action = Action::GetVariable;
+                    action_writer.write_action(&action).unwrap();
+                    let action = Action::Push(Push {
+                        values: vec![swf::avm1::types::Value::ConstantPool(1)],
+                    });
+                    action_writer.write_action(&action).unwrap();
+                    let action = Action::CallMethod;
+                    action_writer.write_action(&action).unwrap();
+                    let action = Action::Pop;
+                    action_writer.write_action(&action).unwrap();
+                    action_datas.push(action_data);
+                }
+            }
+            symbol_id += 1;
+        }
+        symbol_id = 0;
+        for symbol in &movie.symbols {
+            if let Symbol::MovieClip(movieclip) = symbol {
+                if movieclip.class_name.len() > 0 {
+                    let character_id = *symbol_id_to_character_id.get(&symbol_id).unwrap();
+                    // -1 because of ShowFrame
+                    swf.tags.insert(swf.tags.len()-1, Tag::DoInitAction { id: character_id, action_data: &action_datas[action_datas.len()-1]});
+                }
+            }
+            symbol_id += 1;
+        }
+        
+        let mut tags_to_place_at_end = vec![];
+        let mut index = 0;
+        for tag in &swf.tags {
+            if matches!(tag, Tag::PlaceObject(_)) {
+                println!("Found Tag! Index: {}", index);
+                tags_to_place_at_end.push(index);
+            }
+            index += 1;
+        }
+        
+        // iterate in reverse order to make sure placing the tag at the end doesn't change the index of the other tags
+        for index_reference in tags_to_place_at_end.iter().rev() {
+            let index = *index_reference;
+            println!("Swapping index from: {}", index);
+            // length minus 2 because it swaps with the next one and ShowFrame still needs to be last
+            for swap_index in index..swf.tags.len()-2 {
+                println!("Swapping index: {}", swap_index);
+                swf.tags.swap(swap_index, swap_index+1);   
+            }
+        } 
+        
+        // write the new version
+        let file = std::fs::File::create(swf_path).unwrap();
+        let writer = std::io::BufWriter::new(file);
+        swf::write_swf(&swf.header.swf_header(), &swf.tags, writer).unwrap();
+    }
 }
