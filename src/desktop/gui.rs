@@ -8,7 +8,7 @@ use std::path::PathBuf;
 
 use crate::desktop::custom_event::{RuffleEvent, NewProjectData};
 use crate::core::Movie;
-use crate::editor::Player;
+use crate::editor::Editor;
 use chrono::DateTime;
 use egui::*;
 use fluent_templates::fluent_bundle::FluentValue;
@@ -86,7 +86,7 @@ impl RuffleGui {
         &mut self,
         egui_ctx: &egui::Context,
         _show_menu: bool,
-        player: Option<&mut Player>,
+        player: Option<&mut Editor>,
     ) -> bool {
         let mut has_mutated = false;
         if let Some(player) = player {

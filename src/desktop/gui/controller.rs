@@ -1,5 +1,5 @@
 use crate::desktop::custom_event::RuffleEvent;
-use crate::editor::Player;
+use crate::editor::Editor;
 use super::movie::{MovieView, MovieViewRenderer};
 use super::RuffleGui;
 use anyhow::anyhow;
@@ -153,7 +153,7 @@ impl GuiController {
         )
     }
 
-    pub fn render(&mut self, mut player: Option<MutexGuard<Player>>) -> bool {
+    pub fn render(&mut self, mut player: Option<MutexGuard<Editor>>) -> bool {
         let surface_texture = self
             .surface
             .get_current_texture()

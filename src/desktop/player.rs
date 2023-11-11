@@ -3,7 +3,7 @@ use crate::desktop::custom_event::RuffleEvent;
 use crate::desktop::executor::GlutinAsyncExecutor;
 use crate::desktop::gui::MovieView;
 use crate::{RENDER_INFO, SWF_INFO};
-use crate::editor::Player;
+use crate::editor::Editor;
 use anyhow::anyhow;
 use ruffle_render::backend::RenderBackend;
 use ruffle_render_wgpu::backend::WgpuRenderBackend;
@@ -16,7 +16,7 @@ use winit::event_loop::EventLoopProxy;
 use winit::window::Window;
 
 struct ActivePlayer {
-    player: Arc<Mutex<Player>>,    
+    player: Arc<Mutex<Editor>>,    
     executor: Arc<Mutex<GlutinAsyncExecutor>>,
 }
 
@@ -104,7 +104,7 @@ impl ActivePlayer {
             player_lock.fetch_root_movie(movie_url.to_string(), parameters, Box::new(on_metadata));
         }*/
         
-        let player = Arc::new(Mutex::new(Player::new(Box::new(renderer), movie_url.to_file_path().expect("Invalid movie path"))));
+        let player = Arc::new(Mutex::new(Editor::new(Box::new(renderer), movie_url.to_file_path().expect("Invalid movie path"))));
 
         Self { player, executor }
     }
@@ -146,7 +146,7 @@ impl PlayerController {
         self.player = None;
     }
 
-    pub fn get(&self) -> Option<MutexGuard<Player>> {
+    pub fn get(&self) -> Option<MutexGuard<Editor>> {
         match &self.player {
             None => None,
             // We don't want to return None when the lock fails to grab as that's a fatal error, not a lack of player

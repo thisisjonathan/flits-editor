@@ -27,7 +27,7 @@ struct DragData {
     place_symbol_index: usize,
 }
 
-pub struct Player {
+pub struct Editor {
     movie: Movie,
     project_file_path: PathBuf,
     directory: PathBuf,
@@ -46,7 +46,7 @@ struct Menu<'a> {
 struct MenuItem<'a> {
     name: &'a str,
     keyboard_shortcut: Option<egui::KeyboardShortcut>,
-    action: fn(player: &mut Player, event_loop: &EventLoopProxy<RuffleEvent>),
+    action: fn(player: &mut Editor, event_loop: &EventLoopProxy<RuffleEvent>),
 }
 
 const MENUS: &[Menu] = &[Menu {
@@ -116,43 +116,43 @@ const MENUS: &[Menu] = &[Menu {
     }]
 }];
 
-fn open_project(_player: &mut Player, event_loop: &EventLoopProxy<RuffleEvent>) {
+fn open_project(_player: &mut Editor, event_loop: &EventLoopProxy<RuffleEvent>) {
     let _ = event_loop.send_event(RuffleEvent::OpenFile);
 }
 
-fn save_project(player: &mut Player, _event_loop: &EventLoopProxy<RuffleEvent>) {
+fn save_project(player: &mut Editor, _event_loop: &EventLoopProxy<RuffleEvent>) {
     player.movie.save(&player.project_file_path);
 }
 
-fn export_swf(player: &mut Player, _event_loop: &EventLoopProxy<RuffleEvent>) {
+fn export_swf(player: &mut Editor, _event_loop: &EventLoopProxy<RuffleEvent>) {
     player.export_swf();
 }
     
-fn close_project(_player: &mut Player, event_loop: &EventLoopProxy<RuffleEvent>) {
+fn close_project(_player: &mut Editor, event_loop: &EventLoopProxy<RuffleEvent>) {
     let _ = event_loop.send_event(RuffleEvent::CloseFile);
 }
 
-fn request_exit(_player: &mut Player, event_loop: &EventLoopProxy<RuffleEvent>) {
+fn request_exit(_player: &mut Editor, event_loop: &EventLoopProxy<RuffleEvent>) {
     let _ = event_loop.send_event(RuffleEvent::ExitRequested);
 }
 
-fn run_project(player: &mut Player, _event_loop: &EventLoopProxy<RuffleEvent>) {
+fn run_project(player: &mut Editor, _event_loop: &EventLoopProxy<RuffleEvent>) {
     player.export_swf();
     Movie::run(&player.directory.join("output.swf"));
 }
 
-fn show_about_screen(_player: &mut Player, event_loop: &EventLoopProxy<RuffleEvent>) {
+fn show_about_screen(_player: &mut Editor, event_loop: &EventLoopProxy<RuffleEvent>) {
     let _ = event_loop.send_event(RuffleEvent::About);
 }
 
-fn delete_selection(player: &mut Player, _event_loop: &EventLoopProxy<RuffleEvent>) {
+fn delete_selection(player: &mut Editor, _event_loop: &EventLoopProxy<RuffleEvent>) {
     player.delete_selection();
 }
 
-impl Player {
-    pub fn new(renderer: Renderer, path: PathBuf) -> Player {
+impl Editor {
+    pub fn new(renderer: Renderer, path: PathBuf) -> Editor {
         let movie = Movie::load(path.clone());
-        Player {
+        Editor {
             movie,
             project_file_path: path.clone(),
             directory: PathBuf::from(path.parent().unwrap()),
@@ -207,7 +207,7 @@ impl Player {
             }
         }
 
-        commands.commands.extend(Player::render_placed_symbols(
+        commands.commands.extend(Editor::render_placed_symbols(
             renderer,
             symbols,
             placed_symbols,
@@ -247,7 +247,7 @@ impl Player {
                     });
                 }
                 Symbol::MovieClip(movieclip) => {
-                    commands.extend(Player::render_placed_symbols(
+                    commands.extend(Editor::render_placed_symbols(
                         renderer,
                         symbols,
                         &movieclip.place_symbols,
