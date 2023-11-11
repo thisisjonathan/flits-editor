@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 
-use crate::core::{Movie, PlaceSymbol, Symbol};
+use crate::core::{Movie, PlaceSymbol, Symbol, MovieClip};
 use crate::desktop::custom_event::RuffleEvent;
-use egui::Widget;
+use egui::{Widget, Vec2};
 use ruffle_render::{
     backend::{RenderBackend, ViewportDimensions},
     bitmap::{Bitmap, BitmapFormat, PixelSnapping},
@@ -34,8 +34,9 @@ pub struct Editor {
     renderer: Renderer,
 
     selection: Vec<usize>,
-
     drag_data: Option<DragData>,
+    
+    new_symbol_window: Option<NewSymbolWindow>,
 }
 
 struct Menu<'a> {
@@ -159,8 +160,9 @@ impl Editor {
             renderer,
 
             selection: vec![],
-
             drag_data: None,
+            
+            new_symbol_window: None,
         }
     }
 
@@ -379,6 +381,9 @@ impl Editor {
             .min_width(150.0)
             .show(egui_ctx, |ui| {
                 ui.heading("Library");
+                if ui.button("Add MovieClip...").clicked() {
+                    self.new_symbol_window = Some(NewSymbolWindow::default());
+                }
                 for i in 0..self.movie.symbols.len() {
                     let symbol = self.movie.symbols.get(i).unwrap();
                     let response = ui.selectable_label(false, symbol.name());
@@ -408,6 +413,13 @@ impl Editor {
                 ui.label("Multiple items selected");
             }
         });
+        
+        if let Some(new_symbol_window) = &mut self.new_symbol_window {
+            if let Some(symbol) = new_symbol_window.do_ui(egui_ctx) {
+                self.movie.symbols.push(symbol);
+                self.new_symbol_window = None;
+            }
+        }
 
         has_mutated
     }
@@ -465,3 +477,34 @@ impl Editor {
         self.movie.export(directory, swf_path);
     }
 }
+
+#[derive(Default)]
+struct NewSymbolWindow {
+    name: String,
+}
+impl NewSymbolWindow {
+    pub fn do_ui(
+        &mut self,
+        egui_ctx: &egui::Context,
+    ) -> Option<Symbol> {
+        let mut result = None;
+        // title says new movieclip because there are no other options yet
+        egui::Window::new("New movieclip").resizable(false).show(egui_ctx, |ui| {
+            egui::Grid::new("symbol_properties_grid").show(ui, |ui| {                        
+                        ui.label("Name:");
+                        ui.add(egui::TextEdit::singleline(&mut self.name).min_size(Vec2::new(200.0, 0.0)));
+                        ui.end_row();
+
+                        if ui.add_enabled(!self.name.is_empty(), egui::Button::new("Create")).clicked() {
+                            result = Some(Symbol::MovieClip(MovieClip {
+                                name: self.name.clone(),
+                                class_name: "".to_string(),
+                                place_symbols: vec![],
+                            }));
+                        }
+                        ui.end_row();
+                    });
+        });
+        result
+    }
+}   
