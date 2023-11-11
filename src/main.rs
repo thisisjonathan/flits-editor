@@ -7,6 +7,7 @@
 #![windows_subsystem = "windows"]
 
 
+mod core;
 mod editor;
 mod desktop;
 

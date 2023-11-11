@@ -1,8 +1,7 @@
 use std::path::PathBuf;
 
-use super::main::{PlaceSymbol, Symbol};
+use crate::core::{Movie, PlaceSymbol, Symbol};
 use crate::desktop::custom_event::RuffleEvent;
-use crate::editor::main::Movie;
 use egui::Widget;
 use ruffle_render::{
     backend::{RenderBackend, ViewportDimensions},
@@ -152,7 +151,7 @@ fn delete_selection(player: &mut Player, _event_loop: &EventLoopProxy<RuffleEven
 
 impl Player {
     pub fn new(renderer: Renderer, path: PathBuf) -> Player {
-        let movie = crate::editor::main::Movie::load(path.clone());
+        let movie = Movie::load(path.clone());
         Player {
             movie,
             project_file_path: path.clone(),

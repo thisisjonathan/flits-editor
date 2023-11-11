@@ -1,5 +1,5 @@
 use crate::desktop::custom_event::RuffleEvent;
-use crate::editor::player::Player;
+use crate::editor::Player;
 use super::movie::{MovieView, MovieViewRenderer};
 use super::RuffleGui;
 use anyhow::anyhow;

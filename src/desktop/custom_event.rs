@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 
-use crate::editor::main::Movie;
+use crate::core::Movie;
 
 /// User-defined events.
 pub enum RuffleEvent {

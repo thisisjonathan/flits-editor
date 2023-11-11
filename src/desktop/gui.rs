@@ -7,8 +7,8 @@ use std::borrow::Cow;
 use std::path::PathBuf;
 
 use crate::desktop::custom_event::{RuffleEvent, NewProjectData};
-use crate::editor::main::Movie;
-use crate::editor::player::Player;
+use crate::core::Movie;
+use crate::editor::Player;
 use chrono::DateTime;
 use egui::*;
 use fluent_templates::fluent_bundle::FluentValue;

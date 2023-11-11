@@ -3,7 +3,7 @@ use crate::desktop::custom_event::RuffleEvent;
 use crate::desktop::executor::GlutinAsyncExecutor;
 use crate::desktop::gui::MovieView;
 use crate::{RENDER_INFO, SWF_INFO};
-use crate::editor::player::Player;
+use crate::editor::Player;
 use anyhow::anyhow;
 use ruffle_render::backend::RenderBackend;
 use ruffle_render_wgpu::backend::WgpuRenderBackend;
