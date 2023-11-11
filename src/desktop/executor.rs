@@ -1,7 +1,7 @@
 //! Async executor
 
-use crate::custom_event::RuffleEvent;
-use crate::task::Task;
+use super::custom_event::RuffleEvent;
+use super::task::Task;
 use generational_arena::{Arena, Index};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, Mutex, Weak};

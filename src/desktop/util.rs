@@ -1,4 +1,4 @@
-use crate::custom_event::RuffleEvent;
+use super::custom_event::RuffleEvent;
 use anyhow::{anyhow, Error};
 use rfd::FileDialog;
 use std::path::{Path, PathBuf};

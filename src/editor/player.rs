@@ -1,7 +1,8 @@
 use std::path::PathBuf;
 
 use super::main::{PlaceSymbol, Symbol};
-use crate::{custom_event::RuffleEvent, editor::main::Movie};
+use crate::desktop::custom_event::RuffleEvent;
+use crate::editor::main::Movie;
 use egui::Widget;
 use ruffle_render::{
     backend::{RenderBackend, ViewportDimensions},

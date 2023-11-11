@@ -1,4 +1,4 @@
-use crate::gui::MENU_HEIGHT;
+use super::MENU_HEIGHT;
 use ruffle_render_wgpu::descriptors::Descriptors;
 use ruffle_render_wgpu::target::{RenderTarget, RenderTargetFrame};
 use std::borrow::Cow;

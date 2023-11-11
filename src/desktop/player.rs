@@ -1,7 +1,7 @@
-use crate::cli::Opt;
-use crate::custom_event::RuffleEvent;
-use crate::executor::GlutinAsyncExecutor;
-use crate::gui::MovieView;
+use crate::desktop::cli::Opt;
+use crate::desktop::custom_event::RuffleEvent;
+use crate::desktop::executor::GlutinAsyncExecutor;
+use crate::desktop::gui::MovieView;
 use crate::{RENDER_INFO, SWF_INFO};
 use crate::editor::player::Player;
 use anyhow::anyhow;

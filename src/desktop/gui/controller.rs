@@ -1,7 +1,7 @@
-use crate::custom_event::RuffleEvent;
+use crate::desktop::custom_event::RuffleEvent;
 use crate::editor::player::Player;
-use crate::gui::movie::{MovieView, MovieViewRenderer};
-use crate::gui::RuffleGui;
+use super::movie::{MovieView, MovieViewRenderer};
+use super::RuffleGui;
 use anyhow::anyhow;
 use egui::Context;
 use ruffle_render_wgpu::backend::{request_adapter_and_device, WgpuRenderBackend};

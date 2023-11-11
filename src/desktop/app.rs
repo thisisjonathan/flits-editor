@@ -1,8 +1,8 @@
-use crate::cli::Opt;
-use crate::custom_event::RuffleEvent;
-use crate::gui::{GuiController, MovieView, MENU_HEIGHT};
-use crate::player::PlayerController;
-use crate::util::{
+use super::cli::Opt;
+use super::custom_event::RuffleEvent;
+use super::gui::{GuiController, MovieView, MENU_HEIGHT};
+use super::player::PlayerController;
+use super::util::{
     get_screen_size, parse_url, pick_file
 };
 use anyhow::{Context, Error};

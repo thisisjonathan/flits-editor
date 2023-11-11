@@ -6,7 +6,7 @@ pub use movie::MovieView;
 use std::borrow::Cow;
 use std::path::PathBuf;
 
-use crate::custom_event::{RuffleEvent, NewProjectData};
+use crate::desktop::custom_event::{RuffleEvent, NewProjectData};
 use crate::editor::main::Movie;
 use crate::editor::player::Player;
 use chrono::DateTime;

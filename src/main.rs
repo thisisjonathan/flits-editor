@@ -6,20 +6,14 @@
 // See https://docs.microsoft.com/en-us/cpp/build/reference/subsystem?view=msvc-160 for details.
 #![windows_subsystem = "windows"]
 
-mod app;
-mod cli;
-mod custom_event;
-mod executor;
-mod gui;
-mod player;
-mod task;
-mod util;
+
 mod editor;
+mod desktop;
 
 use anyhow::Error;
-use app::App;
+use desktop::app::App;
 use clap::Parser;
-use cli::Opt;
+use desktop::cli::Opt;
 use std::cell::RefCell;
 use std::panic::PanicInfo;
 use url::Url;
