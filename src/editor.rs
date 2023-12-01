@@ -391,7 +391,8 @@ impl Editor {
                 }
                 for i in 0..self.movie.symbols.len() {
                     let symbol = self.movie.symbols.get(i).unwrap();
-                    let response = ui.selectable_label(false, symbol.name());
+                    let checked = if let Some(editing_clip) = self.editing_clip {editing_clip == i} else {false};
+                    let response = ui.selectable_label(checked, symbol.name());
                     let response = response.interact(egui::Sense::drag());
                     
                     if response.clicked() {
