@@ -17,6 +17,9 @@ use winit::{
     event_loop::EventLoopProxy,
 };
 
+// also defined in desktop/gui.rs
+pub const MENU_HEIGHT: u32 = 48;
+
 type Renderer = Box<dyn RenderBackend>;
 
 struct DragData {
@@ -378,7 +381,6 @@ impl Editor {
                 }
             });
         });
-
         egui::SidePanel::right("library")
             .resizable(false) // resizing causes glitches
             .min_width(150.0)
@@ -401,12 +403,26 @@ impl Editor {
                         self.movie.get_placed_symbols_mut(self.editing_clip).push(PlaceSymbol {
                             symbol_id: i as u16,
                             x: mouse_pos.x as f64,
-                            y: mouse_pos.y as f64 - 24.0,
+                            y: mouse_pos.y as f64 - MENU_HEIGHT as f64,
                         });
                         has_mutated = true; 
                     }
                 }
             });
+        egui::TopBottomPanel::top("breadcrumb_bar").show(egui_ctx, |ui| {
+            ui.horizontal(|ui| {
+                if let Some(editing_clip) = self.editing_clip {
+                    if ui.selectable_label(false, "Scene").clicked() {
+                        self.change_editing_clip(None);
+                        has_mutated = true;
+                    }
+                    let _ = ui.selectable_label(true, self.movie.symbols[editing_clip].name());
+                } else {
+                    let _ = ui.selectable_label(true, "Scene");
+                }
+            });
+        });
+        
 
         egui::TopBottomPanel::bottom("properties").show(egui_ctx, |ui| {
             if self.selection.len() == 0 {
@@ -431,6 +447,12 @@ impl Editor {
     }
     
     fn change_editing_clip(&mut self, symbol_index: Option<usize>) {
+        if let Some(symbol_index) = symbol_index {
+            let Symbol::MovieClip(_) = self.movie.symbols[symbol_index] else {
+                // only select movieclips
+                return;
+            };   
+        }
         self.selection = vec![];
         self.editing_clip = symbol_index;
     }

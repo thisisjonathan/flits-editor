@@ -53,7 +53,7 @@ pub fn text_with_args<'a, T: AsRef<str>>(
 /// Size of the top menu bar in pixels.
 /// This is the offset at which the movie will be shown,
 /// and added to the window size if trying to match a movie.
-pub const MENU_HEIGHT: u32 = 24;
+pub const MENU_HEIGHT: u32 = 48;
 
 /// The main controller for the Ruffle GUI.
 pub struct RuffleGui {
