@@ -389,26 +389,28 @@ impl Editor {
                 if ui.button("Add MovieClip...").clicked() {
                     self.new_symbol_window = Some(NewSymbolWindow::default());
                 }
-                for i in 0..self.movie.symbols.len() {
-                    let symbol = self.movie.symbols.get(i).unwrap();
-                    let checked = if let Some(editing_clip) = self.editing_clip {editing_clip == i} else {false};
-                    let response = ui.selectable_label(checked, symbol.name());
-                    let response = response.interact(egui::Sense::drag());
-                    
-                    if response.clicked() {
-                        self.change_editing_clip(Some(i));
-                        has_mutated = true;
-                    } else if response.drag_released() {  // TODO: handle drag that doesn't end on stage
-                        let mouse_pos = response.interact_pointer_pos().unwrap();
-                        // TODO: don't hardcode the menu height
-                        self.movie.get_placed_symbols_mut(self.editing_clip).push(PlaceSymbol {
-                            symbol_id: i as u16,
-                            x: mouse_pos.x as f64,
-                            y: mouse_pos.y as f64 - MENU_HEIGHT as f64,
-                        });
-                        has_mutated = true; 
+                egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
+                    for i in 0..self.movie.symbols.len() {
+                        let symbol = self.movie.symbols.get(i).unwrap();
+                        let checked = if let Some(editing_clip) = self.editing_clip {editing_clip == i} else {false};
+                        let response = ui.selectable_label(checked, symbol.name());
+                        let response = response.interact(egui::Sense::drag());
+                        
+                        if response.clicked() {
+                            self.change_editing_clip(Some(i));
+                            has_mutated = true;
+                        } else if response.drag_released() {  // TODO: handle drag that doesn't end on stage
+                            let mouse_pos = response.interact_pointer_pos().unwrap();
+                            // TODO: don't hardcode the menu height
+                            self.movie.get_placed_symbols_mut(self.editing_clip).push(PlaceSymbol {
+                                symbol_id: i as u16,
+                                x: mouse_pos.x as f64,
+                                y: mouse_pos.y as f64 - MENU_HEIGHT as f64,
+                            });
+                            has_mutated = true; 
+                        }
                     }
-                }
+                });
             });
         egui::TopBottomPanel::top("breadcrumb_bar").show(egui_ctx, |ui| {
             ui.horizontal(|ui| {
