@@ -32,6 +32,8 @@ pub struct Editor {
     project_file_path: PathBuf,
     directory: PathBuf,
     renderer: Renderer,
+    
+    editing_clip: Option<usize>,
 
     selection: Vec<usize>,
     drag_data: Option<DragData>,
@@ -158,6 +160,8 @@ impl Editor {
             project_file_path: path.clone(),
             directory: PathBuf::from(path.parent().unwrap()),
             renderer,
+            
+            editing_clip: None,
 
             selection: vec![],
             drag_data: None,
@@ -180,7 +184,7 @@ impl Editor {
                 Twips::from_pixels(0.0),
             ),
         });
-        let placed_symbols = &self.movie.root;
+        
         let symbols = &mut self.movie.symbols;
         let renderer = &mut self.renderer;
 
@@ -211,8 +215,8 @@ impl Editor {
 
         commands.commands.extend(Editor::render_placed_symbols(
             renderer,
-            symbols,
-            placed_symbols,
+            &self.movie,
+            self.editing_clip,
             Transform::default(),
         ));
         self.renderer
@@ -221,14 +225,15 @@ impl Editor {
 
     fn render_placed_symbols(
         renderer: &mut Box<dyn RenderBackend>,
-        symbols: &Vec<Symbol>,
-        placed_symbols: &Vec<PlaceSymbol>,
+        movie: &Movie,
+        symbol_index: Option<usize>,
         transform: Transform,
     ) -> Vec<Command> {
         let mut commands = vec![];
+        let placed_symbols = movie.get_placed_symbols(symbol_index);
         for i in 0..placed_symbols.len() {
             let place_symbol = placed_symbols.get(i).unwrap();
-            let symbol = symbols
+            let symbol = movie.symbols
                 .get(place_symbol.symbol_id as usize)
                 .expect("Invalid symbol placed");
             match symbol {
@@ -248,11 +253,11 @@ impl Editor {
                         pixel_snapping: PixelSnapping::Never, // TODO: figure out a good default
                     });
                 }
-                Symbol::MovieClip(movieclip) => {
+                Symbol::MovieClip(_) => {
                     commands.extend(Editor::render_placed_symbols(
                         renderer,
-                        symbols,
-                        &movieclip.place_symbols,
+                        movie,
+                        Some(place_symbol.symbol_id as usize),
                         Transform {
                             matrix: transform.matrix
                                 * Matrix::translate(
@@ -269,10 +274,9 @@ impl Editor {
     }
 
     pub fn handle_mouse_move(&mut self, mouse_x: f64, mouse_y: f64) {
+        let placed_symbols = self.movie.get_placed_symbols_mut(self.editing_clip);
         if let Some(drag_data) = &self.drag_data {
-            let place_symbol = self
-                .movie
-                .root
+            let place_symbol = placed_symbols
                 .get_mut(drag_data.place_symbol_index)
                 .unwrap();
             place_symbol.x = drag_data.symbol_start_x + mouse_x - drag_data.start_x;
@@ -287,11 +291,12 @@ impl Editor {
         button: MouseButton,
         state: ElementState,
     ) {
+        let placed_symbols = self.movie.get_placed_symbols(self.editing_clip);
         if button == MouseButton::Left && state == ElementState::Pressed {
             self.selection = vec![];
             // iterate from top to bottom to get the item that's on top
-            for i in (0..self.movie.root.len()).rev() {
-                let place_symbol = self.movie.root.get_mut(i).unwrap();
+            for i in (0..placed_symbols.len()).rev() {
+                let place_symbol = &placed_symbols[i];
                 let mut width = 32.0;
                 let mut height = 32.0;
                 let symbol = self
@@ -325,9 +330,7 @@ impl Editor {
         }
         if button == MouseButton::Left && state == ElementState::Released {
             if let Some(drag_data) = &self.drag_data {
-                let place_symbol = self
-                    .movie
-                    .root
+                let place_symbol = self.movie.get_placed_symbols_mut(self.editing_clip)
                     .get_mut(drag_data.place_symbol_index)
                     .unwrap();
                 place_symbol.x = drag_data.symbol_start_x + mouse_x - drag_data.start_x;
@@ -388,16 +391,19 @@ impl Editor {
                     let symbol = self.movie.symbols.get(i).unwrap();
                     let response = ui.selectable_label(false, symbol.name());
                     let response = response.interact(egui::Sense::drag());
-
-                    if response.drag_released() {
+                    
+                    if response.clicked() {
+                        self.change_editing_clip(Some(i));
+                        has_mutated = true;
+                    } else if response.drag_released() {  // TODO: handle drag that doesn't end on stage
                         let mouse_pos = response.interact_pointer_pos().unwrap();
                         // TODO: don't hardcode the menu height
-                        self.movie.root.push(PlaceSymbol {
+                        self.movie.get_placed_symbols_mut(self.editing_clip).push(PlaceSymbol {
                             symbol_id: i as u16,
                             x: mouse_pos.x as f64,
                             y: mouse_pos.y as f64 - 24.0,
                         });
-                        has_mutated = true;
+                        has_mutated = true; 
                     }
                 }
             });
@@ -423,6 +429,11 @@ impl Editor {
 
         has_mutated
     }
+    
+    fn change_editing_clip(&mut self, symbol_index: Option<usize>) {
+        self.selection = vec![];
+        self.editing_clip = symbol_index;
+    }
 
     fn delete_selection(&mut self) {
         // because the list is sorted and we are traversing from the end to the beginning
@@ -430,7 +441,7 @@ impl Editor {
         self.selection.sort();
         for i in (0..self.selection.len()).rev() {
             let placed_symbol_index = *self.selection.get(i).unwrap();
-            self.movie.root.remove(placed_symbol_index);
+            self.movie.get_placed_symbols_mut(self.editing_clip).remove(placed_symbol_index);
         }
         self.selection = vec![];
     }
@@ -448,7 +459,7 @@ impl Editor {
     }
 
     fn show_placed_symbol_properties(&mut self, ui: &mut egui::Ui, placed_symbol_index: usize) {
-        let placed_symbol = self.movie.root.get_mut(placed_symbol_index).unwrap();
+        let placed_symbol = self.movie.get_placed_symbols_mut(self.editing_clip).get_mut(placed_symbol_index).unwrap();
         egui::Grid::new(format!(
             "placed_symbol_{placed_symbol_index}_properties_grid"
         ))

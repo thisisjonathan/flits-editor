@@ -95,6 +95,30 @@ impl Movie {
         let ruffle_path = std::env::current_exe().unwrap().parent().unwrap().join("dependencies/ruffle");
         std::process::Command::new(ruffle_path).arg(swf_path).spawn().unwrap();
     }
+    
+    pub fn get_placed_symbols(&self, symbol_index: Option<usize>) -> &Vec<PlaceSymbol> {
+        if let Some(symbol_index) = symbol_index{
+            if let Symbol::MovieClip(movieclip) = &self.symbols[symbol_index] {
+                &movieclip.place_symbols
+            } else {
+                &self.root 
+            }
+        } else {
+            &self.root
+        }
+    }
+    
+    pub fn get_placed_symbols_mut(&mut self, symbol_index: Option<usize>) -> &mut Vec<PlaceSymbol> {
+        if let Some(symbol_index) = symbol_index{
+            if let Symbol::MovieClip(movieclip) = &mut self.symbols[symbol_index] {
+              &mut movieclip.place_symbols
+            } else {
+                &mut self.root   
+           }
+        } else {
+            &mut self.root
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize)]
