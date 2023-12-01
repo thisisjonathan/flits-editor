@@ -429,10 +429,12 @@ impl Editor {
 
         egui::TopBottomPanel::bottom("properties").show(egui_ctx, |ui| {
             if self.selection.len() == 0 {
-                ui.heading("Movie properties");
-                self.show_movie_properties(ui);
+                if let Some(symbol_index) = self.editing_clip {
+                    self.show_symbol_properties(ui, symbol_index);
+                } else {
+                    self.show_movie_properties(ui);   
+                }
             } else if self.selection.len() == 1 {
-                ui.heading("Placed symbol properties");
                 self.show_placed_symbol_properties(ui, *self.selection.get(0).unwrap());
             } else {
                 ui.label("Multiple items selected");
@@ -472,6 +474,7 @@ impl Editor {
     }
 
     fn show_movie_properties(&mut self, ui: &mut egui::Ui) {
+        ui.heading("Movie properties");
         egui::Grid::new("movie_properties_grid").show(ui, |ui| {
             ui.label("Width:");
             ui.add(egui::DragValue::new(&mut self.movie.width));
@@ -482,8 +485,30 @@ impl Editor {
             ui.end_row();
         });
     }
+    
+    fn show_symbol_properties(&mut self, ui: &mut egui::Ui, symbol_index: usize) {
+        let symbol = &mut self.movie.symbols[symbol_index];
+        match symbol {
+            Symbol::Bitmap(_) => {
+                ui.heading("Bitmap properties");
+            },
+            Symbol::MovieClip(movieclip) => {
+                ui.heading("Movieclip properties");
+                egui::Grid::new(format!("movieclip_{symbol_index}_properties_grid")).show(ui, |ui| {
+                    ui.label("Name:");
+                    ui.add(egui::TextEdit::singleline(&mut movieclip.name).min_size(Vec2::new(200.0, 0.0)));
+                    ui.end_row();
+        
+                    ui.label("Class:");
+                    ui.add(egui::TextEdit::singleline(&mut movieclip.class_name).min_size(Vec2::new(200.0, 0.0)));
+                    ui.end_row();
+                });
+            },
+        }
+    }
 
     fn show_placed_symbol_properties(&mut self, ui: &mut egui::Ui, placed_symbol_index: usize) {
+        ui.heading("Placed symbol properties");
         let placed_symbol = self.movie.get_placed_symbols_mut(self.editing_clip).get_mut(placed_symbol_index).unwrap();
         egui::Grid::new(format!(
             "placed_symbol_{placed_symbol_index}_properties_grid"
