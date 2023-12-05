@@ -209,7 +209,7 @@ fn movie_to_swf<'a>(movie: &Movie, project_directory: PathBuf, swf_path: PathBuf
     for i in 0..swf_builder.tags.len() { 
         let builder_tag = &swf_builder.tags[i];
         if let SwfBuilderTag::ExportAssets(_asset) = builder_tag {
-            swf_string_storage.push(SwfStr::from_utf8_str(&string_storage[string_storage.len()-1]));
+            swf_string_storage.push(SwfStr::from_utf8_str(&string_storage[swf_string_storage.len()]));
         }
     }
     
@@ -508,12 +508,14 @@ fn compile_as2(movie: &Movie, symbol_id_to_character_id: &HashMap<u16, Character
             symbol_id += 1;
         }
         symbol_id = 0;
+        let mut action_nr = 0;
         for symbol in &movie.symbols {
             if let Symbol::MovieClip(movieclip) = symbol {
                 if movieclip.class_name.len() > 0 {
                     let character_id = *symbol_id_to_character_id.get(&symbol_id).unwrap();
                     // -1 because of ShowFrame
-                    swf.tags.insert(swf.tags.len()-1, Tag::DoInitAction { id: character_id, action_data: &action_datas[action_datas.len()-1]});
+                    swf.tags.insert(swf.tags.len()-1, Tag::DoInitAction { id: character_id, action_data: &action_datas[action_nr]});
+                    action_nr += 1;
                 }
             }
             symbol_id += 1;
