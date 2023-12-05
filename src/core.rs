@@ -456,7 +456,7 @@ fn compile_as2(movie: &Movie, symbol_id_to_character_id: &HashMap<u16, Character
         // TODO: error handling
         
         // put placeobject after the class definitions, otherwise it won't work
-       let file = std::fs::File::open(swf_path.clone()).unwrap();
+        let file = std::fs::File::open(swf_path.clone()).unwrap();
         let reader = std::io::BufReader::new(file);
         let swf_buf = swf::decompress_swf(reader).unwrap();
         let mut swf = swf::parse_swf(&swf_buf).unwrap();
@@ -525,7 +525,6 @@ fn compile_as2(movie: &Movie, symbol_id_to_character_id: &HashMap<u16, Character
         let mut index = 0;
         for tag in &swf.tags {
             if matches!(tag, Tag::PlaceObject(_)) {
-                println!("Found Tag! Index: {}", index);
                 tags_to_place_at_end.push(index);
             }
             index += 1;
@@ -534,10 +533,8 @@ fn compile_as2(movie: &Movie, symbol_id_to_character_id: &HashMap<u16, Character
         // iterate in reverse order to make sure placing the tag at the end doesn't change the index of the other tags
         for index_reference in tags_to_place_at_end.iter().rev() {
             let index = *index_reference;
-            println!("Swapping index from: {}", index);
             // length minus 2 because it swaps with the next one and ShowFrame still needs to be last
             for swap_index in index..swf.tags.len()-2 {
-                println!("Swapping index: {}", swap_index);
                 swf.tags.swap(swap_index, swap_index+1);   
             }
         } 
