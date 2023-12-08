@@ -294,41 +294,19 @@ impl Editor {
         button: MouseButton,
         state: ElementState,
     ) {
-        let placed_symbols = self.movie.get_placed_symbols(self.editing_clip);
         if button == MouseButton::Left && state == ElementState::Pressed {
             self.selection = vec![];
-            // iterate from top to bottom to get the item that's on top
-            for i in (0..placed_symbols.len()).rev() {
-                let place_symbol = &placed_symbols[i];
-                let mut width = 32.0;
-                let mut height = 32.0;
-                let symbol = self
-                    .movie
-                    .symbols
-                    .get(place_symbol.symbol_id as usize)
-                    .expect("Invalid symbol placed");
-                // TODO: movieclip size
-                if let Symbol::Bitmap(bitmap) = symbol {
-                    if let Some(image) = &bitmap.image {
-                        width = image.width() as f64;
-                        height = image.height() as f64;
-                    }
-                }
-                if mouse_x > place_symbol.x
-                    && mouse_y > place_symbol.y
-                    && mouse_x < place_symbol.x + width
-                    && mouse_y < place_symbol.y + height
-                {
-                    self.drag_data = Some(DragData {
-                        symbol_start_x: place_symbol.x,
-                        symbol_start_y: place_symbol.y,
-                        start_x: mouse_x,
-                        start_y: mouse_y,
-                        place_symbol_index: i,
-                    });
-                    self.selection = vec![i];
-                    break;
-                }
+            let symbol_index = self.get_placed_symbol_at_position(mouse_x, mouse_y, self.editing_clip);
+            if let Some(symbol_index) = symbol_index {
+                let place_symbol = &self.movie.get_placed_symbols(self.editing_clip)[symbol_index];
+                self.drag_data = Some(DragData {
+                    symbol_start_x: place_symbol.x,
+                    symbol_start_y: place_symbol.y,
+                    start_x: mouse_x,
+                    start_y: mouse_y,
+                    place_symbol_index: symbol_index,
+                });
+                self.selection = vec![symbol_index];
             }
         }
         if button == MouseButton::Left && state == ElementState::Released {
@@ -341,6 +319,43 @@ impl Editor {
                 self.drag_data = None;
             }
         }
+    }
+    
+    fn get_placed_symbol_at_position(&self, x: f64, y: f64, symbol_index: Option<usize>) -> Option<usize> {
+        let placed_symbols = self.movie.get_placed_symbols(symbol_index);
+        // iterate from top to bottom to get the item that's on top
+        for i in (0..placed_symbols.len()).rev() {
+            let place_symbol = &placed_symbols[i];
+            let symbol = self
+                .movie
+                .symbols
+                .get(place_symbol.symbol_id as usize)
+                .expect("Invalid symbol placed");
+            match symbol {
+                Symbol::Bitmap(bitmap) => {
+                    if let Some(image) = &bitmap.image {
+                        let width = image.width() as f64;
+                        let height = image.height() as f64;
+                        if x > place_symbol.x
+                            && y > place_symbol.y
+                            && x < place_symbol.x + width
+                            && y < place_symbol.y + height
+                        {
+                            return Some(i);
+                        }
+                    }
+                }
+                Symbol::MovieClip(_) => {
+                    if let Some(_) = self.get_placed_symbol_at_position(
+                        x-place_symbol.x,
+                        y-place_symbol.y,
+                        Some(place_symbol.symbol_id as usize)) {
+                        return Some(i);
+                    }
+                },
+            }
+        }
+        None
     }
 
     pub fn do_ui(
