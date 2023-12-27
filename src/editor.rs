@@ -45,6 +45,7 @@ pub struct Editor {
 
     selection: Vec<SymbolIndex>,
     drag_data: Option<DragData>,
+    placed_symbol_before_edit: Option<PlaceSymbol>,
 
     new_symbol_window: Option<NewSymbolWindow>,
 }
@@ -308,6 +309,7 @@ impl Editor {
 
             selection: vec![],
             drag_data: None,
+            placed_symbol_before_edit: None,
 
             new_symbol_window: None,
         }
@@ -449,6 +451,7 @@ impl Editor {
                     place_symbol_index: symbol_index,
                 });
                 self.selection = vec![symbol_index];
+                self.placed_symbol_before_edit = Some(place_symbol.clone());
             }
         }
         if button == MouseButton::Left && state == ElementState::Released {
@@ -473,6 +476,10 @@ impl Editor {
 
     fn do_edit(&mut self, edit: MovieEdit) {
         self.editing_clip = self.history.edit(&mut self.movie, edit);
+        if self.selection.len() == 1 {
+            self.placed_symbol_before_edit =
+                Some(self.movie.get_placed_symbols(self.editing_clip)[self.selection[0]].clone());
+        }
     }
 
     fn do_undo(&mut self) {
@@ -733,18 +740,51 @@ impl Editor {
             .get_placed_symbols_mut(self.editing_clip)
             .get_mut(placed_symbol_index)
             .unwrap();
+
+        let mut edit: Option<MovieEdit> = None;
         egui::Grid::new(format!(
             "placed_symbol_{placed_symbol_index}_properties_grid"
         ))
         .show(ui, |ui| {
+            let mut position_edited = false;
             ui.label("x");
-            ui.add(egui::DragValue::new(&mut placed_symbol.x));
+            let response = ui.add(egui::DragValue::new(&mut placed_symbol.x));
+            if response.lost_focus() || response.drag_released() {
+                position_edited = true;
+            }
             ui.end_row();
 
             ui.label("y");
-            ui.add(egui::DragValue::new(&mut placed_symbol.y));
+            let response = ui.add(egui::DragValue::new(&mut placed_symbol.y));
+            if response.lost_focus() || response.drag_released() {
+                position_edited = true;
+            }
             ui.end_row();
+
+            if position_edited {
+                let Some(placed_symbol_before_edit) = self.placed_symbol_before_edit.as_ref()
+                else {
+                    panic!("placed_symbol_before_edit is None");
+                };
+                // only add edit when the position actually changed
+                if placed_symbol_before_edit.x != placed_symbol.x
+                    || placed_symbol_before_edit.y != placed_symbol.y
+                {
+                    edit = Some(MovieEdit::MovePlacedSymbol(MovePlacedSymbolEdit {
+                        editing_symbol_index: self.editing_clip,
+                        placed_symbol_index,
+                        start_x: placed_symbol_before_edit.x,
+                        start_y: placed_symbol_before_edit.y,
+                        end_x: placed_symbol.x,
+                        end_y: placed_symbol.y,
+                    }));
+                }
+            }
         });
+
+        if let Some(edit) = edit {
+            self.do_edit(edit);
+        }
     }
 
     pub fn renderer_mut(&mut self) -> &mut Renderer {
