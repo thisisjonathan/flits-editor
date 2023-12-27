@@ -3236,6 +3236,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "tracing-tracy",
+ "undo",
  "unic-langid",
  "url",
  "vergen",
@@ -3590,6 +3591,15 @@ name = "typed-arena"
 version = "2.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6af6ae20167a9ece4bcb41af5b80f8a1f1df981f6391189ce00fd257af04126a"
+
+[[package]]
+name = "undo"
+version = "0.51.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cd8be0a8a8e33d55025c36fc461beafffcaebe2ef104eca0287334310cb685b6"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "unic-langid"

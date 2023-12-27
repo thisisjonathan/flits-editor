@@ -1,8 +1,10 @@
 use std::path::PathBuf;
 
-use crate::core::{Movie, PlaceSymbol, Symbol, MovieClip};
+use crate::core::{
+    Movie, MovieClip, PlaceSymbol, PlacedSymbolIndex, Symbol, SymbolIndex, SymbolIndexOrRoot,
+};
 use crate::desktop::custom_event::RuffleEvent;
-use egui::{Widget, Vec2};
+use egui::{Vec2, Widget};
 use ruffle_render::{
     backend::{RenderBackend, ViewportDimensions},
     bitmap::{Bitmap, BitmapFormat, PixelSnapping},
@@ -12,6 +14,7 @@ use ruffle_render::{
 };
 use swf::{Color, ColorTransform, Twips};
 use tracing::instrument;
+use undo::{Edit, Record};
 use winit::{
     event::{ElementState, MouseButton},
     event_loop::EventLoopProxy,
@@ -27,7 +30,7 @@ struct DragData {
     symbol_start_y: f64,
     start_x: f64,
     start_y: f64,
-    place_symbol_index: usize,
+    place_symbol_index: SymbolIndex,
 }
 
 pub struct Editor {
@@ -35,12 +38,14 @@ pub struct Editor {
     project_file_path: PathBuf,
     directory: PathBuf,
     renderer: Renderer,
-    
-    editing_clip: Option<usize>,
 
-    selection: Vec<usize>,
+    history: Record<MovieEdit>,
+
+    editing_clip: SymbolIndexOrRoot,
+
+    selection: Vec<SymbolIndex>,
     drag_data: Option<DragData>,
-    
+
     new_symbol_window: Option<NewSymbolWindow>,
 }
 
@@ -55,72 +60,101 @@ struct MenuItem<'a> {
     action: fn(player: &mut Editor, event_loop: &EventLoopProxy<RuffleEvent>),
 }
 
-const MENUS: &[Menu] = &[Menu {
-    name: "File",
-    items: &[MenuItem {
-        name: "Open...",
-        keyboard_shortcut: Some(egui::KeyboardShortcut::new(
-            egui::Modifiers::COMMAND,
-            egui::Key::O,
-        )),
-        action: open_project,
-    },MenuItem {
-        name: "Save",
-        keyboard_shortcut: Some(egui::KeyboardShortcut::new(
-            egui::Modifiers::COMMAND,
-            egui::Key::S,
-        )),
-        action: save_project,
-    },MenuItem {
-        name: "Export",
-        keyboard_shortcut: Some(egui::KeyboardShortcut::new(
-            egui::Modifiers::COMMAND,
-            egui::Key::E,
-        )),
-        action: export_swf,
-    },MenuItem {
-        name: "Close",
-        keyboard_shortcut: Some(egui::KeyboardShortcut::new(
-            egui::Modifiers::COMMAND,
-            egui::Key::W,
-        )),
-        action: close_project,
-    },MenuItem {
-        name: "Exit",
-        keyboard_shortcut: Some(egui::KeyboardShortcut::new(
-            egui::Modifiers::COMMAND,
-            egui::Key::Q,
-        )),
-        action: request_exit,
-    }],
-},Menu {
-    name: "Edit",
-    items: &[MenuItem {
-        name: "Delete",
-        keyboard_shortcut: Some(egui::KeyboardShortcut::new(
-            egui::Modifiers::NONE,
-            egui::Key::Delete,
-        )),
-        action: delete_selection
-    }]
-},Menu {
-    name: "Control",
-    items: &[MenuItem {
-        name: "Test Movie",
-        keyboard_shortcut: Some(egui::KeyboardShortcut::new(
-            egui::Modifiers::CTRL,
-            egui::Key::Enter,
-        )),
-        action: run_project
-    }]
-},Menu {
-    name: "Help",
-    items: &[MenuItem {
-        name: "About...",
-        keyboard_shortcut: None,
-        action: show_about_screen
-    }]
-}];
+const MENUS: &[Menu] = &[
+    Menu {
+        name: "File",
+        items: &[
+            MenuItem {
+                name: "Open...",
+                keyboard_shortcut: Some(egui::KeyboardShortcut::new(
+                    egui::Modifiers::COMMAND,
+                    egui::Key::O,
+                )),
+                action: open_project,
+            },
+            MenuItem {
+                name: "Save",
+                keyboard_shortcut: Some(egui::KeyboardShortcut::new(
+                    egui::Modifiers::COMMAND,
+                    egui::Key::S,
+                )),
+                action: save_project,
+            },
+            MenuItem {
+                name: "Export",
+                keyboard_shortcut: Some(egui::KeyboardShortcut::new(
+                    egui::Modifiers::COMMAND,
+                    egui::Key::E,
+                )),
+                action: export_swf,
+            },
+            MenuItem {
+                name: "Close",
+                keyboard_shortcut: Some(egui::KeyboardShortcut::new(
+                    egui::Modifiers::COMMAND,
+                    egui::Key::W,
+                )),
+                action: close_project,
+            },
+            MenuItem {
+                name: "Exit",
+                keyboard_shortcut: Some(egui::KeyboardShortcut::new(
+                    egui::Modifiers::COMMAND,
+                    egui::Key::Q,
+                )),
+                action: request_exit,
+            },
+        ],
+    },
+    Menu {
+        name: "Edit",
+        items: &[
+            MenuItem {
+                name: "Undo",
+                keyboard_shortcut: Some(egui::KeyboardShortcut::new(
+                    egui::Modifiers::CTRL,
+                    egui::Key::Z,
+                )),
+                action: undo,
+            },
+            MenuItem {
+                name: "Redo",
+                keyboard_shortcut: Some(egui::KeyboardShortcut::new(
+                    egui::Modifiers::CTRL,
+                    egui::Key::R,
+                )),
+                action: redo,
+            },
+            MenuItem {
+                name: "Delete",
+                keyboard_shortcut: Some(egui::KeyboardShortcut::new(
+                    egui::Modifiers::NONE,
+                    egui::Key::Delete,
+                )),
+                action: delete_selection,
+            },
+        ],
+    },
+    Menu {
+        name: "Control",
+        items: &[MenuItem {
+            name: "Test Movie",
+            keyboard_shortcut: Some(egui::KeyboardShortcut::new(
+                egui::Modifiers::CTRL,
+                egui::Key::Enter,
+            )),
+            action: run_project,
+        }],
+    },
+    Menu {
+        name: "Help",
+        items: &[MenuItem {
+            name: "About...",
+            keyboard_shortcut: None,
+            action: show_about_screen,
+        }],
+    },
+];
 
 fn open_project(_player: &mut Editor, event_loop: &EventLoopProxy<RuffleEvent>) {
     let _ = event_loop.send_event(RuffleEvent::OpenFile);
@@ -133,7 +167,7 @@ fn save_project(player: &mut Editor, _event_loop: &EventLoopProxy<RuffleEvent>) 
 fn export_swf(player: &mut Editor, _event_loop: &EventLoopProxy<RuffleEvent>) {
     player.export_swf();
 }
-    
+
 fn close_project(_player: &mut Editor, event_loop: &EventLoopProxy<RuffleEvent>) {
     let _ = event_loop.send_event(RuffleEvent::CloseFile);
 }
@@ -151,8 +185,112 @@ fn show_about_screen(_player: &mut Editor, event_loop: &EventLoopProxy<RuffleEve
     let _ = event_loop.send_event(RuffleEvent::About);
 }
 
+fn undo(player: &mut Editor, _event_loop: &EventLoopProxy<RuffleEvent>) {
+    player.do_undo();
+}
+fn redo(player: &mut Editor, _event_loop: &EventLoopProxy<RuffleEvent>) {
+    player.do_redo();
+}
+
 fn delete_selection(player: &mut Editor, _event_loop: &EventLoopProxy<RuffleEvent>) {
     player.delete_selection();
+}
+
+enum MovieEdit {
+    MovePlacedSymbol(MovePlacedSymbolEdit),
+    AddPlacedSymbol(AddPlacedSymbolEdit),
+    RemovePlacedSymbol(RemovePlacedSymbolEdit),
+}
+impl Edit for MovieEdit {
+    type Target = Movie;
+    type Output = SymbolIndexOrRoot; // the symbol that has changed so the editor can show it
+
+    fn edit(&mut self, target: &mut Movie) -> SymbolIndexOrRoot {
+        match self {
+            MovieEdit::MovePlacedSymbol(edit) => edit.edit(target),
+            MovieEdit::AddPlacedSymbol(edit) => edit.edit(target),
+            MovieEdit::RemovePlacedSymbol(edit) => edit.edit(target),
+        }
+    }
+
+    fn undo(&mut self, target: &mut Movie) -> SymbolIndexOrRoot {
+        match self {
+            MovieEdit::MovePlacedSymbol(edit) => edit.undo(target),
+            MovieEdit::AddPlacedSymbol(edit) => edit.undo(target),
+            MovieEdit::RemovePlacedSymbol(edit) => edit.undo(target),
+        }
+    }
+}
+struct MovePlacedSymbolEdit {
+    editing_symbol_index: SymbolIndexOrRoot,
+    placed_symbol_index: PlacedSymbolIndex,
+
+    start_x: f64,
+    start_y: f64,
+    end_x: f64,
+    end_y: f64,
+}
+impl MovePlacedSymbolEdit {
+    fn edit(&mut self, target: &mut Movie) -> SymbolIndexOrRoot {
+        let placed_symbols = target.get_placed_symbols_mut(self.editing_symbol_index);
+        let symbol = &mut placed_symbols[self.placed_symbol_index];
+        symbol.x = self.end_x;
+        symbol.y = self.end_y;
+        self.editing_symbol_index
+    }
+
+    fn undo(&mut self, target: &mut Movie) -> SymbolIndexOrRoot {
+        let placed_symbols = target.get_placed_symbols_mut(self.editing_symbol_index);
+        let symbol = &mut placed_symbols[self.placed_symbol_index];
+        symbol.x = self.start_x;
+        symbol.y = self.start_y;
+        self.editing_symbol_index
+    }
+}
+struct AddPlacedSymbolEdit {
+    editing_symbol_index: SymbolIndexOrRoot,
+    placed_symbol: PlaceSymbol,
+    placed_symbol_index: Option<PlacedSymbolIndex>, // for removing when undoing
+}
+impl AddPlacedSymbolEdit {
+    fn edit(&mut self, target: &mut Movie) -> SymbolIndexOrRoot {
+        target
+            .get_placed_symbols_mut(self.editing_symbol_index)
+            .push(self.placed_symbol.clone());
+        self.placed_symbol_index =
+            Some(target.get_placed_symbols(self.editing_symbol_index).len() - 1);
+        self.editing_symbol_index
+    }
+
+    fn undo(&mut self, target: &mut Movie) -> SymbolIndexOrRoot {
+        let Some(placed_symbol_index) = self.placed_symbol_index else {
+            panic!("Undoing AddPlacedSymbolEdit without placed_symbol_index");
+        };
+        target
+            .get_placed_symbols_mut(self.editing_symbol_index)
+            .remove(placed_symbol_index);
+        self.editing_symbol_index
+    }
+}
+struct RemovePlacedSymbolEdit {
+    editing_symbol_index: SymbolIndexOrRoot,
+    placed_symbol_index: PlacedSymbolIndex,
+    placed_symbol: PlaceSymbol, // for adding when undoing
+}
+impl RemovePlacedSymbolEdit {
+    fn edit(&mut self, target: &mut Movie) -> SymbolIndexOrRoot {
+        target
+            .get_placed_symbols_mut(self.editing_symbol_index)
+            .remove(self.placed_symbol_index);
+        self.editing_symbol_index
+    }
+
+    fn undo(&mut self, target: &mut Movie) -> SymbolIndexOrRoot {
+        target
+            .get_placed_symbols_mut(self.editing_symbol_index)
+            .insert(self.placed_symbol_index, self.placed_symbol.clone());
+        self.editing_symbol_index
+    }
 }
 
 impl Editor {
@@ -163,12 +301,14 @@ impl Editor {
             project_file_path: path.clone(),
             directory: PathBuf::from(path.parent().unwrap()),
             renderer,
-            
+
+            history: Record::new(),
+
             editing_clip: None,
 
             selection: vec![],
             drag_data: None,
-            
+
             new_symbol_window: None,
         }
     }
@@ -187,7 +327,7 @@ impl Editor {
                 Twips::from_pixels(0.0),
             ),
         });
-        
+
         let symbols = &mut self.movie.symbols;
         let renderer = &mut self.renderer;
 
@@ -229,15 +369,16 @@ impl Editor {
     fn render_placed_symbols(
         renderer: &mut Box<dyn RenderBackend>,
         movie: &Movie,
-        symbol_index: Option<usize>,
+        symbol_index: SymbolIndexOrRoot,
         transform: Transform,
     ) -> Vec<Command> {
         let mut commands = vec![];
         let placed_symbols = movie.get_placed_symbols(symbol_index);
         for i in 0..placed_symbols.len() {
             let place_symbol = placed_symbols.get(i).unwrap();
-            let symbol = movie.symbols
-                .get(place_symbol.symbol_id as usize)
+            let symbol = movie
+                .symbols
+                .get(place_symbol.symbol_index as usize)
                 .expect("Invalid symbol placed");
             match symbol {
                 Symbol::Bitmap(bitmap) => {
@@ -260,7 +401,7 @@ impl Editor {
                     commands.extend(Editor::render_placed_symbols(
                         renderer,
                         movie,
-                        Some(place_symbol.symbol_id as usize),
+                        Some(place_symbol.symbol_index as usize),
                         Transform {
                             matrix: transform.matrix
                                 * Matrix::translate(
@@ -296,7 +437,8 @@ impl Editor {
     ) {
         if button == MouseButton::Left && state == ElementState::Pressed {
             self.selection = vec![];
-            let symbol_index = self.get_placed_symbol_at_position(mouse_x, mouse_y, self.editing_clip);
+            let symbol_index =
+                self.get_placed_symbol_at_position(mouse_x, mouse_y, self.editing_clip);
             if let Some(symbol_index) = symbol_index {
                 let place_symbol = &self.movie.get_placed_symbols(self.editing_clip)[symbol_index];
                 self.drag_data = Some(DragData {
@@ -311,17 +453,48 @@ impl Editor {
         }
         if button == MouseButton::Left && state == ElementState::Released {
             if let Some(drag_data) = &self.drag_data {
-                let place_symbol = self.movie.get_placed_symbols_mut(self.editing_clip)
-                    .get_mut(drag_data.place_symbol_index)
-                    .unwrap();
-                place_symbol.x = drag_data.symbol_start_x + mouse_x - drag_data.start_x;
-                place_symbol.y = drag_data.symbol_start_y + mouse_y - drag_data.start_y;
+                let end_x = drag_data.symbol_start_x + mouse_x - drag_data.start_x;
+                let end_y = drag_data.symbol_start_y + mouse_y - drag_data.start_y;
+                // only insert an edit if you actually moved the placed symbol
+                if drag_data.symbol_start_x != end_x || drag_data.symbol_start_y != end_y {
+                    self.do_edit(MovieEdit::MovePlacedSymbol(MovePlacedSymbolEdit {
+                        editing_symbol_index: self.editing_clip,
+                        placed_symbol_index: drag_data.place_symbol_index,
+                        start_x: drag_data.symbol_start_x,
+                        start_y: drag_data.symbol_start_y,
+                        end_x,
+                        end_y,
+                    }));
+                }
                 self.drag_data = None;
             }
         }
     }
-    
-    fn get_placed_symbol_at_position(&self, x: f64, y: f64, symbol_index: Option<usize>) -> Option<usize> {
+
+    fn do_edit(&mut self, edit: MovieEdit) {
+        self.editing_clip = self.history.edit(&mut self.movie, edit);
+    }
+
+    fn do_undo(&mut self) {
+        let result = self.history.undo(&mut self.movie);
+        if let Some(editing_clip) = result {
+            self.editing_clip = editing_clip;
+        }
+    }
+
+    fn do_redo(&mut self) {
+        let result = self.history.redo(&mut self.movie);
+        if let Some(editing_clip) = result {
+            self.editing_clip = editing_clip;
+        }
+    }
+
+    fn get_placed_symbol_at_position(
+        &self,
+        x: f64,
+        y: f64,
+        symbol_index: SymbolIndexOrRoot,
+    ) -> SymbolIndexOrRoot {
         let placed_symbols = self.movie.get_placed_symbols(symbol_index);
         // iterate from top to bottom to get the item that's on top
         for i in (0..placed_symbols.len()).rev() {
@@ -329,7 +502,7 @@ impl Editor {
             let symbol = self
                 .movie
                 .symbols
-                .get(place_symbol.symbol_id as usize)
+                .get(place_symbol.symbol_index as usize)
                 .expect("Invalid symbol placed");
             match symbol {
                 Symbol::Bitmap(bitmap) => {
@@ -347,12 +520,13 @@ impl Editor {
                 }
                 Symbol::MovieClip(_) => {
                     if let Some(_) = self.get_placed_symbol_at_position(
-                        x-place_symbol.x,
-                        y-place_symbol.y,
-                        Some(place_symbol.symbol_id as usize)) {
+                        x - place_symbol.x,
+                        y - place_symbol.y,
+                        Some(place_symbol.symbol_index as usize),
+                    ) {
                         return Some(i);
                     }
-                },
+                }
             }
         }
         None
@@ -374,6 +548,7 @@ impl Editor {
                         {
                             (item.action)(self, event_loop);
                             ui.close_menu();
+                            has_mutated = true;
                         }
                     }
                 }
@@ -384,8 +559,8 @@ impl Editor {
                         for item in menu.items {
                             let mut button = egui::Button::new(item.name);
                             if let Some(keyboard_shortcut) = item.keyboard_shortcut {
-                                button =
-                                    button.shortcut_text(ui.ctx().format_shortcut(&keyboard_shortcut));
+                                button = button
+                                    .shortcut_text(ui.ctx().format_shortcut(&keyboard_shortcut));
                             }
                             if button.ui(ui).clicked() {
                                 (item.action)(self, event_loop);
@@ -404,28 +579,39 @@ impl Editor {
                 if ui.button("Add MovieClip...").clicked() {
                     self.new_symbol_window = Some(NewSymbolWindow::default());
                 }
-                egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
-                    for i in 0..self.movie.symbols.len() {
-                        let symbol = self.movie.symbols.get(i).unwrap();
-                        let checked = if let Some(editing_clip) = self.editing_clip {editing_clip == i} else {false};
-                        let response = ui.selectable_label(checked, symbol.name());
-                        let response = response.interact(egui::Sense::drag());
-                        
-                        if response.clicked() {
-                            self.change_editing_clip(Some(i));
-                            has_mutated = true;
-                        } else if response.drag_released() {  // TODO: handle drag that doesn't end on stage
-                            let mouse_pos = response.interact_pointer_pos().unwrap();
-                            // TODO: don't hardcode the menu height
-                            self.movie.get_placed_symbols_mut(self.editing_clip).push(PlaceSymbol {
-                                symbol_id: i as u16,
-                                x: mouse_pos.x as f64,
-                                y: mouse_pos.y as f64 - MENU_HEIGHT as f64,
-                            });
-                            has_mutated = true; 
+                egui::ScrollArea::vertical()
+                    .auto_shrink([false, false])
+                    .show(ui, |ui| {
+                        for i in 0..self.movie.symbols.len() {
+                            let symbol = self.movie.symbols.get(i).unwrap();
+                            let checked = if let Some(editing_clip) = self.editing_clip {
+                                editing_clip == i
+                            } else {
+                                false
+                            };
+                            let response = ui.selectable_label(checked, symbol.name());
+                            let response = response.interact(egui::Sense::drag());
+
+                            if response.clicked() {
+                                self.change_editing_clip(Some(i));
+                                has_mutated = true;
+                            } else if response.drag_released() {
+                                // TODO: handle drag that doesn't end on stage
+                                let mouse_pos = response.interact_pointer_pos().unwrap();
+                                self.do_edit(MovieEdit::AddPlacedSymbol(AddPlacedSymbolEdit {
+                                    editing_symbol_index: self.editing_clip,
+                                    placed_symbol: PlaceSymbol {
+                                        symbol_index: i,
+                                        x: mouse_pos.x as f64,
+                                        // TODO: don't hardcode the menu height
+                                        y: mouse_pos.y as f64 - MENU_HEIGHT as f64,
+                                    },
+                                    placed_symbol_index: None,
+                                }));
+                                has_mutated = true;
+                            }
                         }
-                    }
-                });
+                    });
             });
         egui::TopBottomPanel::top("breadcrumb_bar").show(egui_ctx, |ui| {
             ui.horizontal(|ui| {
@@ -440,14 +626,13 @@ impl Editor {
                 }
             });
         });
-        
 
         egui::TopBottomPanel::bottom("properties").show(egui_ctx, |ui| {
             if self.selection.len() == 0 {
                 if let Some(symbol_index) = self.editing_clip {
                     self.show_symbol_properties(ui, symbol_index);
                 } else {
-                    self.show_movie_properties(ui);   
+                    self.show_movie_properties(ui);
                 }
             } else if self.selection.len() == 1 {
                 self.show_placed_symbol_properties(ui, *self.selection.get(0).unwrap());
@@ -455,7 +640,7 @@ impl Editor {
                 ui.label("Multiple items selected");
             }
         });
-        
+
         if let Some(new_symbol_window) = &mut self.new_symbol_window {
             if let Some(symbol) = new_symbol_window.do_ui(egui_ctx) {
                 self.movie.symbols.push(symbol);
@@ -465,13 +650,13 @@ impl Editor {
 
         has_mutated
     }
-    
-    fn change_editing_clip(&mut self, symbol_index: Option<usize>) {
+
+    fn change_editing_clip(&mut self, symbol_index: SymbolIndexOrRoot) {
         if let Some(symbol_index) = symbol_index {
             let Symbol::MovieClip(_) = self.movie.symbols[symbol_index] else {
                 // only select movieclips
                 return;
-            };   
+            };
         }
         self.selection = vec![];
         self.editing_clip = symbol_index;
@@ -483,7 +668,13 @@ impl Editor {
         self.selection.sort();
         for i in (0..self.selection.len()).rev() {
             let placed_symbol_index = *self.selection.get(i).unwrap();
-            self.movie.get_placed_symbols_mut(self.editing_clip).remove(placed_symbol_index);
+            self.do_edit(MovieEdit::RemovePlacedSymbol(RemovePlacedSymbolEdit {
+                editing_symbol_index: self.editing_clip,
+                placed_symbol_index,
+                placed_symbol: self.movie.get_placed_symbols(self.editing_clip)
+                    [placed_symbol_index]
+                    .clone(),
+            }));
         }
         self.selection = vec![];
     }
@@ -500,31 +691,48 @@ impl Editor {
             ui.end_row();
         });
     }
-    
-    fn show_symbol_properties(&mut self, ui: &mut egui::Ui, symbol_index: usize) {
+
+    fn show_symbol_properties(&mut self, ui: &mut egui::Ui, symbol_index: SymbolIndex) {
         let symbol = &mut self.movie.symbols[symbol_index];
         match symbol {
             Symbol::Bitmap(_) => {
                 ui.heading("Bitmap properties");
-            },
+            }
             Symbol::MovieClip(movieclip) => {
                 ui.heading("Movieclip properties");
-                egui::Grid::new(format!("movieclip_{symbol_index}_properties_grid")).show(ui, |ui| {
-                    ui.label("Name:");
-                    ui.add(egui::TextEdit::singleline(&mut movieclip.name).min_size(Vec2::new(200.0, 0.0)));
-                    ui.end_row();
-        
-                    ui.label("Class:");
-                    ui.add(egui::TextEdit::singleline(&mut movieclip.class_name).min_size(Vec2::new(200.0, 0.0)));
-                    ui.end_row();
-                });
-            },
+                egui::Grid::new(format!("movieclip_{symbol_index}_properties_grid")).show(
+                    ui,
+                    |ui| {
+                        ui.label("Name:");
+                        ui.add(
+                            egui::TextEdit::singleline(&mut movieclip.name)
+                                .min_size(Vec2::new(200.0, 0.0)),
+                        );
+                        ui.end_row();
+
+                        ui.label("Class:");
+                        ui.add(
+                            egui::TextEdit::singleline(&mut movieclip.class_name)
+                                .min_size(Vec2::new(200.0, 0.0)),
+                        );
+                        ui.end_row();
+                    },
+                );
+            }
         }
     }
 
-    fn show_placed_symbol_properties(&mut self, ui: &mut egui::Ui, placed_symbol_index: usize) {
+    fn show_placed_symbol_properties(
+        &mut self,
+        ui: &mut egui::Ui,
+        placed_symbol_index: PlacedSymbolIndex,
+    ) {
         ui.heading("Placed symbol properties");
-        let placed_symbol = self.movie.get_placed_symbols_mut(self.editing_clip).get_mut(placed_symbol_index).unwrap();
+        let placed_symbol = self
+            .movie
+            .get_placed_symbols_mut(self.editing_clip)
+            .get_mut(placed_symbol_index)
+            .unwrap();
         egui::Grid::new(format!(
             "placed_symbol_{placed_symbol_index}_properties_grid"
         ))
@@ -559,28 +767,32 @@ struct NewSymbolWindow {
     name: String,
 }
 impl NewSymbolWindow {
-    pub fn do_ui(
-        &mut self,
-        egui_ctx: &egui::Context,
-    ) -> Option<Symbol> {
+    pub fn do_ui(&mut self, egui_ctx: &egui::Context) -> Option<Symbol> {
         let mut result = None;
         // title says new movieclip because there are no other options yet
-        egui::Window::new("New movieclip").resizable(false).show(egui_ctx, |ui| {
-            egui::Grid::new("symbol_properties_grid").show(ui, |ui| {                        
-                        ui.label("Name:");
-                        ui.add(egui::TextEdit::singleline(&mut self.name).min_size(Vec2::new(200.0, 0.0)));
-                        ui.end_row();
+        egui::Window::new("New movieclip")
+            .resizable(false)
+            .show(egui_ctx, |ui| {
+                egui::Grid::new("symbol_properties_grid").show(ui, |ui| {
+                    ui.label("Name:");
+                    ui.add(
+                        egui::TextEdit::singleline(&mut self.name).min_size(Vec2::new(200.0, 0.0)),
+                    );
+                    ui.end_row();
 
-                        if ui.add_enabled(!self.name.is_empty(), egui::Button::new("Create")).clicked() {
-                            result = Some(Symbol::MovieClip(MovieClip {
-                                name: self.name.clone(),
-                                class_name: "".to_string(),
-                                place_symbols: vec![],
-                            }));
-                        }
-                        ui.end_row();
-                    });
-        });
+                    if ui
+                        .add_enabled(!self.name.is_empty(), egui::Button::new("Create"))
+                        .clicked()
+                    {
+                        result = Some(Symbol::MovieClip(MovieClip {
+                            name: self.name.clone(),
+                            class_name: "".to_string(),
+                            place_symbols: vec![],
+                        }));
+                    }
+                    ui.end_row();
+                });
+            });
         result
     }
-}   
+}

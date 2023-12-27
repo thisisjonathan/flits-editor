@@ -5,6 +5,10 @@ use swf::{*, avm1::types::{Action, ConstantPool, Push}};
 use serde::{Deserialize, Serialize};
 use image::{io::Reader as ImageReader, EncodableLayout, DynamicImage};
 
+pub type SymbolIndex = usize;
+pub type SymbolIndexOrRoot = Option<SymbolIndex>;
+pub type PlacedSymbolIndex = usize;
+
 #[derive(Serialize, Deserialize)]
 pub struct Movie {
     pub swf_version: u8,
@@ -96,7 +100,7 @@ impl Movie {
         std::process::Command::new(ruffle_path).arg(swf_path).spawn().unwrap();
     }
     
-    pub fn get_placed_symbols(&self, symbol_index: Option<usize>) -> &Vec<PlaceSymbol> {
+    pub fn get_placed_symbols(&self, symbol_index: SymbolIndexOrRoot) -> &Vec<PlaceSymbol> {
         if let Some(symbol_index) = symbol_index{
             if let Symbol::MovieClip(movieclip) = &self.symbols[symbol_index] {
                 &movieclip.place_symbols
@@ -108,7 +112,7 @@ impl Movie {
         }
     }
     
-    pub fn get_placed_symbols_mut(&mut self, symbol_index: Option<usize>) -> &mut Vec<PlaceSymbol> {
+    pub fn get_placed_symbols_mut(&mut self, symbol_index: SymbolIndexOrRoot) -> &mut Vec<PlaceSymbol> {
         if let Some(symbol_index) = symbol_index{
             if let Symbol::MovieClip(movieclip) = &mut self.symbols[symbol_index] {
               &mut movieclip.place_symbols
@@ -154,9 +158,9 @@ pub struct MovieClip {
     pub place_symbols: Vec<PlaceSymbol>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct PlaceSymbol {
-    pub symbol_id: u16,
+    pub symbol_index: SymbolIndex,
     pub x: f64,
     pub y: f64,
 }
@@ -185,7 +189,7 @@ fn movie_to_swf<'a>(movie: &Movie, project_directory: PathBuf, swf_path: PathBuf
     let mut swf_builder = SwfBuilder {
         tags: vec![],
         character_id_counter: 1,
-        symbol_id_to_character_id: HashMap::new()
+        symbol_index_to_character_id: HashMap::new()
     };
     build_library(
         &movie.symbols,
@@ -242,23 +246,23 @@ fn movie_to_swf<'a>(movie: &Movie, project_directory: PathBuf, swf_path: PathBuf
     let writer = std::io::BufWriter::new(file);
     swf::write_swf(&header, &tags, writer).unwrap();
     
-    compile_as2(&movie, &swf_builder.symbol_id_to_character_id, project_directory, swf_path);
+    compile_as2(&movie, &swf_builder.symbol_index_to_character_id, project_directory, swf_path);
 }
 
 fn build_library<'a>(symbols: &Vec<Symbol>, swf_builder: &mut SwfBuilder, directory: PathBuf) {
-    let mut symbol_id = 0;
+    let mut symbol_index: SymbolIndex = 0;
     for symbol in symbols {
         match symbol {
-            Symbol::Bitmap(bitmap) => build_bitmap(symbol_id, bitmap, swf_builder, directory.clone()),
-            Symbol::MovieClip(movieclip) => build_movieclip(symbol_id, movieclip, swf_builder)
+            Symbol::Bitmap(bitmap) => build_bitmap(symbol_index, bitmap, swf_builder, directory.clone()),
+            Symbol::MovieClip(movieclip) => build_movieclip(symbol_index, movieclip, swf_builder)
         }
-        symbol_id += 1;
+        symbol_index += 1;
     }
 }
 
-fn build_movieclip(symbol_id: u16, movieclip: &MovieClip, swf_builder: &mut SwfBuilder) {
+fn build_movieclip(symbol_index: SymbolIndex, movieclip: &MovieClip, swf_builder: &mut SwfBuilder) {
     let character_id = swf_builder.next_character_id();
-    swf_builder.symbol_id_to_character_id.insert(symbol_id, character_id);
+    swf_builder.symbol_index_to_character_id.insert(symbol_index, character_id);
     swf_builder.tags.push(SwfBuilderTag::Tag(Tag::DefineSprite(Sprite {
         id: character_id,
         num_frames: 1,
@@ -266,14 +270,14 @@ fn build_movieclip(symbol_id: u16, movieclip: &MovieClip, swf_builder: &mut SwfB
     })));
     if movieclip.class_name.len() > 0 {
         // the movieclip needs to be exported to be able to add a tag to it
-        swf_builder.tags.push(SwfBuilderTag::ExportAssets(SwfBuilderExportedAsset { character_id: character_id, name: movieclip.name.clone()}));
+        swf_builder.tags.push(SwfBuilderTag::ExportAssets(SwfBuilderExportedAsset { character_id, name: movieclip.name.clone()}));
     }
 }
 
 struct SwfBuilder<'a> {
     tags: Vec<SwfBuilderTag<'a>>,
     character_id_counter: CharacterId,
-    symbol_id_to_character_id: HashMap<u16, CharacterId>
+    symbol_index_to_character_id: HashMap<SymbolIndex, CharacterId>
 }
 
 impl<'a> SwfBuilder<'a> {
@@ -303,7 +307,7 @@ struct SwfBuilderExportedAsset {
     name: String,
 }
 
-fn build_bitmap<'a>(symbol_id: u16, bitmap: &Bitmap, swf_builder: &mut SwfBuilder, directory: PathBuf) {
+fn build_bitmap<'a>(symbol_index: SymbolIndex, bitmap: &Bitmap, swf_builder: &mut SwfBuilder, directory: PathBuf) {
     // TODO: the images are probably already loaded when exporting a movie you are editing, maybe reuse that?
     let img = ImageReader::open(directory.join(bitmap.path.clone())).expect("Unable to read image").decode().expect("Unable to decode image");    
     let image_width = img.width();
@@ -331,7 +335,7 @@ fn build_bitmap<'a>(symbol_id: u16, bitmap: &Bitmap, swf_builder: &mut SwfBuilde
     
     let bitmap_id = swf_builder.next_character_id();
     let shape_id = swf_builder.next_character_id();
-    swf_builder.symbol_id_to_character_id.insert(symbol_id, shape_id);
+    swf_builder.symbol_index_to_character_id.insert(symbol_index, shape_id);
     swf_builder.tags.extend(vec![
             SwfBuilderTag::Bitmap(SwfBuilderBitmap {
                 character_id: bitmap_id,
@@ -401,8 +405,8 @@ fn get_placed_symbols_tags<'a>(placed_symbols: &Vec<PlaceSymbol>, swf_builder: &
         tags.push(Tag::PlaceObject(Box::new(PlaceObject {
                 version: 2,
                 action: PlaceObjectAction::Place(
-                    *swf_builder.symbol_id_to_character_id.get(&place_symbol.symbol_id).unwrap_or_else(||
-                        panic!("No character id for symbol id {}", place_symbol.symbol_id)
+                    *swf_builder.symbol_index_to_character_id.get(&place_symbol.symbol_index).unwrap_or_else(||
+                        panic!("No character id for symbol id {}", place_symbol.symbol_index)
                     )
                 ),
                 depth: (i as u16)+1,
@@ -428,7 +432,7 @@ fn get_placed_symbols_tags<'a>(placed_symbols: &Vec<PlaceSymbol>, swf_builder: &
     tags
 }
 
-fn compile_as2(movie: &Movie, symbol_id_to_character_id: &HashMap<u16, CharacterId>, project_directory: PathBuf, swf_path: PathBuf) {
+fn compile_as2(movie: &Movie, symbol_index_to_character_id: &HashMap<SymbolIndex, CharacterId>, project_directory: PathBuf, swf_path: PathBuf) {
     let dependencies_dir = std::env::current_exe().unwrap().parent().unwrap().join("dependencies");
     // No need to add .exe on windows, Command does that automatically
     let mtasc_path = dependencies_dir.join("mtasc");
@@ -462,7 +466,7 @@ fn compile_as2(movie: &Movie, symbol_id_to_character_id: &HashMap<u16, Character
         let mut swf = swf::parse_swf(&swf_buf).unwrap();
         
         // add actions to call Object.registerClass for each movieclip with a class
-        let mut symbol_id = 0;
+        let mut symbol_index = 0;
         let mut action_datas = vec![];
         for symbol in &movie.symbols {
             if let Symbol::MovieClip(movieclip) = symbol {
@@ -505,20 +509,20 @@ fn compile_as2(movie: &Movie, symbol_id_to_character_id: &HashMap<u16, Character
                     action_datas.push(action_data);
                 }
             }
-            symbol_id += 1;
+            symbol_index += 1;
         }
-        symbol_id = 0;
+        symbol_index = 0;
         let mut action_nr = 0;
         for symbol in &movie.symbols {
             if let Symbol::MovieClip(movieclip) = symbol {
                 if movieclip.class_name.len() > 0 {
-                    let character_id = *symbol_id_to_character_id.get(&symbol_id).unwrap();
+                    let character_id = *symbol_index_to_character_id.get(&symbol_index).unwrap();
                     // -1 because of ShowFrame
                     swf.tags.insert(swf.tags.len()-1, Tag::DoInitAction { id: character_id, action_data: &action_datas[action_nr]});
                     action_nr += 1;
                 }
             }
-            symbol_id += 1;
+            symbol_index += 1;
         }
         
         let mut tags_to_place_at_end = vec![];

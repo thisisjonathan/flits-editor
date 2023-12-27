@@ -13,6 +13,9 @@ serde_json = "1.0"
 swf = { git = "https://github.com/ruffle-rs/ruffle" }
 image = "0.24.6"
 
+# editor dependencies
+undo = "0.51.0"
+
 # gui dependencies
 clap = { version = "4.3.0", features = ["derive"] }
 egui = "0.22.0"
