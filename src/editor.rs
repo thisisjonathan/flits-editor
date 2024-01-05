@@ -27,6 +27,7 @@ mod menu;
 
 // also defined in desktop/gui.rs
 pub const MENU_HEIGHT: u32 = 48;
+const EDIT_EPSILON: f64 = 0.00001;
 
 type Renderer = Box<dyn RenderBackend>;
 
@@ -50,9 +51,143 @@ pub struct Editor {
 
     selection: Vec<SymbolIndex>,
     drag_data: Option<DragData>,
-    placed_symbol_before_edit: Option<PlaceSymbol>,
+    properties_panel: PropertiesPanel,
 
     new_symbol_window: Option<NewSymbolWindow>,
+}
+
+enum PropertiesPanel {
+    MovieProperties(MovieProperties),
+    SymbolProperties(SymbolProperties),
+    PlacedSymbolProperties(PlacedSymbolProperties),
+    MultiSelectionProperties(MultiSelectionProperties),
+}
+
+struct MovieProperties {}
+impl MovieProperties {
+    fn do_ui(&mut self, movie: &mut Movie, ui: &mut egui::Ui) -> Option<MovieEdit> {
+        ui.heading("Movie properties");
+        egui::Grid::new("movie_properties_grid").show(ui, |ui| {
+            ui.label("Width:");
+            ui.add(egui::DragValue::new(&mut movie.width));
+            ui.end_row();
+
+            ui.label("Height:");
+            ui.add(egui::DragValue::new(&mut movie.height));
+            ui.end_row();
+        });
+
+        // TODO: actual undo/redo
+        None
+    }
+}
+
+struct SymbolProperties {}
+impl SymbolProperties {
+    fn do_ui(
+        &mut self,
+        movie: &mut Movie,
+        ui: &mut egui::Ui,
+        editing_clip: SymbolIndex,
+    ) -> Option<MovieEdit> {
+        let symbol = &mut movie.symbols[editing_clip];
+        match symbol {
+            Symbol::Bitmap(_) => {
+                ui.heading("Bitmap properties");
+            }
+            Symbol::MovieClip(movieclip) => {
+                ui.heading("Movieclip properties");
+                egui::Grid::new(format!("movieclip_{editing_clip}_properties_grid")).show(
+                    ui,
+                    |ui| {
+                        ui.label("Name:");
+                        ui.add(
+                            egui::TextEdit::singleline(&mut movieclip.name)
+                                .min_size(Vec2::new(200.0, 0.0)),
+                        );
+                        ui.end_row();
+
+                        ui.label("Class:");
+                        ui.add(
+                            egui::TextEdit::singleline(&mut movieclip.class_name)
+                                .min_size(Vec2::new(200.0, 0.0)),
+                        );
+                        ui.end_row();
+                    },
+                );
+            }
+        }
+
+        // TODO: actual undo/redo
+        None
+    }
+}
+
+struct PlacedSymbolProperties {
+    before_edit: PlaceSymbol,
+}
+impl PlacedSymbolProperties {
+    fn do_ui(
+        &mut self,
+        movie: &mut Movie,
+        ui: &mut egui::Ui,
+        editing_clip: SymbolIndexOrRoot,
+        placed_symbol_index: PlacedSymbolIndex,
+    ) -> Option<MovieEdit> {
+        ui.heading("Placed symbol properties");
+        let placed_symbol = movie
+            .get_placed_symbols_mut(editing_clip)
+            .get_mut(placed_symbol_index)
+            .unwrap();
+
+        let mut edit: Option<MovieEdit> = None;
+        egui::Grid::new(format!(
+            "placed_symbol_{placed_symbol_index}_properties_grid"
+        ))
+        .show(ui, |ui| {
+            let mut position_edited = false;
+            ui.label("x");
+            let response = ui.add(egui::DragValue::new(&mut placed_symbol.x));
+            if response.lost_focus() || response.drag_released() {
+                position_edited = true;
+            }
+            ui.end_row();
+
+            ui.label("y");
+            let response = ui.add(egui::DragValue::new(&mut placed_symbol.y));
+            if response.lost_focus() || response.drag_released() {
+                position_edited = true;
+            }
+            ui.end_row();
+
+            if position_edited {
+                let placed_symbol_before_edit = &self.before_edit;
+                // only add edit when the position actually changed
+                if f64::abs(placed_symbol_before_edit.x - placed_symbol.x) > EDIT_EPSILON
+                    || f64::abs(placed_symbol_before_edit.y - placed_symbol.y) > EDIT_EPSILON
+                {
+                    edit = Some(MovieEdit::MovePlacedSymbol(MovePlacedSymbolEdit {
+                        editing_symbol_index: editing_clip,
+                        placed_symbol_index,
+                        start_x: placed_symbol_before_edit.x,
+                        start_y: placed_symbol_before_edit.y,
+                        end_x: placed_symbol.x,
+                        end_y: placed_symbol.y,
+                    }));
+                }
+            }
+        });
+
+        edit
+    }
+}
+
+struct MultiSelectionProperties {}
+impl MultiSelectionProperties {
+    fn do_ui(&mut self, ui: &mut egui::Ui) -> Option<MovieEdit> {
+        ui.label("Multiple items selected");
+        None
+    }
 }
 
 impl Editor {
@@ -70,7 +205,7 @@ impl Editor {
 
             selection: vec![],
             drag_data: None,
-            placed_symbol_before_edit: None,
+            properties_panel: PropertiesPanel::MovieProperties(MovieProperties {}),
 
             new_symbol_window: None,
         }
@@ -199,7 +334,7 @@ impl Editor {
         state: ElementState,
     ) {
         if button == MouseButton::Left && state == ElementState::Pressed {
-            self.selection = vec![];
+            self.set_selection(vec![]);
             let symbol_index =
                 self.get_placed_symbol_at_position(mouse_x, mouse_y, self.editing_clip);
             if let Some(symbol_index) = symbol_index {
@@ -211,8 +346,7 @@ impl Editor {
                     start_y: mouse_y,
                     place_symbol_index: symbol_index,
                 });
-                self.selection = vec![symbol_index];
-                self.placed_symbol_before_edit = Some(place_symbol.clone());
+                self.set_selection(vec![symbol_index]);
             }
         }
         if button == MouseButton::Left && state == ElementState::Released {
@@ -220,7 +354,9 @@ impl Editor {
                 let end_x = drag_data.symbol_start_x + mouse_x - drag_data.start_x;
                 let end_y = drag_data.symbol_start_y + mouse_y - drag_data.start_y;
                 // only insert an edit if you actually moved the placed symbol
-                if drag_data.symbol_start_x != end_x || drag_data.symbol_start_y != end_y {
+                if f64::abs(drag_data.symbol_start_x - end_x) > EDIT_EPSILON
+                    || f64::abs(drag_data.symbol_start_y - end_y) > EDIT_EPSILON
+                {
                     self.do_edit(MovieEdit::MovePlacedSymbol(MovePlacedSymbolEdit {
                         editing_symbol_index: self.editing_clip,
                         placed_symbol_index: drag_data.place_symbol_index,
@@ -238,8 +374,12 @@ impl Editor {
     fn do_edit(&mut self, edit: MovieEdit) {
         self.editing_clip = self.history.edit(&mut self.movie, edit);
         if self.selection.len() == 1 {
-            self.placed_symbol_before_edit =
-                Some(self.movie.get_placed_symbols(self.editing_clip)[self.selection[0]].clone());
+            self.properties_panel =
+                PropertiesPanel::PlacedSymbolProperties(PlacedSymbolProperties {
+                    before_edit: self.movie.get_placed_symbols(self.editing_clip)
+                        [self.selection[0]]
+                        .clone(),
+                });
         }
     }
 
@@ -247,6 +387,13 @@ impl Editor {
         let result = self.history.undo(&mut self.movie);
         if let Some(editing_clip) = result {
             self.editing_clip = editing_clip;
+        } else if self.selection.len() == 1 {
+            self.properties_panel =
+                PropertiesPanel::PlacedSymbolProperties(PlacedSymbolProperties {
+                    before_edit: self.movie.get_placed_symbols(self.editing_clip)
+                        [self.selection[0]]
+                        .clone(),
+                });
         }
     }
 
@@ -254,6 +401,13 @@ impl Editor {
         let result = self.history.redo(&mut self.movie);
         if let Some(editing_clip) = result {
             self.editing_clip = editing_clip;
+        } else if self.selection.len() == 1 {
+            self.properties_panel =
+                PropertiesPanel::PlacedSymbolProperties(PlacedSymbolProperties {
+                    before_edit: self.movie.get_placed_symbols(self.editing_clip)
+                        [self.selection[0]]
+                        .clone(),
+                });
         }
     }
 
@@ -396,16 +550,32 @@ impl Editor {
         });
 
         egui::TopBottomPanel::bottom("properties").show(egui_ctx, |ui| {
-            if self.selection.len() == 0 {
-                if let Some(symbol_index) = self.editing_clip {
-                    self.show_symbol_properties(ui, symbol_index);
-                } else {
-                    self.show_movie_properties(ui);
+            let edit = match &mut self.properties_panel {
+                PropertiesPanel::MovieProperties(panel) => panel.do_ui(&mut self.movie, ui),
+                PropertiesPanel::SymbolProperties(panel) => panel.do_ui(
+                    &mut self.movie,
+                    ui,
+                    self.editing_clip
+                        .expect("Showing symbol properties while no symbol is selected"),
+                ),
+                PropertiesPanel::PlacedSymbolProperties(panel) => {
+                    if self.selection.len() != 1 {
+                        panic!(
+                            "Showing placed symbol properties while selection has length {}",
+                            self.selection.len()
+                        );
+                    }
+                    panel.do_ui(
+                        &mut self.movie,
+                        ui,
+                        self.editing_clip,
+                        *self.selection.get(0).unwrap(),
+                    )
                 }
-            } else if self.selection.len() == 1 {
-                self.show_placed_symbol_properties(ui, *self.selection.get(0).unwrap());
-            } else {
-                ui.label("Multiple items selected");
+                PropertiesPanel::MultiSelectionProperties(panel) => panel.do_ui(ui),
+            };
+            if let Some(edit) = edit {
+                self.do_edit(edit);
             }
         });
 
@@ -426,8 +596,37 @@ impl Editor {
                 return;
             };
         }
-        self.selection = vec![];
         self.editing_clip = symbol_index;
+        self.set_selection(vec![]);
+    }
+
+    fn set_selection(&mut self, selection: Vec<PlacedSymbolIndex>) {
+        self.selection = selection;
+        self.update_selection();
+    }
+    fn update_selection(&mut self) {
+        match self.selection.len() {
+            0 => {
+                if self.editing_clip.is_some() {
+                    self.properties_panel = PropertiesPanel::SymbolProperties(SymbolProperties {});
+                } else {
+                    self.properties_panel = PropertiesPanel::MovieProperties(MovieProperties {});
+                }
+            }
+            1 => {
+                let placed_symbol_index = self.selection[0];
+                let place_symbol =
+                    &self.movie.get_placed_symbols(self.editing_clip)[placed_symbol_index];
+                self.properties_panel =
+                    PropertiesPanel::PlacedSymbolProperties(PlacedSymbolProperties {
+                        before_edit: place_symbol.clone(),
+                    });
+            }
+            _ => {
+                self.properties_panel =
+                    PropertiesPanel::MultiSelectionProperties(MultiSelectionProperties {});
+            }
+        }
     }
 
     fn delete_selection(&mut self) {
@@ -444,108 +643,7 @@ impl Editor {
                     .clone(),
             }));
         }
-        self.selection = vec![];
-    }
-
-    fn show_movie_properties(&mut self, ui: &mut egui::Ui) {
-        ui.heading("Movie properties");
-        egui::Grid::new("movie_properties_grid").show(ui, |ui| {
-            ui.label("Width:");
-            ui.add(egui::DragValue::new(&mut self.movie.width));
-            ui.end_row();
-
-            ui.label("Height:");
-            ui.add(egui::DragValue::new(&mut self.movie.height));
-            ui.end_row();
-        });
-    }
-
-    fn show_symbol_properties(&mut self, ui: &mut egui::Ui, symbol_index: SymbolIndex) {
-        let symbol = &mut self.movie.symbols[symbol_index];
-        match symbol {
-            Symbol::Bitmap(_) => {
-                ui.heading("Bitmap properties");
-            }
-            Symbol::MovieClip(movieclip) => {
-                ui.heading("Movieclip properties");
-                egui::Grid::new(format!("movieclip_{symbol_index}_properties_grid")).show(
-                    ui,
-                    |ui| {
-                        ui.label("Name:");
-                        ui.add(
-                            egui::TextEdit::singleline(&mut movieclip.name)
-                                .min_size(Vec2::new(200.0, 0.0)),
-                        );
-                        ui.end_row();
-
-                        ui.label("Class:");
-                        ui.add(
-                            egui::TextEdit::singleline(&mut movieclip.class_name)
-                                .min_size(Vec2::new(200.0, 0.0)),
-                        );
-                        ui.end_row();
-                    },
-                );
-            }
-        }
-    }
-
-    fn show_placed_symbol_properties(
-        &mut self,
-        ui: &mut egui::Ui,
-        placed_symbol_index: PlacedSymbolIndex,
-    ) {
-        ui.heading("Placed symbol properties");
-        let placed_symbol = self
-            .movie
-            .get_placed_symbols_mut(self.editing_clip)
-            .get_mut(placed_symbol_index)
-            .unwrap();
-
-        let mut edit: Option<MovieEdit> = None;
-        egui::Grid::new(format!(
-            "placed_symbol_{placed_symbol_index}_properties_grid"
-        ))
-        .show(ui, |ui| {
-            let mut position_edited = false;
-            ui.label("x");
-            let response = ui.add(egui::DragValue::new(&mut placed_symbol.x));
-            if response.lost_focus() || response.drag_released() {
-                position_edited = true;
-            }
-            ui.end_row();
-
-            ui.label("y");
-            let response = ui.add(egui::DragValue::new(&mut placed_symbol.y));
-            if response.lost_focus() || response.drag_released() {
-                position_edited = true;
-            }
-            ui.end_row();
-
-            if position_edited {
-                let Some(placed_symbol_before_edit) = self.placed_symbol_before_edit.as_ref()
-                else {
-                    panic!("placed_symbol_before_edit is None");
-                };
-                // only add edit when the position actually changed
-                if placed_symbol_before_edit.x != placed_symbol.x
-                    || placed_symbol_before_edit.y != placed_symbol.y
-                {
-                    edit = Some(MovieEdit::MovePlacedSymbol(MovePlacedSymbolEdit {
-                        editing_symbol_index: self.editing_clip,
-                        placed_symbol_index,
-                        start_x: placed_symbol_before_edit.x,
-                        start_y: placed_symbol_before_edit.y,
-                        end_x: placed_symbol.x,
-                        end_y: placed_symbol.y,
-                    }));
-                }
-            }
-        });
-
-        if let Some(edit) = edit {
-            self.do_edit(edit);
-        }
+        self.set_selection(vec![]);
     }
 
     pub fn renderer_mut(&mut self) -> &mut Renderer {
