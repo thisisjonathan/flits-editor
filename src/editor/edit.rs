@@ -1,8 +1,10 @@
 use undo::Edit;
 
-use crate::core::{Movie, PlaceSymbol, PlacedSymbolIndex, SymbolIndexOrRoot};
+use crate::core::{Movie, PlaceSymbol, PlacedSymbolIndex, SymbolIndexOrRoot, MovieProperties};
 
 pub enum MovieEdit {
+    EditMovieProperties(MoviePropertiesEdit),
+    
     MovePlacedSymbol(MovePlacedSymbolEdit),
     AddPlacedSymbol(AddPlacedSymbolEdit),
     RemovePlacedSymbol(RemovePlacedSymbolEdit),
@@ -13,6 +15,7 @@ impl Edit for MovieEdit {
 
     fn edit(&mut self, target: &mut Movie) -> SymbolIndexOrRoot {
         match self {
+            MovieEdit::EditMovieProperties(edit) => edit.edit(target),
             MovieEdit::MovePlacedSymbol(edit) => edit.edit(target),
             MovieEdit::AddPlacedSymbol(edit) => edit.edit(target),
             MovieEdit::RemovePlacedSymbol(edit) => edit.edit(target),
@@ -21,10 +24,25 @@ impl Edit for MovieEdit {
 
     fn undo(&mut self, target: &mut Movie) -> SymbolIndexOrRoot {
         match self {
+            MovieEdit::EditMovieProperties(edit) => edit.undo(target),
             MovieEdit::MovePlacedSymbol(edit) => edit.undo(target),
             MovieEdit::AddPlacedSymbol(edit) => edit.undo(target),
             MovieEdit::RemovePlacedSymbol(edit) => edit.undo(target),
         }
+    }
+}
+pub struct MoviePropertiesEdit {
+    pub before: MovieProperties,
+    pub after: MovieProperties,
+}
+impl MoviePropertiesEdit {
+    fn edit(&mut self, target: &mut Movie) -> SymbolIndexOrRoot {
+        target.properties = self.after.clone();
+        None // root because you are editing the movie properties
+    }
+    fn undo(&mut self, target: &mut Movie) -> SymbolIndexOrRoot {
+        target.properties = self.before.clone();
+        None // root because you are editing the movie properties
     }
 }
 pub struct MovePlacedSymbolEdit {

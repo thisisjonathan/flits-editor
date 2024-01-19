@@ -1,9 +1,11 @@
 use egui::Vec2;
 
-use crate::core::{Movie, PlaceSymbol, PlacedSymbolIndex, Symbol, SymbolIndex, SymbolIndexOrRoot};
+use crate::core::{
+    Movie, MovieProperties, PlaceSymbol, PlacedSymbolIndex, Symbol, SymbolIndex, SymbolIndexOrRoot,
+};
 
 use super::{
-    edit::{MovePlacedSymbolEdit, MovieEdit},
+    edit::{MovePlacedSymbolEdit, MovieEdit, MoviePropertiesEdit},
     EDIT_EPSILON,
 };
 
@@ -14,22 +16,44 @@ pub enum PropertiesPanel {
     MultiSelectionProperties(MultiSelectionPropertiesPanel),
 }
 
-pub struct MoviePropertiesPanel {}
+pub struct MoviePropertiesPanel {
+    pub before_edit: MovieProperties,
+}
 impl MoviePropertiesPanel {
     pub fn do_ui(&mut self, movie: &mut Movie, ui: &mut egui::Ui) -> Option<MovieEdit> {
+        let mut edit: Option<MovieEdit> = None;
+        
         ui.heading("Movie properties");
         egui::Grid::new("movie_properties_grid").show(ui, |ui| {
+            let mut properties_edited = false;
+
             ui.label("Width:");
-            ui.add(egui::DragValue::new(&mut movie.properties.width));
+            let response = ui.add(egui::DragValue::new(&mut movie.properties.width));
+            if response.lost_focus() || response.drag_released() {
+                properties_edited = true;
+            }
             ui.end_row();
 
             ui.label("Height:");
-            ui.add(egui::DragValue::new(&mut movie.properties.height));
+            let response = ui.add(egui::DragValue::new(&mut movie.properties.height));
+            if response.lost_focus() || response.drag_released() {
+                properties_edited = true;
+            }
             ui.end_row();
+            
+            if properties_edited {
+                // only add edit when the properties actually changed
+                if self.before_edit != movie.properties
+                {
+                    edit = Some(MovieEdit::EditMovieProperties(MoviePropertiesEdit {
+                        before: self.before_edit.clone(),
+                        after: movie.properties.clone(),
+                    }));
+                }
+            }   
         });
 
-        // TODO: actual undo/redo
-        None
+        edit
     }
 }
 

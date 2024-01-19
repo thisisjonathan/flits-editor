@@ -126,7 +126,7 @@ impl Movie {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub struct MovieProperties {
     pub width: f64,
     pub height: f64,

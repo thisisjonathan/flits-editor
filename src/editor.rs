@@ -63,6 +63,7 @@ pub struct Editor {
 impl Editor {
     pub fn new(renderer: Renderer, path: PathBuf) -> Editor {
         let movie = Movie::load(path.clone());
+        let movie_properties = movie.properties.clone();
         Editor {
             movie,
             project_file_path: path.clone(),
@@ -75,7 +76,9 @@ impl Editor {
 
             selection: vec![],
             drag_data: None,
-            properties_panel: PropertiesPanel::MovieProperties(MoviePropertiesPanel {}),
+            properties_panel: PropertiesPanel::MovieProperties(MoviePropertiesPanel {
+                before_edit: movie_properties,
+            }),
 
             new_symbol_window: None,
         }
@@ -243,27 +246,15 @@ impl Editor {
 
     fn do_edit(&mut self, edit: MovieEdit) {
         self.editing_clip = self.history.edit(&mut self.movie, edit);
-        if self.selection.len() == 1 {
-            self.properties_panel =
-                PropertiesPanel::PlacedSymbolProperties(PlacedSymbolPropertiesPanel {
-                    before_edit: self.movie.get_placed_symbols(self.editing_clip)
-                        [self.selection[0]]
-                        .clone(),
-                });
-        }
+        self.reset_properties_panel();
     }
 
     fn do_undo(&mut self) {
         let result = self.history.undo(&mut self.movie);
         if let Some(editing_clip) = result {
             self.editing_clip = editing_clip;
-        } else if self.selection.len() == 1 {
-            self.properties_panel =
-                PropertiesPanel::PlacedSymbolProperties(PlacedSymbolPropertiesPanel {
-                    before_edit: self.movie.get_placed_symbols(self.editing_clip)
-                        [self.selection[0]]
-                        .clone(),
-                });
+        } else {
+            self.reset_properties_panel();
         }
     }
 
@@ -271,13 +262,29 @@ impl Editor {
         let result = self.history.redo(&mut self.movie);
         if let Some(editing_clip) = result {
             self.editing_clip = editing_clip;
-        } else if self.selection.len() == 1 {
+        } else {
+            self.reset_properties_panel();
+        }
+    }
+    
+    fn reset_properties_panel(&mut self) {
+        if self.selection.len() == 1 {
             self.properties_panel =
                 PropertiesPanel::PlacedSymbolProperties(PlacedSymbolPropertiesPanel {
                     before_edit: self.movie.get_placed_symbols(self.editing_clip)
                         [self.selection[0]]
                         .clone(),
                 });
+        } else {
+            match self.properties_panel {
+                PropertiesPanel::MovieProperties(_) => {
+                    self.properties_panel =
+                        PropertiesPanel::MovieProperties(MoviePropertiesPanel {
+                            before_edit: self.movie.properties.clone(),
+                        });
+                }
+                _ => (),
+            }
         }
     }
 
@@ -482,7 +489,9 @@ impl Editor {
                         PropertiesPanel::SymbolProperties(SymbolPropertiesPanel {});
                 } else {
                     self.properties_panel =
-                        PropertiesPanel::MovieProperties(MoviePropertiesPanel {});
+                        PropertiesPanel::MovieProperties(MoviePropertiesPanel {
+                            before_edit: self.movie.properties.clone(),
+                        });
                 }
             }
             1 => {
