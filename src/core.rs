@@ -9,9 +9,13 @@ pub type SymbolIndex = usize;
 pub type SymbolIndexOrRoot = Option<SymbolIndex>;
 pub type PlacedSymbolIndex = usize;
 
+// this is hardcoded because otherwise the entire application needs to understand
+// what features are available in what version
+// TODO: switch to latest as2 version instead of latest version?
+const SWF_VERSION:u8 = 43; // latest flash player version
+
 #[derive(Serialize, Deserialize)]
 pub struct Movie {
-    pub swf_version: u8,
     pub width: f64,
     pub height: f64,
     pub frame_rate: f32,
@@ -23,7 +27,6 @@ impl Default for Movie {
     fn default() -> Self {
         Movie {
             // TODO: are these good defaults?
-            swf_version: 43, // latest flash player version
             width: 640.0,
             height: 360.0,
             frame_rate: 60.0,
@@ -168,7 +171,7 @@ pub struct PlaceSymbol {
 fn movie_to_swf<'a>(movie: &Movie, project_directory: PathBuf, swf_path: PathBuf) {
     let header = Header {
         compression: Compression::Zlib,
-        version: movie.swf_version,
+        version: SWF_VERSION,
         stage_size: Rectangle {
             x_min: Twips::from_pixels(0.0),
             x_max: Twips::from_pixels(movie.width),

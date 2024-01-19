@@ -166,7 +166,6 @@ impl RuffleGui {
                         if ui.button("Create").clicked() {
                             let _ = event_loop.send_event(RuffleEvent::NewFile(NewProjectData {
                                 movie: Movie { // TODO: do this in a less hacky way
-                                    swf_version: new_project.movie.swf_version,
                                     width: new_project.movie.width,
                                     height: new_project.movie.height,
                                     frame_rate: new_project.movie.frame_rate,
