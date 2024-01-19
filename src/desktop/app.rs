@@ -1,3 +1,5 @@
+use crate::core::Movie;
+
 use super::cli::Opt;
 use super::custom_event::RuffleEvent;
 use super::gui::{GuiController, MovieView, MENU_HEIGHT};
@@ -438,7 +440,8 @@ impl App {
                         }
                     }
                     let json_path = new_project_data.path.join("movie.json");
-                    new_project_data.movie.save(&json_path);
+                    let movie = Movie::from_properties(new_project_data.movie_properties);
+                    movie.save(&json_path);
                     let url = parse_url(&json_path).expect("Couldn't load specified path");
                     self.player.create(&self.opt, url, self.gui.lock().expect("Gui lock").create_movie_view());
                 }

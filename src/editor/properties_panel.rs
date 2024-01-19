@@ -20,11 +20,11 @@ impl MoviePropertiesPanel {
         ui.heading("Movie properties");
         egui::Grid::new("movie_properties_grid").show(ui, |ui| {
             ui.label("Width:");
-            ui.add(egui::DragValue::new(&mut movie.width));
+            ui.add(egui::DragValue::new(&mut movie.properties.width));
             ui.end_row();
 
             ui.label("Height:");
-            ui.add(egui::DragValue::new(&mut movie.height));
+            ui.add(egui::DragValue::new(&mut movie.properties.height));
             ui.end_row();
         });
 

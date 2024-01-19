@@ -88,8 +88,8 @@ impl Editor {
         commands.commands.push(Command::DrawRect {
             color: Color::from_rgba(0xFFFFFFFF),
             matrix: Matrix::create_box(
-                self.movie.width as f32,
-                self.movie.height as f32,
+                self.movie.properties.width as f32,
+                self.movie.properties.height as f32,
                 0.0,
                 Twips::from_pixels(0.0),
                 Twips::from_pixels(0.0),

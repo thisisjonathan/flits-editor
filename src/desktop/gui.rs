@@ -129,10 +129,7 @@ impl RuffleGui {
     }
 
     fn open_new_project_window(&mut self) {
-        self.new_project = Some(NewProjectData {
-            movie: Movie::default(),
-            path: PathBuf::default()
-        });
+        self.new_project = Some(NewProjectData::default());
     }
 
     fn new_project_window(&mut self, egui_ctx: &egui::Context) {
@@ -156,24 +153,15 @@ impl RuffleGui {
                         ui.end_row();
                         
                         ui.label("Width:");
-                        ui.add(egui::DragValue::new(&mut new_project.movie.width));
+                        ui.add(egui::DragValue::new(&mut new_project.movie_properties.width));
                         ui.end_row();
 
                         ui.label("Height:");
-                        ui.add(egui::DragValue::new(&mut new_project.movie.height));
+                        ui.add(egui::DragValue::new(&mut new_project.movie_properties.height));
                         ui.end_row();
                         
                         if ui.button("Create").clicked() {
-                            let _ = event_loop.send_event(RuffleEvent::NewFile(NewProjectData {
-                                movie: Movie { // TODO: do this in a less hacky way
-                                    width: new_project.movie.width,
-                                    height: new_project.movie.height,
-                                    frame_rate: new_project.movie.frame_rate,
-                                    symbols: vec![],
-                                    root: vec![],
-                                },
-                                path: new_project.path.clone(),
-                            }));
+                            let _ = event_loop.send_event(RuffleEvent::NewFile(new_project.clone()));
                             self.new_project = None;
                         }
                         ui.end_row();

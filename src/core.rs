@@ -16,26 +16,24 @@ const SWF_VERSION:u8 = 43; // latest flash player version
 
 #[derive(Serialize, Deserialize)]
 pub struct Movie {
-    pub width: f64,
-    pub height: f64,
-    pub frame_rate: f32,
+    pub properties: MovieProperties,
     
     pub symbols: Vec<Symbol>,
     pub root: Vec<PlaceSymbol>,
 }
 impl Default for Movie {
     fn default() -> Self {
+        Movie::from_properties(MovieProperties::default())
+    }
+}
+impl Movie {
+    pub fn from_properties(properties: MovieProperties) -> Self {
         Movie {
-            // TODO: are these good defaults?
-            width: 640.0,
-            height: 360.0,
-            frame_rate: 60.0,
+            properties,
             symbols: vec![],
             root: vec![],
         }
     }
-}
-impl Movie {
     pub fn load(path: PathBuf) -> Movie {
         let directory = path.parent().unwrap();
         let file = std::fs::File::open(path.clone()).expect("Unable to load file");
@@ -128,6 +126,23 @@ impl Movie {
     }
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+pub struct MovieProperties {
+    pub width: f64,
+    pub height: f64,
+    pub frame_rate: f32,
+}
+impl Default for MovieProperties {
+    fn default() -> Self {
+        MovieProperties {
+            // TODO: are these good defaults?
+            width: 640.0,
+            height: 360.0,
+            frame_rate: 60.0,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 pub enum Symbol {
     Bitmap(Bitmap),
@@ -174,11 +189,11 @@ fn movie_to_swf<'a>(movie: &Movie, project_directory: PathBuf, swf_path: PathBuf
         version: SWF_VERSION,
         stage_size: Rectangle {
             x_min: Twips::from_pixels(0.0),
-            x_max: Twips::from_pixels(movie.width),
+            x_max: Twips::from_pixels(movie.properties.width),
             y_min: Twips::from_pixels(0.0),
-            y_max: Twips::from_pixels(movie.height),
+            y_max: Twips::from_pixels(movie.properties.height),
         },
-        frame_rate: Fixed8::from_f32(movie.frame_rate),
+        frame_rate: Fixed8::from_f32(movie.properties.frame_rate),
         num_frames: 1,
     };
     let mut tags = vec![

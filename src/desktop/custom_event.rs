@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 
-use crate::core::Movie;
+use crate::core::MovieProperties;
 
 /// User-defined events.
 pub enum RuffleEvent {
@@ -22,7 +22,8 @@ pub enum RuffleEvent {
     ExitRequested,
 }
 
+#[derive(Default, Clone)]
 pub struct NewProjectData {
-    pub movie: Movie,
+    pub movie_properties: MovieProperties,
     pub path: PathBuf,
 }
