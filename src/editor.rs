@@ -57,14 +57,14 @@ pub struct Editor {
 }
 
 enum PropertiesPanel {
-    MovieProperties(MovieProperties),
-    SymbolProperties(SymbolProperties),
-    PlacedSymbolProperties(PlacedSymbolProperties),
-    MultiSelectionProperties(MultiSelectionProperties),
+    MovieProperties(MoviePropertiesPanel),
+    SymbolProperties(SymbolPropertiesPanel),
+    PlacedSymbolProperties(PlacedSymbolPropertiesPanel),
+    MultiSelectionProperties(MultiSelectionPropertiesPanel),
 }
 
-struct MovieProperties {}
-impl MovieProperties {
+struct MoviePropertiesPanel {}
+impl MoviePropertiesPanel {
     fn do_ui(&mut self, movie: &mut Movie, ui: &mut egui::Ui) -> Option<MovieEdit> {
         ui.heading("Movie properties");
         egui::Grid::new("movie_properties_grid").show(ui, |ui| {
@@ -82,8 +82,8 @@ impl MovieProperties {
     }
 }
 
-struct SymbolProperties {}
-impl SymbolProperties {
+struct SymbolPropertiesPanel {}
+impl SymbolPropertiesPanel {
     fn do_ui(
         &mut self,
         movie: &mut Movie,
@@ -123,10 +123,10 @@ impl SymbolProperties {
     }
 }
 
-struct PlacedSymbolProperties {
+struct PlacedSymbolPropertiesPanel {
     before_edit: PlaceSymbol,
 }
-impl PlacedSymbolProperties {
+impl PlacedSymbolPropertiesPanel {
     fn do_ui(
         &mut self,
         movie: &mut Movie,
@@ -182,8 +182,8 @@ impl PlacedSymbolProperties {
     }
 }
 
-struct MultiSelectionProperties {}
-impl MultiSelectionProperties {
+struct MultiSelectionPropertiesPanel {}
+impl MultiSelectionPropertiesPanel {
     fn do_ui(&mut self, ui: &mut egui::Ui) -> Option<MovieEdit> {
         ui.label("Multiple items selected");
         None
@@ -205,7 +205,7 @@ impl Editor {
 
             selection: vec![],
             drag_data: None,
-            properties_panel: PropertiesPanel::MovieProperties(MovieProperties {}),
+            properties_panel: PropertiesPanel::MovieProperties(MoviePropertiesPanel {}),
 
             new_symbol_window: None,
         }
@@ -375,7 +375,7 @@ impl Editor {
         self.editing_clip = self.history.edit(&mut self.movie, edit);
         if self.selection.len() == 1 {
             self.properties_panel =
-                PropertiesPanel::PlacedSymbolProperties(PlacedSymbolProperties {
+                PropertiesPanel::PlacedSymbolProperties(PlacedSymbolPropertiesPanel {
                     before_edit: self.movie.get_placed_symbols(self.editing_clip)
                         [self.selection[0]]
                         .clone(),
@@ -389,7 +389,7 @@ impl Editor {
             self.editing_clip = editing_clip;
         } else if self.selection.len() == 1 {
             self.properties_panel =
-                PropertiesPanel::PlacedSymbolProperties(PlacedSymbolProperties {
+                PropertiesPanel::PlacedSymbolProperties(PlacedSymbolPropertiesPanel {
                     before_edit: self.movie.get_placed_symbols(self.editing_clip)
                         [self.selection[0]]
                         .clone(),
@@ -403,7 +403,7 @@ impl Editor {
             self.editing_clip = editing_clip;
         } else if self.selection.len() == 1 {
             self.properties_panel =
-                PropertiesPanel::PlacedSymbolProperties(PlacedSymbolProperties {
+                PropertiesPanel::PlacedSymbolProperties(PlacedSymbolPropertiesPanel {
                     before_edit: self.movie.get_placed_symbols(self.editing_clip)
                         [self.selection[0]]
                         .clone(),
@@ -608,9 +608,9 @@ impl Editor {
         match self.selection.len() {
             0 => {
                 if self.editing_clip.is_some() {
-                    self.properties_panel = PropertiesPanel::SymbolProperties(SymbolProperties {});
+                    self.properties_panel = PropertiesPanel::SymbolProperties(SymbolPropertiesPanel {});
                 } else {
-                    self.properties_panel = PropertiesPanel::MovieProperties(MovieProperties {});
+                    self.properties_panel = PropertiesPanel::MovieProperties(MoviePropertiesPanel {});
                 }
             }
             1 => {
@@ -618,13 +618,13 @@ impl Editor {
                 let place_symbol =
                     &self.movie.get_placed_symbols(self.editing_clip)[placed_symbol_index];
                 self.properties_panel =
-                    PropertiesPanel::PlacedSymbolProperties(PlacedSymbolProperties {
+                    PropertiesPanel::PlacedSymbolProperties(PlacedSymbolPropertiesPanel {
                         before_edit: place_symbol.clone(),
                     });
             }
             _ => {
                 self.properties_panel =
-                    PropertiesPanel::MultiSelectionProperties(MultiSelectionProperties {});
+                    PropertiesPanel::MultiSelectionProperties(MultiSelectionPropertiesPanel {});
             }
         }
     }
