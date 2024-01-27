@@ -1,7 +1,8 @@
 use egui::Vec2;
 
 use crate::core::{
-    Movie, MovieProperties, PlaceSymbol, PlacedSymbolIndex, Symbol, SymbolIndex, SymbolIndexOrRoot,
+    Bitmap, Movie, MovieClip, MovieProperties, PlaceSymbol, PlacedSymbolIndex, Symbol, SymbolIndex,
+    SymbolIndexOrRoot,
 };
 
 use super::{
@@ -22,7 +23,7 @@ pub struct MoviePropertiesPanel {
 impl MoviePropertiesPanel {
     pub fn do_ui(&mut self, movie: &mut Movie, ui: &mut egui::Ui) -> Option<MovieEdit> {
         let mut edit: Option<MovieEdit> = None;
-        
+
         ui.heading("Movie properties");
         egui::Grid::new("movie_properties_grid").show(ui, |ui| {
             let mut properties_edited = false;
@@ -40,17 +41,16 @@ impl MoviePropertiesPanel {
                 properties_edited = true;
             }
             ui.end_row();
-            
+
             if properties_edited {
                 // only add edit when the properties actually changed
-                if self.before_edit != movie.properties
-                {
+                if self.before_edit != movie.properties {
                     edit = Some(MovieEdit::EditMovieProperties(MoviePropertiesEdit {
                         before: self.before_edit.clone(),
                         after: movie.properties.clone(),
                     }));
                 }
-            }   
+            }
         });
 
         edit
@@ -61,38 +61,40 @@ pub struct SymbolPropertiesPanel {
     pub symbol_index: SymbolIndex,
 }
 impl SymbolPropertiesPanel {
-    pub fn do_ui(
-        &mut self,
-        movie: &mut Movie,
-        ui: &mut egui::Ui,
-    ) -> Option<MovieEdit> {
+    pub fn do_ui(&mut self, movie: &mut Movie, ui: &mut egui::Ui) -> Option<MovieEdit> {
         let symbol = &mut movie.symbols[self.symbol_index];
         match symbol {
-            Symbol::Bitmap(_) => {
-                ui.heading("Bitmap properties");
-            }
-            Symbol::MovieClip(movieclip) => {
-                ui.heading("Movieclip properties");
-                egui::Grid::new(format!("movieclip_{}_properties_grid", self.symbol_index)).show(
-                    ui,
-                    |ui| {
-                        ui.label("Name:");
-                        ui.add(
-                            egui::TextEdit::singleline(&mut movieclip.name)
-                                .min_size(Vec2::new(200.0, 0.0)),
-                        );
-                        ui.end_row();
-
-                        ui.label("Class:");
-                        ui.add(
-                            egui::TextEdit::singleline(&mut movieclip.class_name)
-                                .min_size(Vec2::new(200.0, 0.0)),
-                        );
-                        ui.end_row();
-                    },
-                );
-            }
+            Symbol::Bitmap(bitmap) => self.bitmap_ui(bitmap, ui),
+            Symbol::MovieClip(movieclip) => self.movieclip_ui(movieclip, ui),
         }
+    }
+
+    fn bitmap_ui(&self, _bitmap: &mut Bitmap, ui: &mut egui::Ui) -> Option<MovieEdit> {
+        ui.heading("Bitmap properties");
+
+        // TODO: actual undo/redo
+        None
+    }
+
+    fn movieclip_ui(&self, movieclip: &mut MovieClip, ui: &mut egui::Ui) -> Option<MovieEdit> {
+        ui.heading("Movieclip properties");
+        egui::Grid::new(format!("movieclip_{}_properties_grid", self.symbol_index)).show(
+            ui,
+            |ui| {
+                ui.label("Name:");
+                ui.add(
+                    egui::TextEdit::singleline(&mut movieclip.name).min_size(Vec2::new(200.0, 0.0)),
+                );
+                ui.end_row();
+
+                ui.label("Class:");
+                ui.add(
+                    egui::TextEdit::singleline(&mut movieclip.class_name)
+                        .min_size(Vec2::new(200.0, 0.0)),
+                );
+                ui.end_row();
+            },
+        );
 
         // TODO: actual undo/redo
         None
