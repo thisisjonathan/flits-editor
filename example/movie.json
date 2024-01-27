@@ -13,8 +13,10 @@
             "name": "flower.png",
             "path": "assets/flower.png"
         }},{"MovieClip": {
-            "name": "Two flowers",
-            "class_name": "",
+            "properties": {
+                "name": "Two flowers",
+                "class_name": ""
+            },
             "place_symbols": [{
                 "symbol_index": 1,
                 "x": 0,

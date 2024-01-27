@@ -2,11 +2,11 @@ use egui::Vec2;
 
 use crate::core::{
     Bitmap, Movie, MovieClip, MovieProperties, PlaceSymbol, PlacedSymbolIndex, Symbol, SymbolIndex,
-    SymbolIndexOrRoot,
+    SymbolIndexOrRoot, MovieClipProperties,
 };
 
 use super::{
-    edit::{MovePlacedSymbolEdit, MovieEdit, MoviePropertiesEdit},
+    edit::{MovePlacedSymbolEdit, MovieEdit, MoviePropertiesEdit, MovieClipPropertiesEdit},
     EDIT_EPSILON,
 };
 
@@ -59,6 +59,7 @@ impl MoviePropertiesPanel {
 
 pub struct SymbolPropertiesPanel {
     pub symbol_index: SymbolIndex,
+    pub before_edit: MovieClipProperties,
 }
 impl SymbolPropertiesPanel {
     pub fn do_ui(&mut self, movie: &mut Movie, ui: &mut egui::Ui) -> Option<MovieEdit> {
@@ -78,26 +79,43 @@ impl SymbolPropertiesPanel {
 
     fn movieclip_ui(&self, movieclip: &mut MovieClip, ui: &mut egui::Ui) -> Option<MovieEdit> {
         ui.heading("Movieclip properties");
+        
+        let mut edit: Option<MovieEdit> = None;
         egui::Grid::new(format!("movieclip_{}_properties_grid", self.symbol_index)).show(
             ui,
             |ui| {
+                let mut edited = false;
+                
                 ui.label("Name:");
-                ui.add(
-                    egui::TextEdit::singleline(&mut movieclip.name).min_size(Vec2::new(200.0, 0.0)),
+                let response = ui.add(
+                    egui::TextEdit::singleline(&mut movieclip.properties.name).min_size(Vec2::new(200.0, 0.0)),
                 );
+                if response.lost_focus() {
+                    edited = true;
+                }
                 ui.end_row();
 
                 ui.label("Class:");
-                ui.add(
-                    egui::TextEdit::singleline(&mut movieclip.class_name)
+                let response = ui.add(
+                    egui::TextEdit::singleline(&mut movieclip.properties.class_name)
                         .min_size(Vec2::new(200.0, 0.0)),
                 );
+                if response.lost_focus() {
+                    edited = true;
+                }
                 ui.end_row();
+                
+                if edited && self.before_edit != movieclip.properties {
+                    edit = Some(MovieEdit::EditMovieClipProperties(MovieClipPropertiesEdit {
+                        editing_symbol_index: self.symbol_index,
+                        before: self.before_edit.clone(),
+                        after: movieclip.properties.clone(),
+                    }));
+                }
             },
         );
 
-        // TODO: actual undo/redo
-        None
+        edit
     }
 }
 

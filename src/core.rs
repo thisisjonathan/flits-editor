@@ -180,7 +180,7 @@ impl Symbol {
     pub fn name(&self) -> String {
         match self {
             Symbol::Bitmap(bitmap) => bitmap.name.clone(),
-            Symbol::MovieClip(movieclip) => movieclip.name.clone(),
+            Symbol::MovieClip(movieclip) => movieclip.properties.name.clone(),
         }
     }
     pub fn is_invalid(&self) -> bool {
@@ -217,9 +217,13 @@ pub struct CachedBitmap {
 
 #[derive(Serialize, Deserialize)]
 pub struct MovieClip {
+    pub properties: MovieClipProperties,
+    pub place_symbols: Vec<PlaceSymbol>,
+}
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
+pub struct MovieClipProperties {
     pub name: String,
     pub class_name: String,
-    pub place_symbols: Vec<PlaceSymbol>,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -341,13 +345,13 @@ fn build_movieclip(symbol_index: SymbolIndex, movieclip: &MovieClip, swf_builder
             num_frames: 1,
             tags: get_placed_symbols_tags(&movieclip.place_symbols, swf_builder),
         })));
-    if movieclip.class_name.len() > 0 {
+    if movieclip.properties.class_name.len() > 0 {
         // the movieclip needs to be exported to be able to add a tag to it
         swf_builder
             .tags
             .push(SwfBuilderTag::ExportAssets(SwfBuilderExportedAsset {
                 character_id,
-                name: movieclip.name.clone(),
+                name: movieclip.properties.name.clone(),
             }));
     }
 }
@@ -603,7 +607,7 @@ fn compile_as2(
         let mut action_datas = vec![];
         for symbol in &movie.symbols {
             if let Symbol::MovieClip(movieclip) = symbol {
-                if movieclip.class_name.len() > 0 {
+                if movieclip.properties.class_name.len() > 0 {
                     let mut action_data: Vec<u8> = vec![];
                     let mut action_writer =
                         swf::avm1::write::Writer::new(&mut action_data, swf.header.version());
@@ -611,8 +615,8 @@ fn compile_as2(
                         strings: vec![
                             SwfStr::from_utf8_str("Object"),
                             SwfStr::from_utf8_str("registerClass"),
-                            SwfStr::from_utf8_str(&movieclip.name),
-                            SwfStr::from_utf8_str(&movieclip.class_name),
+                            SwfStr::from_utf8_str(&movieclip.properties.name),
+                            SwfStr::from_utf8_str(&movieclip.properties.class_name),
                         ],
                     });
                     action_writer.write_action(&action).unwrap();
@@ -649,7 +653,7 @@ fn compile_as2(
         let mut action_nr = 0;
         for symbol in &movie.symbols {
             if let Symbol::MovieClip(movieclip) = symbol {
-                if movieclip.class_name.len() > 0 {
+                if movieclip.properties.class_name.len() > 0 {
                     let character_id = *symbol_index_to_character_id.get(&symbol_index).unwrap();
                     // -1 because of ShowFrame
                     swf.tags.insert(

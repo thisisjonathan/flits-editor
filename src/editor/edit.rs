@@ -1,9 +1,11 @@
 use undo::Edit;
 
-use crate::core::{Movie, PlaceSymbol, PlacedSymbolIndex, SymbolIndexOrRoot, MovieProperties};
+use crate::core::{Movie, PlaceSymbol, PlacedSymbolIndex, SymbolIndexOrRoot, MovieProperties, MovieClipProperties, SymbolIndex};
 
 pub enum MovieEdit {
     EditMovieProperties(MoviePropertiesEdit),
+    
+    EditMovieClipProperties(MovieClipPropertiesEdit),
     
     MovePlacedSymbol(MovePlacedSymbolEdit),
     AddPlacedSymbol(AddPlacedSymbolEdit),
@@ -16,6 +18,7 @@ impl Edit for MovieEdit {
     fn edit(&mut self, target: &mut Movie) -> SymbolIndexOrRoot {
         match self {
             MovieEdit::EditMovieProperties(edit) => edit.edit(target),
+            MovieEdit::EditMovieClipProperties(edit) => edit.edit(target),
             MovieEdit::MovePlacedSymbol(edit) => edit.edit(target),
             MovieEdit::AddPlacedSymbol(edit) => edit.edit(target),
             MovieEdit::RemovePlacedSymbol(edit) => edit.edit(target),
@@ -25,6 +28,7 @@ impl Edit for MovieEdit {
     fn undo(&mut self, target: &mut Movie) -> SymbolIndexOrRoot {
         match self {
             MovieEdit::EditMovieProperties(edit) => edit.undo(target),
+            MovieEdit::EditMovieClipProperties(edit) => edit.undo(target),
             MovieEdit::MovePlacedSymbol(edit) => edit.undo(target),
             MovieEdit::AddPlacedSymbol(edit) => edit.undo(target),
             MovieEdit::RemovePlacedSymbol(edit) => edit.undo(target),
@@ -45,6 +49,35 @@ impl MoviePropertiesEdit {
         None // root because you are editing the movie properties
     }
 }
+
+pub struct MovieClipPropertiesEdit {
+    pub editing_symbol_index: SymbolIndex,
+    
+    pub before: MovieClipProperties,
+    pub after: MovieClipProperties,
+}
+impl MovieClipPropertiesEdit {
+    fn edit(&mut self, target: &mut Movie) -> SymbolIndexOrRoot {
+        let movieclip = match &mut target.symbols[self.editing_symbol_index] {
+            crate::core::Symbol::MovieClip(movieclip) => movieclip,
+            _ => panic!("Editing movieclip that isn't a movieclip")
+        };
+        movieclip.properties = self.after.clone();
+        
+        Some(self.editing_symbol_index)
+    }
+    fn undo(&mut self, target: &mut Movie) -> SymbolIndexOrRoot {
+        let movieclip = match &mut target.symbols[self.editing_symbol_index] {
+            crate::core::Symbol::MovieClip(movieclip) => movieclip,
+            _ => panic!("Editing movieclip that isn't a movieclip")
+        };
+        movieclip.properties = self.before.clone();
+        
+        Some(self.editing_symbol_index)
+    }
+}
+
+
 pub struct MovePlacedSymbolEdit {
     pub editing_symbol_index: SymbolIndexOrRoot,
     pub placed_symbol_index: PlacedSymbolIndex,

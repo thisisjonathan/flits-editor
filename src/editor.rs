@@ -7,8 +7,8 @@ use self::properties_panel::{
     PropertiesPanel, SymbolPropertiesPanel,
 };
 use crate::core::{
-    BitmapCacheStatus, Movie, MovieClip, PlaceSymbol, PlacedSymbolIndex, Symbol, SymbolIndex,
-    SymbolIndexOrRoot,
+    BitmapCacheStatus, Movie, MovieClip, MovieClipProperties, PlaceSymbol, PlacedSymbolIndex,
+    Symbol, SymbolIndex, SymbolIndexOrRoot,
 };
 use crate::desktop::custom_event::RuffleEvent;
 use egui::{Vec2, Widget};
@@ -401,7 +401,7 @@ impl Editor {
                             };*/
                             let checked = match &self.properties_panel {
                                 PropertiesPanel::SymbolProperties(panel) => panel.symbol_index == i,
-                                _ => false
+                                _ => false,
                             };
                             let mut text = egui::RichText::new(symbol.name());
                             if symbol.is_invalid() {
@@ -414,10 +414,15 @@ impl Editor {
                                 self.change_editing_clip(Some(i));
                                 has_mutated = true;
                             } else if response.clicked() {
-                                self.properties_panel =
-                                    PropertiesPanel::SymbolProperties(SymbolPropertiesPanel {
-                                        symbol_index: i,
-                                    });
+                                self.properties_panel = match symbol {
+                                    Symbol::Bitmap(_) => todo!(),
+                                    Symbol::MovieClip(movieclip) => {
+                                        PropertiesPanel::SymbolProperties(SymbolPropertiesPanel {
+                                            symbol_index: i,
+                                            before_edit: movieclip.properties.clone(),
+                                        })
+                                    }
+                                };
                                 has_mutated = true;
                             } else if response.drag_released() {
                                 // TODO: handle drag that doesn't end on stage
@@ -454,10 +459,7 @@ impl Editor {
         egui::TopBottomPanel::bottom("properties").show(egui_ctx, |ui| {
             let edit = match &mut self.properties_panel {
                 PropertiesPanel::MovieProperties(panel) => panel.do_ui(&mut self.movie, ui),
-                PropertiesPanel::SymbolProperties(panel) => panel.do_ui(
-                    &mut self.movie,
-                    ui,
-                ),
+                PropertiesPanel::SymbolProperties(panel) => panel.do_ui(&mut self.movie, ui),
                 PropertiesPanel::PlacedSymbolProperties(panel) => {
                     if self.selection.len() != 1 {
                         panic!(
@@ -511,6 +513,10 @@ impl Editor {
                     self.properties_panel =
                         PropertiesPanel::SymbolProperties(SymbolPropertiesPanel {
                             symbol_index: editing_clip,
+                            before_edit: match &self.movie.symbols[editing_clip] {
+                                Symbol::Bitmap(_) => todo!(),
+                                Symbol::MovieClip(movieclip) => movieclip.properties.clone(),
+                            }
                         });
                 } else {
                     self.properties_panel =
@@ -537,11 +543,11 @@ impl Editor {
 
     fn delete_selection(&mut self) {
         let mut selection = self.selection.clone();
-        
+
         // because the list is sorted and we are traversing from the end to the beginning
         // we can safely remove placed items without changing the indices of the rest of the selection
         selection.sort();
-        
+
         // reset selection before doing edits because otherwise you can delete something while it's still selected
         self.set_selection(vec![]);
         for i in (0..selection.len()).rev() {
@@ -594,8 +600,10 @@ impl NewSymbolWindow {
                         .clicked()
                     {
                         result = Some(Symbol::MovieClip(MovieClip {
-                            name: self.name.clone(),
-                            class_name: "".to_string(),
+                            properties: MovieClipProperties {
+                                name: self.name.clone(),
+                                class_name: "".to_string(),
+                            },
                             place_symbols: vec![],
                         }));
                     }
