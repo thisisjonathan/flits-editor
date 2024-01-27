@@ -57,22 +57,23 @@ impl MoviePropertiesPanel {
     }
 }
 
-pub struct SymbolPropertiesPanel {}
+pub struct SymbolPropertiesPanel {
+    pub symbol_index: SymbolIndex,
+}
 impl SymbolPropertiesPanel {
     pub fn do_ui(
         &mut self,
         movie: &mut Movie,
         ui: &mut egui::Ui,
-        editing_clip: SymbolIndex,
     ) -> Option<MovieEdit> {
-        let symbol = &mut movie.symbols[editing_clip];
+        let symbol = &mut movie.symbols[self.symbol_index];
         match symbol {
             Symbol::Bitmap(_) => {
                 ui.heading("Bitmap properties");
             }
             Symbol::MovieClip(movieclip) => {
                 ui.heading("Movieclip properties");
-                egui::Grid::new(format!("movieclip_{editing_clip}_properties_grid")).show(
+                egui::Grid::new(format!("movieclip_{}_properties_grid", self.symbol_index)).show(
                     ui,
                     |ui| {
                         ui.label("Name:");

@@ -394,10 +394,14 @@ impl Editor {
                     .show(ui, |ui| {
                         for i in 0..self.movie.symbols.len() {
                             let symbol = self.movie.symbols.get(i).unwrap();
-                            let checked = if let Some(editing_clip) = self.editing_clip {
+                            /*let checked = if let Some(editing_clip) = self.editing_clip {
                                 editing_clip == i
                             } else {
                                 false
+                            };*/
+                            let checked = match &self.properties_panel {
+                                PropertiesPanel::SymbolProperties(panel) => panel.symbol_index == i,
+                                _ => false
                             };
                             let mut text = egui::RichText::new(symbol.name());
                             if symbol.is_invalid() {
@@ -406,8 +410,14 @@ impl Editor {
                             let response = ui.selectable_label(checked, text);
                             let response = response.interact(egui::Sense::drag());
 
-                            if response.clicked() {
+                            if response.double_clicked() {
                                 self.change_editing_clip(Some(i));
+                                has_mutated = true;
+                            } else if response.clicked() {
+                                self.properties_panel =
+                                    PropertiesPanel::SymbolProperties(SymbolPropertiesPanel {
+                                        symbol_index: i,
+                                    });
                                 has_mutated = true;
                             } else if response.drag_released() {
                                 // TODO: handle drag that doesn't end on stage
@@ -447,8 +457,6 @@ impl Editor {
                 PropertiesPanel::SymbolProperties(panel) => panel.do_ui(
                     &mut self.movie,
                     ui,
-                    self.editing_clip
-                        .expect("Showing symbol properties while no symbol is selected"),
                 ),
                 PropertiesPanel::PlacedSymbolProperties(panel) => {
                     if self.selection.len() != 1 {
@@ -499,9 +507,11 @@ impl Editor {
     fn update_selection(&mut self) {
         match self.selection.len() {
             0 => {
-                if self.editing_clip.is_some() {
+                if let Some(editing_clip) = self.editing_clip {
                     self.properties_panel =
-                        PropertiesPanel::SymbolProperties(SymbolPropertiesPanel {});
+                        PropertiesPanel::SymbolProperties(SymbolPropertiesPanel {
+                            symbol_index: editing_clip,
+                        });
                 } else {
                     self.properties_panel =
                         PropertiesPanel::MovieProperties(MoviePropertiesPanel {
@@ -526,11 +536,16 @@ impl Editor {
     }
 
     fn delete_selection(&mut self) {
+        let mut selection = self.selection.clone();
+        
         // because the list is sorted and we are traversing from the end to the beginning
         // we can safely remove placed items without changing the indices of the rest of the selection
-        self.selection.sort();
-        for i in (0..self.selection.len()).rev() {
-            let placed_symbol_index = *self.selection.get(i).unwrap();
+        selection.sort();
+        
+        // reset selection before doing edits because otherwise you can delete something while it's still selected
+        self.set_selection(vec![]);
+        for i in (0..selection.len()).rev() {
+            let placed_symbol_index = *selection.get(i).unwrap();
             self.do_edit(MovieEdit::RemovePlacedSymbol(RemovePlacedSymbolEdit {
                 editing_symbol_index: self.editing_clip,
                 placed_symbol_index,
@@ -539,7 +554,6 @@ impl Editor {
                     .clone(),
             }));
         }
-        self.set_selection(vec![]);
     }
 
     pub fn renderer_mut(&mut self) -> &mut Renderer {
