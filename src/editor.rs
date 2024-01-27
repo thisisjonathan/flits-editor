@@ -7,7 +7,8 @@ use self::properties_panel::{
     PropertiesPanel, SymbolPropertiesPanel,
 };
 use crate::core::{
-    Movie, MovieClip, PlaceSymbol, PlacedSymbolIndex, Symbol, SymbolIndex, SymbolIndexOrRoot,
+    BitmapCacheStatus, Movie, MovieClip, PlaceSymbol, PlacedSymbolIndex, Symbol, SymbolIndex,
+    SymbolIndexOrRoot,
 };
 use crate::desktop::custom_event::RuffleEvent;
 use egui::{Vec2, Widget};
@@ -106,23 +107,28 @@ impl Editor {
         for i in 0..symbols.len() {
             let symbol = symbols.get_mut(i).unwrap();
             match symbol {
-                Symbol::Bitmap(bitmap) => {
-                    let image = bitmap.image.as_ref().expect("Image or symbol not loaded");
-                    if bitmap.bitmap_handle.is_none() {
-                        let bitmap_handle = renderer
-                            .register_bitmap(Bitmap::new(
-                                image.width(),
-                                image.height(),
-                                BitmapFormat::Rgba,
-                                image
-                                    .as_rgba8()
-                                    .expect("Unable to convert image to rgba")
-                                    .to_vec(),
-                            ))
-                            .expect("Unable to register bitmap");
-                        bitmap.bitmap_handle = Some(bitmap_handle);
+                Symbol::Bitmap(bitmap) => match &mut bitmap.cache {
+                    BitmapCacheStatus::Uncached => panic!("Image or symbol not loaded"),
+                    BitmapCacheStatus::Cached(cached_bitmap) => {
+                        if cached_bitmap.bitmap_handle.is_none() {
+                            cached_bitmap.bitmap_handle = Some(
+                                renderer
+                                    .register_bitmap(Bitmap::new(
+                                        cached_bitmap.image.width(),
+                                        cached_bitmap.image.height(),
+                                        BitmapFormat::Rgba,
+                                        cached_bitmap
+                                            .image
+                                            .as_rgba8()
+                                            .expect("Unable to convert image to rgba")
+                                            .to_vec(),
+                                    ))
+                                    .expect("Unable to register bitmap"),
+                            );
+                        }
                     }
-                }
+                    BitmapCacheStatus::Invalid(_) => (),
+                },
                 Symbol::MovieClip(_) => (),
             }
         }
@@ -153,7 +159,12 @@ impl Editor {
                 .expect("Invalid symbol placed");
             match symbol {
                 Symbol::Bitmap(bitmap) => {
-                    let bitmap_handle = bitmap.bitmap_handle.as_ref().unwrap();
+                    let BitmapCacheStatus::Cached(cached_bitmap) = &bitmap.cache else {
+                        break;
+                    };
+                    let Some(bitmap_handle) = &cached_bitmap.bitmap_handle else {
+                        break;
+                    };
                     commands.push(Command::RenderBitmap {
                         bitmap: bitmap_handle.clone(),
                         transform: Transform {
@@ -266,7 +277,7 @@ impl Editor {
             self.reset_properties_panel();
         }
     }
-    
+
     fn reset_properties_panel(&mut self) {
         if self.selection.len() == 1 {
             self.properties_panel =
@@ -305,9 +316,9 @@ impl Editor {
                 .expect("Invalid symbol placed");
             match symbol {
                 Symbol::Bitmap(bitmap) => {
-                    if let Some(image) = &bitmap.image {
-                        let width = image.width() as f64;
-                        let height = image.height() as f64;
+                    if let BitmapCacheStatus::Cached(cached_bitmap) = &bitmap.cache {
+                        let width = cached_bitmap.image.width() as f64;
+                        let height = cached_bitmap.image.height() as f64;
                         if x > place_symbol.x
                             && y > place_symbol.y
                             && x < place_symbol.x + width
@@ -388,7 +399,11 @@ impl Editor {
                             } else {
                                 false
                             };
-                            let response = ui.selectable_label(checked, symbol.name());
+                            let mut text = egui::RichText::new(symbol.name());
+                            if symbol.is_invalid() {
+                                text = text.color(egui::Color32::RED);
+                            }
+                            let response = ui.selectable_label(checked, text);
                             let response = response.interact(egui::Sense::drag());
 
                             if response.clicked() {
