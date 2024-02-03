@@ -1,4 +1,4 @@
-use std::{collections::HashMap, default, io::Write, path::Path, path::PathBuf};
+use std::{collections::HashMap, io::Write, path::Path, path::PathBuf};
 
 use image::{io::Reader as ImageReader, DynamicImage, EncodableLayout};
 use ruffle_render::bitmap::BitmapHandle;
@@ -48,17 +48,7 @@ impl Movie {
             let Symbol::Bitmap(bitmap) = symbol else {
                 continue;
             };
-            let path = &bitmap.path;
-            bitmap.cache = match ImageReader::open(directory.join(path)) {
-                Ok(reader) => match reader.decode() {
-                    Ok(image) => BitmapCacheStatus::Cached(CachedBitmap {
-                        image,
-                        bitmap_handle: None,
-                    }),
-                    Err(err) => BitmapCacheStatus::Invalid(err.to_string()),
-                },
-                Err(err) => BitmapCacheStatus::Invalid(err.to_string()),
-            };
+            bitmap.cache_image(directory);
         }
 
         movie
@@ -72,7 +62,7 @@ impl Movie {
             .symbols
             .iter()
             .filter_map(|symbol| match symbol {
-                Symbol::Bitmap(bitmap) => Some(bitmap.path.clone()),
+                Symbol::Bitmap(bitmap) => Some(bitmap.properties.path.clone()),
                 _ => None,
             })
             .collect();
@@ -91,8 +81,10 @@ impl Movie {
             } else {
                 // asset doesn't exist yet, add it
                 self.symbols.push(Symbol::Bitmap(Bitmap {
-                    name: file_name,
-                    path: file_path,
+                    properties: BitmapProperties {
+                        name: file_name,
+                        path: file_path,
+                    },
                     cache: BitmapCacheStatus::Uncached,
                 }));
             }
@@ -179,7 +171,7 @@ pub enum Symbol {
 impl Symbol {
     pub fn name(&self) -> String {
         match self {
-            Symbol::Bitmap(bitmap) => bitmap.name.clone(),
+            Symbol::Bitmap(bitmap) => bitmap.properties.name.clone(),
             Symbol::MovieClip(movieclip) => movieclip.properties.name.clone(),
         }
     }
@@ -196,11 +188,32 @@ impl Symbol {
 
 #[derive(Serialize, Deserialize)]
 pub struct Bitmap {
-    pub name: String,
-    pub path: String,
-
+    pub properties: BitmapProperties,
     #[serde(skip)]
     pub cache: BitmapCacheStatus,
+}
+impl Bitmap {
+    pub fn cache_image(&mut self, directory: &Path) {
+        self.cache = match ImageReader::open(directory.join(self.properties.path.clone())) {
+            Ok(reader) => match reader.decode() {
+                Ok(image) => BitmapCacheStatus::Cached(CachedBitmap {
+                    image,
+                    bitmap_handle: None,
+                }),
+                Err(err) => BitmapCacheStatus::Invalid(err.to_string()),
+            },
+            Err(err) => BitmapCacheStatus::Invalid(err.to_string()),
+        };
+    }
+    pub fn invalidate_cache(&mut self) {
+        self.cache = BitmapCacheStatus::Uncached;
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
+pub struct BitmapProperties {
+    pub name: String,
+    pub path: String,
 }
 
 #[derive(Default)]
@@ -396,7 +409,7 @@ fn build_bitmap<'a>(
     directory: PathBuf,
 ) {
     // TODO: the images are probably already loaded when exporting a movie you are editing, maybe reuse that?
-    let img = ImageReader::open(directory.join(bitmap.path.clone()))
+    let img = ImageReader::open(directory.join(bitmap.properties.path.clone()))
         .expect("Unable to read image")
         .decode()
         .expect("Unable to decode image");

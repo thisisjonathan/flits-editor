@@ -1,10 +1,11 @@
 use undo::Edit;
 
-use crate::core::{Movie, PlaceSymbol, PlacedSymbolIndex, SymbolIndexOrRoot, MovieProperties, MovieClipProperties, SymbolIndex};
+use crate::core::{Movie, PlaceSymbol, PlacedSymbolIndex, SymbolIndexOrRoot, MovieProperties, MovieClipProperties, SymbolIndex, BitmapProperties, BitmapCacheStatus};
 
 pub enum MovieEdit {
     EditMovieProperties(MoviePropertiesEdit),
     
+    EditBitmapProperties(BitmapPropertiesEdit),
     EditMovieClipProperties(MovieClipPropertiesEdit),
     
     MovePlacedSymbol(MovePlacedSymbolEdit),
@@ -13,11 +14,12 @@ pub enum MovieEdit {
 }
 impl Edit for MovieEdit {
     type Target = Movie;
-    type Output = SymbolIndexOrRoot; // the symbol that has changed so the editor can show it
+    type Output = MoviePropertiesOutput; // the symbol that has changed so the editor can show it
 
-    fn edit(&mut self, target: &mut Movie) -> SymbolIndexOrRoot {
+    fn edit(&mut self, target: &mut Movie) -> MoviePropertiesOutput {
         match self {
             MovieEdit::EditMovieProperties(edit) => edit.edit(target),
+            MovieEdit::EditBitmapProperties(edit) => edit.edit(target),
             MovieEdit::EditMovieClipProperties(edit) => edit.edit(target),
             MovieEdit::MovePlacedSymbol(edit) => edit.edit(target),
             MovieEdit::AddPlacedSymbol(edit) => edit.edit(target),
@@ -25,9 +27,10 @@ impl Edit for MovieEdit {
         }
     }
 
-    fn undo(&mut self, target: &mut Movie) -> SymbolIndexOrRoot {
+    fn undo(&mut self, target: &mut Movie) -> MoviePropertiesOutput {
         match self {
             MovieEdit::EditMovieProperties(edit) => edit.undo(target),
+            MovieEdit::EditBitmapProperties(edit) => edit.undo(target),
             MovieEdit::EditMovieClipProperties(edit) => edit.undo(target),
             MovieEdit::MovePlacedSymbol(edit) => edit.undo(target),
             MovieEdit::AddPlacedSymbol(edit) => edit.undo(target),
@@ -35,18 +38,52 @@ impl Edit for MovieEdit {
         }
     }
 }
+pub enum MoviePropertiesOutput {
+    Stage(SymbolIndexOrRoot),
+    Properties(SymbolIndexOrRoot),
+}
+
 pub struct MoviePropertiesEdit {
     pub before: MovieProperties,
     pub after: MovieProperties,
 }
 impl MoviePropertiesEdit {
-    fn edit(&mut self, target: &mut Movie) -> SymbolIndexOrRoot {
+    fn edit(&mut self, target: &mut Movie) -> MoviePropertiesOutput {
         target.properties = self.after.clone();
-        None // root because you are editing the movie properties
+        MoviePropertiesOutput::Properties(None) // root because you are editing the movie properties
     }
-    fn undo(&mut self, target: &mut Movie) -> SymbolIndexOrRoot {
+    fn undo(&mut self, target: &mut Movie) -> MoviePropertiesOutput {
         target.properties = self.before.clone();
-        None // root because you are editing the movie properties
+        MoviePropertiesOutput::Properties(None) // root because you are editing the movie properties
+    }
+}
+
+pub struct BitmapPropertiesEdit {
+    pub editing_symbol_index: SymbolIndex,
+    
+    pub before: BitmapProperties,
+    pub after: BitmapProperties,
+}
+impl BitmapPropertiesEdit {
+    fn edit(&mut self, target: &mut Movie) -> MoviePropertiesOutput {
+        let bitmap = match &mut target.symbols[self.editing_symbol_index] {
+            crate::core::Symbol::Bitmap(bitmap) => bitmap,
+            _ => panic!("Editing symbol that isn't a bitmap")
+        };
+        bitmap.invalidate_cache();
+        bitmap.properties = self.after.clone();
+        
+        MoviePropertiesOutput::Properties(Some(self.editing_symbol_index))
+    }
+    fn undo(&mut self, target: &mut Movie) -> MoviePropertiesOutput {
+        let bitmap = match &mut target.symbols[self.editing_symbol_index] {
+            crate::core::Symbol::Bitmap(bitmap) => bitmap,
+            _ => panic!("Editing symbol that isn't a bitmap")
+        };
+        bitmap.invalidate_cache();
+        bitmap.properties = self.before.clone();
+        
+        MoviePropertiesOutput::Properties(Some(self.editing_symbol_index))
     }
 }
 
@@ -57,23 +94,23 @@ pub struct MovieClipPropertiesEdit {
     pub after: MovieClipProperties,
 }
 impl MovieClipPropertiesEdit {
-    fn edit(&mut self, target: &mut Movie) -> SymbolIndexOrRoot {
+    fn edit(&mut self, target: &mut Movie) -> MoviePropertiesOutput {
         let movieclip = match &mut target.symbols[self.editing_symbol_index] {
             crate::core::Symbol::MovieClip(movieclip) => movieclip,
-            _ => panic!("Editing movieclip that isn't a movieclip")
+            _ => panic!("Editing symbol that isn't a movieclip")
         };
         movieclip.properties = self.after.clone();
         
-        Some(self.editing_symbol_index)
+        MoviePropertiesOutput::Properties(Some(self.editing_symbol_index))
     }
-    fn undo(&mut self, target: &mut Movie) -> SymbolIndexOrRoot {
+    fn undo(&mut self, target: &mut Movie) -> MoviePropertiesOutput {
         let movieclip = match &mut target.symbols[self.editing_symbol_index] {
             crate::core::Symbol::MovieClip(movieclip) => movieclip,
-            _ => panic!("Editing movieclip that isn't a movieclip")
+            _ => panic!("Editing symbol that isn't a movieclip")
         };
         movieclip.properties = self.before.clone();
         
-        Some(self.editing_symbol_index)
+        MoviePropertiesOutput::Properties(Some(self.editing_symbol_index))
     }
 }
 
@@ -88,20 +125,22 @@ pub struct MovePlacedSymbolEdit {
     pub end_y: f64,
 }
 impl MovePlacedSymbolEdit {
-    fn edit(&mut self, target: &mut Movie) -> SymbolIndexOrRoot {
+    fn edit(&mut self, target: &mut Movie) -> MoviePropertiesOutput {
         let placed_symbols = target.get_placed_symbols_mut(self.editing_symbol_index);
         let symbol = &mut placed_symbols[self.placed_symbol_index];
         symbol.x = self.end_x;
         symbol.y = self.end_y;
-        self.editing_symbol_index
+        
+        MoviePropertiesOutput::Stage(self.editing_symbol_index)
     }
 
-    fn undo(&mut self, target: &mut Movie) -> SymbolIndexOrRoot {
+    fn undo(&mut self, target: &mut Movie) -> MoviePropertiesOutput {
         let placed_symbols = target.get_placed_symbols_mut(self.editing_symbol_index);
         let symbol = &mut placed_symbols[self.placed_symbol_index];
         symbol.x = self.start_x;
         symbol.y = self.start_y;
-        self.editing_symbol_index
+        
+        MoviePropertiesOutput::Stage(self.editing_symbol_index)
     }
 }
 pub struct AddPlacedSymbolEdit {
@@ -110,23 +149,25 @@ pub struct AddPlacedSymbolEdit {
     pub placed_symbol_index: Option<PlacedSymbolIndex>, // for removing when undoing
 }
 impl AddPlacedSymbolEdit {
-    fn edit(&mut self, target: &mut Movie) -> SymbolIndexOrRoot {
+    fn edit(&mut self, target: &mut Movie) -> MoviePropertiesOutput {
         target
             .get_placed_symbols_mut(self.editing_symbol_index)
             .push(self.placed_symbol.clone());
         self.placed_symbol_index =
             Some(target.get_placed_symbols(self.editing_symbol_index).len() - 1);
-        self.editing_symbol_index
+        
+        MoviePropertiesOutput::Stage(self.editing_symbol_index)
     }
 
-    fn undo(&mut self, target: &mut Movie) -> SymbolIndexOrRoot {
+    fn undo(&mut self, target: &mut Movie) -> MoviePropertiesOutput {
         let Some(placed_symbol_index) = self.placed_symbol_index else {
             panic!("Undoing AddPlacedSymbolEdit without placed_symbol_index");
         };
         target
             .get_placed_symbols_mut(self.editing_symbol_index)
             .remove(placed_symbol_index);
-        self.editing_symbol_index
+        
+        MoviePropertiesOutput::Stage(self.editing_symbol_index)
     }
 }
 pub struct RemovePlacedSymbolEdit {
@@ -135,17 +176,19 @@ pub struct RemovePlacedSymbolEdit {
     pub placed_symbol: PlaceSymbol, // for adding when undoing
 }
 impl RemovePlacedSymbolEdit {
-    fn edit(&mut self, target: &mut Movie) -> SymbolIndexOrRoot {
+    fn edit(&mut self, target: &mut Movie) -> MoviePropertiesOutput {
         target
             .get_placed_symbols_mut(self.editing_symbol_index)
             .remove(self.placed_symbol_index);
-        self.editing_symbol_index
+        
+        MoviePropertiesOutput::Stage(self.editing_symbol_index)
     }
 
-    fn undo(&mut self, target: &mut Movie) -> SymbolIndexOrRoot {
+    fn undo(&mut self, target: &mut Movie) -> MoviePropertiesOutput {
         target
             .get_placed_symbols_mut(self.editing_symbol_index)
             .insert(self.placed_symbol_index, self.placed_symbol.clone());
-        self.editing_symbol_index
+        
+        MoviePropertiesOutput::Stage(self.editing_symbol_index)
     }
 }

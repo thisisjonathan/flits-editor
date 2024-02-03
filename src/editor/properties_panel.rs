@@ -2,11 +2,11 @@ use egui::Vec2;
 
 use crate::core::{
     Bitmap, Movie, MovieClip, MovieProperties, PlaceSymbol, PlacedSymbolIndex, Symbol, SymbolIndex,
-    SymbolIndexOrRoot, MovieClipProperties,
+    SymbolIndexOrRoot, MovieClipProperties, BitmapProperties, BitmapCacheStatus,
 };
 
 use super::{
-    edit::{MovePlacedSymbolEdit, MovieEdit, MoviePropertiesEdit, MovieClipPropertiesEdit},
+    edit::{MovePlacedSymbolEdit, MovieEdit, MoviePropertiesEdit, MovieClipPropertiesEdit, BitmapPropertiesEdit},
     EDIT_EPSILON,
 };
 
@@ -59,7 +59,11 @@ impl MoviePropertiesPanel {
 
 pub struct SymbolPropertiesPanel {
     pub symbol_index: SymbolIndex,
-    pub before_edit: MovieClipProperties,
+    pub before_edit: SymbolProperties,
+}
+pub enum SymbolProperties {
+    Bitmap(BitmapProperties),
+    MovieClip(MovieClipProperties),
 }
 impl SymbolPropertiesPanel {
     pub fn do_ui(&mut self, movie: &mut Movie, ui: &mut egui::Ui) -> Option<MovieEdit> {
@@ -70,11 +74,60 @@ impl SymbolPropertiesPanel {
         }
     }
 
-    fn bitmap_ui(&self, _bitmap: &mut Bitmap, ui: &mut egui::Ui) -> Option<MovieEdit> {
+    fn bitmap_ui(&self, bitmap: &mut Bitmap, ui: &mut egui::Ui) -> Option<MovieEdit> {
         ui.heading("Bitmap properties");
 
-        // TODO: actual undo/redo
-        None
+        let mut edit: Option<MovieEdit> = None;
+        egui::Grid::new(format!("bitmap_{}_properties_grid", self.symbol_index)).show(
+            ui,
+            |ui| {
+                let mut edited = false;
+                
+                ui.label("Name:");
+                let response = ui.add(
+                    egui::TextEdit::singleline(&mut bitmap.properties.name).min_size(Vec2::new(200.0, 0.0)),
+                );
+                if response.lost_focus() {
+                    edited = true;
+                }
+                ui.end_row();
+
+                ui.label("Path:");
+                let mut path_text_edit = egui::TextEdit::singleline(&mut bitmap.properties.path)
+                        .min_size(Vec2::new(200.0, 0.0));
+                if let BitmapCacheStatus::Invalid(_) = &bitmap.cache {
+                    path_text_edit = path_text_edit.text_color(ui.style().visuals.error_fg_color);
+                }
+                let response = ui.add(path_text_edit);
+                if response.lost_focus() {
+                    edited = true;
+                }
+                ui.end_row();
+                
+                if let BitmapCacheStatus::Invalid(error) = &bitmap.cache {
+                    ui.colored_label(ui.style().visuals.error_fg_color, "Error:");
+                    ui.colored_label(ui.style().visuals.error_fg_color, error);
+                } else {
+                    // add an empty row so the amount of rows is always the same
+                    // otherwise the height of the panel will only be updated on the next redraw
+                    ui.label("");
+                }
+                ui.end_row();
+                
+                let SymbolProperties::Bitmap(before_edit) = &self.before_edit else {
+                    panic!("before_edit is not a bitmap");
+                };
+                if edited && before_edit != &bitmap.properties {
+                    edit = Some(MovieEdit::EditBitmapProperties(BitmapPropertiesEdit {
+                        editing_symbol_index: self.symbol_index,
+                        before: before_edit.clone(),
+                        after: bitmap.properties.clone(),
+                    }));
+                }
+            },
+        );
+        
+        edit
     }
 
     fn movieclip_ui(&self, movieclip: &mut MovieClip, ui: &mut egui::Ui) -> Option<MovieEdit> {
@@ -105,10 +158,13 @@ impl SymbolPropertiesPanel {
                 }
                 ui.end_row();
                 
-                if edited && self.before_edit != movieclip.properties {
+                let SymbolProperties::MovieClip(before_edit) = &self.before_edit else {
+                    panic!("before_edit is not a movieclip");
+                };
+                if edited && before_edit != &movieclip.properties {
                     edit = Some(MovieEdit::EditMovieClipProperties(MovieClipPropertiesEdit {
                         editing_symbol_index: self.symbol_index,
-                        before: self.before_edit.clone(),
+                        before: before_edit.clone(),
                         after: movieclip.properties.clone(),
                     }));
                 }

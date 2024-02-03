@@ -7,11 +7,15 @@
     
     "symbols": [
         {"Bitmap": {
-            "name": "smiley.png",
-            "path": "assets/smiley.png"
+            "properties": {
+                "name": "smiley.png",
+                "path": "assets/smiley.png"
+            }
         }},{"Bitmap": {
-            "name": "flower.png",
-            "path": "assets/flower.png"
+            "properties": {
+                "name": "flower.png",
+                "path": "assets/flower.png"
+            }
         }},{"MovieClip": {
             "properties": {
                 "name": "Two flowers",

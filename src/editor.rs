@@ -1,14 +1,17 @@
 use std::path::PathBuf;
 
-use self::edit::{AddPlacedSymbolEdit, MovePlacedSymbolEdit, MovieEdit, RemovePlacedSymbolEdit};
+use self::edit::{
+    AddPlacedSymbolEdit, MovePlacedSymbolEdit, MovieEdit, MoviePropertiesOutput,
+    RemovePlacedSymbolEdit,
+};
 use self::menu::MENUS;
 use self::properties_panel::{
     MoviePropertiesPanel, MultiSelectionPropertiesPanel, PlacedSymbolPropertiesPanel,
-    PropertiesPanel, SymbolPropertiesPanel,
+    PropertiesPanel, SymbolProperties, SymbolPropertiesPanel,
 };
 use crate::core::{
-    BitmapCacheStatus, Movie, MovieClip, MovieClipProperties, PlaceSymbol, PlacedSymbolIndex,
-    Symbol, SymbolIndex, SymbolIndexOrRoot,
+    BitmapCacheStatus, CachedBitmap, Movie, MovieClip, MovieClipProperties, PlaceSymbol,
+    PlacedSymbolIndex, Symbol, SymbolIndex, SymbolIndexOrRoot,
 };
 use crate::desktop::custom_event::RuffleEvent;
 use egui::{Vec2, Widget};
@@ -108,23 +111,16 @@ impl Editor {
             let symbol = symbols.get_mut(i).unwrap();
             match symbol {
                 Symbol::Bitmap(bitmap) => match &mut bitmap.cache {
-                    BitmapCacheStatus::Uncached => panic!("Image or symbol not loaded"),
+                    BitmapCacheStatus::Uncached => {
+                        bitmap.cache_image(&self.directory);
+                        // if the caching is succesful
+                        if let BitmapCacheStatus::Cached(cached_bitmap) = &mut bitmap.cache {
+                            Self::cache_bitmap_handle(renderer, cached_bitmap);
+                        }
+                    }
                     BitmapCacheStatus::Cached(cached_bitmap) => {
                         if cached_bitmap.bitmap_handle.is_none() {
-                            cached_bitmap.bitmap_handle = Some(
-                                renderer
-                                    .register_bitmap(Bitmap::new(
-                                        cached_bitmap.image.width(),
-                                        cached_bitmap.image.height(),
-                                        BitmapFormat::Rgba,
-                                        cached_bitmap
-                                            .image
-                                            .as_rgba8()
-                                            .expect("Unable to convert image to rgba")
-                                            .to_vec(),
-                                    ))
-                                    .expect("Unable to register bitmap"),
-                            );
+                            Self::cache_bitmap_handle(renderer, cached_bitmap);
                         }
                     }
                     BitmapCacheStatus::Invalid(_) => (),
@@ -141,6 +137,23 @@ impl Editor {
         ));
         self.renderer
             .submit_frame(Color::from_rgb(0x222222, 255), commands, vec![]);
+    }
+
+    fn cache_bitmap_handle(renderer: &mut Renderer, cached_bitmap: &mut CachedBitmap) {
+        cached_bitmap.bitmap_handle = Some(
+            renderer
+                .register_bitmap(Bitmap::new(
+                    cached_bitmap.image.width(),
+                    cached_bitmap.image.height(),
+                    BitmapFormat::Rgba,
+                    cached_bitmap
+                        .image
+                        .as_rgba8()
+                        .expect("Unable to convert image to rgba")
+                        .to_vec(),
+                ))
+                .expect("Unable to register bitmap"),
+        );
     }
 
     fn render_placed_symbols(
@@ -256,45 +269,50 @@ impl Editor {
     }
 
     fn do_edit(&mut self, edit: MovieEdit) {
-        self.editing_clip = self.history.edit(&mut self.movie, edit);
-        self.reset_properties_panel();
+        let result = self.history.edit(&mut self.movie, edit);
+        self.change_view_after_edit(result);
     }
 
     fn do_undo(&mut self) {
         let result = self.history.undo(&mut self.movie);
         if let Some(editing_clip) = result {
-            self.editing_clip = editing_clip;
-        } else {
-            self.reset_properties_panel();
+            self.change_view_after_edit(editing_clip);
         }
     }
 
     fn do_redo(&mut self) {
         let result = self.history.redo(&mut self.movie);
         if let Some(editing_clip) = result {
-            self.editing_clip = editing_clip;
-        } else {
-            self.reset_properties_panel();
+            self.change_view_after_edit(editing_clip);
         }
     }
 
-    fn reset_properties_panel(&mut self) {
-        if self.selection.len() == 1 {
-            self.properties_panel =
-                PropertiesPanel::PlacedSymbolProperties(PlacedSymbolPropertiesPanel {
-                    before_edit: self.movie.get_placed_symbols(self.editing_clip)
-                        [self.selection[0]]
-                        .clone(),
-                });
-        } else {
-            match self.properties_panel {
-                PropertiesPanel::MovieProperties(_) => {
+    fn change_view_after_edit(&mut self, output: MoviePropertiesOutput) {
+        match output {
+            MoviePropertiesOutput::Stage(editing_clip) => {
+                self.editing_clip = editing_clip;
+                if self.selection.len() == 1 {
+                    self.properties_panel =
+                        PropertiesPanel::PlacedSymbolProperties(PlacedSymbolPropertiesPanel {
+                            before_edit: self.movie.get_placed_symbols(self.editing_clip)
+                                [self.selection[0]]
+                                .clone(),
+                        });
+                }
+            }
+            MoviePropertiesOutput::Properties(editing_clip) => {
+                if let Some(symbol_index) = editing_clip {
+                    self.properties_panel = Self::create_symbol_propeties_panel(
+                        symbol_index,
+                        &self.movie.symbols[symbol_index],
+                    );
+                } else {
+                    // root
                     self.properties_panel =
                         PropertiesPanel::MovieProperties(MoviePropertiesPanel {
                             before_edit: self.movie.properties.clone(),
                         });
                 }
-                _ => (),
             }
         }
     }
@@ -405,7 +423,7 @@ impl Editor {
                             };
                             let mut text = egui::RichText::new(symbol.name());
                             if symbol.is_invalid() {
-                                text = text.color(egui::Color32::RED);
+                                text = text.color(ui.style().visuals.error_fg_color);
                             }
                             let response = ui.selectable_label(checked, text);
                             let response = response.interact(egui::Sense::drag());
@@ -414,15 +432,8 @@ impl Editor {
                                 self.change_editing_clip(Some(i));
                                 has_mutated = true;
                             } else if response.clicked() {
-                                self.properties_panel = match symbol {
-                                    Symbol::Bitmap(_) => todo!(),
-                                    Symbol::MovieClip(movieclip) => {
-                                        PropertiesPanel::SymbolProperties(SymbolPropertiesPanel {
-                                            symbol_index: i,
-                                            before_edit: movieclip.properties.clone(),
-                                        })
-                                    }
-                                };
+                                self.properties_panel =
+                                    Self::create_symbol_propeties_panel(i, symbol);
                                 has_mutated = true;
                             } else if response.drag_released() {
                                 // TODO: handle drag that doesn't end on stage
@@ -478,6 +489,7 @@ impl Editor {
             };
             if let Some(edit) = edit {
                 self.do_edit(edit);
+                has_mutated = true; // some edits cause cascading effects (for example changing the path of a bitmap)
             }
         });
 
@@ -489,6 +501,24 @@ impl Editor {
         }
 
         has_mutated
+    }
+
+    fn create_symbol_propeties_panel(
+        symbol_index: SymbolIndex,
+        symbol: &Symbol,
+    ) -> PropertiesPanel {
+        match symbol {
+            Symbol::Bitmap(bitmap) => PropertiesPanel::SymbolProperties(SymbolPropertiesPanel {
+                symbol_index,
+                before_edit: SymbolProperties::Bitmap(bitmap.properties.clone()),
+            }),
+            Symbol::MovieClip(movieclip) => {
+                PropertiesPanel::SymbolProperties(SymbolPropertiesPanel {
+                    symbol_index,
+                    before_edit: SymbolProperties::MovieClip(movieclip.properties.clone()),
+                })
+            }
+        }
     }
 
     fn change_editing_clip(&mut self, symbol_index: SymbolIndexOrRoot) {
@@ -514,9 +544,13 @@ impl Editor {
                         PropertiesPanel::SymbolProperties(SymbolPropertiesPanel {
                             symbol_index: editing_clip,
                             before_edit: match &self.movie.symbols[editing_clip] {
-                                Symbol::Bitmap(_) => todo!(),
-                                Symbol::MovieClip(movieclip) => movieclip.properties.clone(),
-                            }
+                                Symbol::Bitmap(bitmap) => {
+                                    SymbolProperties::Bitmap(bitmap.properties.clone())
+                                }
+                                Symbol::MovieClip(movieclip) => {
+                                    SymbolProperties::MovieClip(movieclip.properties.clone())
+                                }
+                            },
                         });
                 } else {
                     self.properties_panel =
