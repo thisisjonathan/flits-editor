@@ -237,6 +237,7 @@ pub struct MovieClip {
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub struct MovieClipProperties {
     pub name: String,
+    #[serde(default, skip_serializing_if = "is_default")]
     pub class_name: String,
 }
 
@@ -261,7 +262,7 @@ struct TransformDef {
 #[serde(remote = "ruffle_render::matrix::Matrix")]
 struct MatrixDef {
     /// Serialized as `scale_x` in SWF files
-    #[serde(default = "one")]
+    #[serde(default = "one", skip_serializing_if = "is_one")]
     pub a: f32,
 
     /// Serialized as `rotate_skew_0` in SWF files
@@ -273,7 +274,7 @@ struct MatrixDef {
     pub c: f32,
 
     /// Serialized as `scale_y` in SWF files
-    #[serde(default = "one")]
+    #[serde(default = "one", skip_serializing_if = "is_one")]
     pub d: f32,
 
     /// The X translation in twips. Labeled `TranslateX` in SWF19.
@@ -287,6 +288,15 @@ struct MatrixDef {
 
 fn one() -> f32 {
     1.0
+}
+
+fn is_one(value: &f32) -> bool {
+    *value == 1.0
+}
+
+// from: https://mth.st/blog/skip-default/
+fn is_default<T: Default + PartialEq>(t: &T) -> bool {
+    t == &T::default()
 }
 
 mod twips_def {
@@ -357,11 +367,6 @@ mod color_transform_def {
         // TODO
         Ok(ColorTransform::IDENTITY)
     }
-}
-
-// from: https://mth.st/blog/skip-default/
-fn is_default<T: Default + PartialEq>(t: &T) -> bool {
-    t == &T::default()
 }
 
 fn movie_to_swf<'a>(movie: &Movie, project_directory: PathBuf, swf_path: PathBuf) {
