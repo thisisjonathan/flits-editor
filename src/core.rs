@@ -1,7 +1,7 @@
 use std::{collections::HashMap, io::Write, path::Path, path::PathBuf};
 
 use image::{io::Reader as ImageReader, DynamicImage, EncodableLayout};
-use ruffle_render::bitmap::BitmapHandle;
+use ruffle_render::{bitmap::BitmapHandle, transform::Transform};
 use serde::{Deserialize, Serialize};
 use swf::{
     avm1::types::{Action, ConstantPool, Push},
@@ -242,8 +242,120 @@ pub struct MovieClipProperties {
 #[derive(Serialize, Deserialize, Clone)]
 pub struct PlaceSymbol {
     pub symbol_index: SymbolIndex,
-    pub x: f64,
-    pub y: f64,
+    #[serde(with = "TransformDef")]
+    pub transform: Transform,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(remote = "Transform")]
+struct TransformDef {
+    #[serde(with = "MatrixDef")]
+    pub matrix: ruffle_render::matrix::Matrix,
+    #[serde(with = "color_transform_def")]
+    #[serde(default)]
+    pub color_transform: ColorTransform,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(remote = "ruffle_render::matrix::Matrix")]
+struct MatrixDef {
+    /// Serialized as `scale_x` in SWF files
+    #[serde(default = "one")]
+    pub a: f32,
+
+    /// Serialized as `rotate_skew_0` in SWF files
+    #[serde(default)]
+    pub b: f32,
+
+    /// Serialized as `rotate_skew_1` in SWF files
+    #[serde(default)]
+    pub c: f32,
+
+    /// Serialized as `scale_y` in SWF files
+    #[serde(default = "one")]
+    pub d: f32,
+
+    /// The X translation in twips. Labeled `TranslateX` in SWF19.
+    #[serde(with = "twips_def")]
+    pub tx: Twips,
+
+    /// The Y translation in twips. Labeled `TranslateX` in SWF19.
+    #[serde(with = "twips_def")]
+    pub ty: Twips,
+}
+
+fn one() -> f32 {
+    1.0
+}
+
+mod twips_def {
+    use serde::{de::Visitor, Deserializer, Serializer};
+    use swf::Twips;
+
+    pub fn serialize<S>(twips: &Twips, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_f64(twips.to_pixels())
+    }
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Twips, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_f64(TwipsVisitor)
+    }
+
+    struct TwipsVisitor;
+
+    impl<'de> Visitor<'de> for TwipsVisitor {
+        type Value = Twips;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            formatter.write_str("twips")
+        }
+
+        fn visit_f64<E>(self, v: f64) -> Result<Self::Value, E>
+        where
+            E: serde::de::Error,
+        {
+            Ok(Twips::from_pixels(v))
+        }
+
+        fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E>
+        where
+            E: serde::de::Error,
+        {
+            Ok(Twips::from_pixels(v as f64))
+        }
+
+        fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
+        where
+            E: serde::de::Error,
+        {
+            Ok(Twips::from_pixels(v as f64))
+        }
+    }
+}
+
+mod color_transform_def {
+    use serde::{Deserializer, Serializer};
+    use swf::ColorTransform;
+
+    pub fn serialize<S>(color_transform: &ColorTransform, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        // TODO
+        serializer.serialize_none()
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<ColorTransform, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        // TODO
+        Ok(ColorTransform::IDENTITY)
+    }
 }
 
 fn movie_to_swf<'a>(movie: &Movie, project_directory: PathBuf, swf_path: PathBuf) {
@@ -548,10 +660,7 @@ fn get_placed_symbols_tags<'a>(
                     }),
             ),
             depth: (i as u16) + 1,
-            matrix: Some(Matrix::translate(
-                Twips::from_pixels(place_symbol.x),
-                Twips::from_pixels(place_symbol.y),
-            )),
+            matrix: Some(place_symbol.transform.matrix.into()),
             color_transform: None,
             ratio: None,
             name: None,

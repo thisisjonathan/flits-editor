@@ -1,4 +1,5 @@
 use egui::Vec2;
+use swf::Twips;
 
 use crate::core::{
     Bitmap, Movie, MovieClip, MovieProperties, PlaceSymbol, PlacedSymbolIndex, Symbol, SymbolIndex,
@@ -199,14 +200,18 @@ impl PlacedSymbolPropertiesPanel {
         .show(ui, |ui| {
             let mut position_edited = false;
             ui.label("x");
-            let response = ui.add(egui::DragValue::new(&mut placed_symbol.x));
+            let mut value = placed_symbol.transform.matrix.tx.to_pixels();
+            let response = ui.add(egui::DragValue::new(&mut value));
+            placed_symbol.transform.matrix.tx = Twips::from_pixels(value);
             if response.lost_focus() || response.drag_released() {
                 position_edited = true;
             }
             ui.end_row();
 
             ui.label("y");
-            let response = ui.add(egui::DragValue::new(&mut placed_symbol.y));
+            let mut value = placed_symbol.transform.matrix.ty.to_pixels();
+            let response = ui.add(egui::DragValue::new(&mut value));
+            placed_symbol.transform.matrix.ty = Twips::from_pixels(value);
             if response.lost_focus() || response.drag_released() {
                 position_edited = true;
             }
@@ -215,16 +220,14 @@ impl PlacedSymbolPropertiesPanel {
             if position_edited {
                 let placed_symbol_before_edit = &self.before_edit;
                 // only add edit when the position actually changed
-                if f64::abs(placed_symbol_before_edit.x - placed_symbol.x) > EDIT_EPSILON
-                    || f64::abs(placed_symbol_before_edit.y - placed_symbol.y) > EDIT_EPSILON
+                if f64::abs(placed_symbol_before_edit.transform.matrix.tx.to_pixels() - placed_symbol.transform.matrix.ty.to_pixels()) > EDIT_EPSILON
+                    || f64::abs(placed_symbol_before_edit.transform.matrix.ty.to_pixels() - placed_symbol.transform.matrix.ty.to_pixels()) > EDIT_EPSILON
                 {
                     edit = Some(MovieEdit::MovePlacedSymbol(MovePlacedSymbolEdit {
                         editing_symbol_index: editing_clip,
                         placed_symbol_index,
-                        start_x: placed_symbol_before_edit.x,
-                        start_y: placed_symbol_before_edit.y,
-                        end_x: placed_symbol.x,
-                        end_y: placed_symbol.y,
+                        start: placed_symbol_before_edit.transform.matrix,
+                        end: placed_symbol.transform.matrix,
                     }));
                 }
             }
