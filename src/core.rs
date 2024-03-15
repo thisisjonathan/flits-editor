@@ -95,6 +95,7 @@ impl Movie {
         let file = std::fs::File::options()
             .write(true)
             .create(true)
+            .truncate(true)
             .open(path)
             .unwrap();
         serde_json::to_writer(file, self).unwrap();
@@ -252,7 +253,7 @@ struct TransformDef {
     #[serde(with = "MatrixDef")]
     pub matrix: ruffle_render::matrix::Matrix,
     #[serde(with = "color_transform_def")]
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub color_transform: ColorTransform,
 }
 
@@ -264,11 +265,11 @@ struct MatrixDef {
     pub a: f32,
 
     /// Serialized as `rotate_skew_0` in SWF files
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub b: f32,
 
     /// Serialized as `rotate_skew_1` in SWF files
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub c: f32,
 
     /// Serialized as `scale_y` in SWF files
@@ -341,7 +342,7 @@ mod color_transform_def {
     use serde::{Deserializer, Serializer};
     use swf::ColorTransform;
 
-    pub fn serialize<S>(color_transform: &ColorTransform, serializer: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<S>(_color_transform: &ColorTransform, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
@@ -349,13 +350,18 @@ mod color_transform_def {
         serializer.serialize_none()
     }
 
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<ColorTransform, D::Error>
+    pub fn deserialize<'de, D>(_deserializer: D) -> Result<ColorTransform, D::Error>
     where
         D: Deserializer<'de>,
     {
         // TODO
         Ok(ColorTransform::IDENTITY)
     }
+}
+
+// from: https://mth.st/blog/skip-default/
+fn is_default<T: Default + PartialEq>(t: &T) -> bool {
+    t == &T::default()
 }
 
 fn movie_to_swf<'a>(movie: &Movie, project_directory: PathBuf, swf_path: PathBuf) {
