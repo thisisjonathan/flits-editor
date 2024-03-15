@@ -109,8 +109,13 @@ impl Editor {
         let mut commands = CommandList::new();
 
         // stage background
+        let mut stage_color = Color::from_rgba(0xFFFFFFFF);
+        if self.editing_clip != None {
+            // when editing a clip, fade the stage background
+            stage_color.a = 4;
+        }
         commands.commands.push(Command::DrawRect {
-            color: Color::from_rgba(0xFFFFFFFF),
+            color: stage_color,
             matrix: self.camera
                 * Self::camera_to_pixel_matrix(viewport_dimensions)
                 * Matrix::create_box(
@@ -121,6 +126,39 @@ impl Editor {
                     Twips::ZERO,
                 ),
         });
+
+        if self.editing_clip != None {
+            // when editing a movieclip
+            // draw a cross to indicate the origin
+            const CROSS_COLOR: Color = Color::from_rgba(0xFF888888);
+            const CROSS_SIZE: f32 = 32.0;
+            // horizontal
+            commands.commands.push(Command::DrawRect {
+                color: CROSS_COLOR,
+                matrix: self.camera
+                    * Self::camera_to_pixel_matrix(viewport_dimensions)
+                    * Matrix::create_box(
+                        CROSS_SIZE,
+                        1.0,
+                        0.0,
+                        Twips::from_pixels(CROSS_SIZE as f64 / -2.0),
+                        Twips::ZERO,
+                    ),
+            });
+            // vertical
+            commands.commands.push(Command::DrawRect {
+                color: CROSS_COLOR,
+                matrix: self.camera
+                    * Self::camera_to_pixel_matrix(viewport_dimensions)
+                    * Matrix::create_box(
+                        1.0,
+                        CROSS_SIZE,
+                        0.0,
+                        Twips::ZERO,
+                        Twips::from_pixels(CROSS_SIZE as f64 / -2.0),
+                    ),
+            });
+        }
 
         // set bitmap handles for bitmaps
         for i in 0..symbols.len() {
