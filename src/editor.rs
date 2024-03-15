@@ -10,8 +10,8 @@ use self::properties_panel::{
     PropertiesPanel, SymbolProperties, SymbolPropertiesPanel,
 };
 use crate::core::{
-    BitmapCacheStatus, CachedBitmap, Movie, MovieClip, MovieClipProperties, PlaceSymbol,
-    PlacedSymbolIndex, Symbol, SymbolIndex, SymbolIndexOrRoot,
+    BitmapCacheStatus, CachedBitmap, Movie, MovieClip, MovieClipProperties, MovieProperties,
+    PlaceSymbol, PlacedSymbolIndex, Symbol, SymbolIndex, SymbolIndexOrRoot,
 };
 use crate::desktop::custom_event::RuffleEvent;
 use egui::{Vec2, Widget};
@@ -35,6 +35,7 @@ mod menu;
 mod properties_panel;
 
 pub const MENU_HEIGHT: u32 = 48; // also defined in desktop/gui.rs
+const LIBRARY_WIDTH: u32 = 150;
 pub const EDIT_EPSILON: f64 = 0.00001;
 
 type Renderer = Box<dyn RenderBackend>;
@@ -51,6 +52,8 @@ pub struct Editor {
     project_file_path: PathBuf,
     directory: PathBuf,
     renderer: Renderer,
+
+    camera: Matrix, // center of the screen
 
     history: Record<MovieEdit>,
 
@@ -73,6 +76,8 @@ impl Editor {
             directory: PathBuf::from(path.parent().unwrap()),
             renderer,
 
+            camera: Self::center_stage_camera_matrix(movie_properties.clone()),
+
             history: Record::new(),
 
             editing_clip: None,
@@ -87,23 +92,35 @@ impl Editor {
         }
     }
 
+    fn center_stage_camera_matrix(movie_properties: MovieProperties) -> Matrix {
+        Matrix::translate(
+            Twips::from_pixels(movie_properties.width / -2.0),
+            Twips::from_pixels(movie_properties.height / -2.0),
+        )
+    }
+
     #[instrument(level = "debug", skip_all)]
     pub fn render(&mut self) {
+        let symbols = &mut self.movie.symbols;
+        let renderer = &mut self.renderer;
+
+        let viewport_dimensions = renderer.viewport_dimensions();
+
         let mut commands = CommandList::new();
+
         // stage background
         commands.commands.push(Command::DrawRect {
             color: Color::from_rgba(0xFFFFFFFF),
-            matrix: Matrix::create_box(
-                self.movie.properties.width as f32,
-                self.movie.properties.height as f32,
-                0.0,
-                Twips::from_pixels(0.0),
-                Twips::from_pixels(0.0),
-            ),
+            matrix: self.camera
+                * Self::camera_to_pixel_matrix(viewport_dimensions)
+                * Matrix::create_box(
+                    self.movie.properties.width as f32,
+                    self.movie.properties.height as f32,
+                    0.0,
+                    Twips::ZERO,
+                    Twips::ZERO,
+                ),
         });
-
-        let symbols = &mut self.movie.symbols;
-        let renderer = &mut self.renderer;
 
         // set bitmap handles for bitmaps
         for i in 0..symbols.len() {
@@ -132,10 +149,21 @@ impl Editor {
             renderer,
             &self.movie,
             self.editing_clip,
-            Transform::default(),
+            Transform {
+                matrix: self.camera * Self::camera_to_pixel_matrix(viewport_dimensions),
+                color_transform: ColorTransform::IDENTITY,
+            },
         ));
         self.renderer
             .submit_frame(Color::from_rgb(0x222222, 255), commands, vec![]);
+    }
+
+    fn camera_to_pixel_matrix(viewport_dimensions: ViewportDimensions) -> Matrix {
+        Matrix::translate(
+            Twips::from_pixels((viewport_dimensions.width - LIBRARY_WIDTH) as f64 / 2.0),
+            // we don't know the height of the properties panel, so just use an approximation
+            Twips::from_pixels((viewport_dimensions.height - 75) as f64 / 2.0),
+        )
     }
 
     fn cache_bitmap_handle(renderer: &mut Renderer, cached_bitmap: &mut CachedBitmap) {
@@ -291,7 +319,7 @@ impl Editor {
     fn change_view_after_edit(&mut self, output: MoviePropertiesOutput) {
         match output {
             MoviePropertiesOutput::Stage(editing_clip) => {
-                self.editing_clip = editing_clip;
+                self.change_editing_clip_without_resetting_selection(editing_clip);
                 if self.selection.len() == 1 {
                     self.properties_panel =
                         PropertiesPanel::PlacedSymbolProperties(PlacedSymbolPropertiesPanel {
@@ -324,6 +352,23 @@ impl Editor {
         y: f64,
         symbol_index: SymbolIndexOrRoot,
     ) -> SymbolIndexOrRoot {
+        let world_space_matrix = Matrix::translate(Twips::from_pixels(x), Twips::from_pixels(y))
+            * (self.camera * Self::camera_to_pixel_matrix(self.renderer.viewport_dimensions()))
+                .inverse()
+                .unwrap_or(Matrix::IDENTITY);
+
+        self.get_placed_symbol_at_position_world_space(
+            world_space_matrix.tx.to_pixels(),
+            world_space_matrix.ty.to_pixels(),
+            symbol_index,
+        )
+    }
+    fn get_placed_symbol_at_position_world_space(
+        &self,
+        x: f64,
+        y: f64,
+        symbol_index: SymbolIndexOrRoot,
+    ) -> SymbolIndexOrRoot {
         let placed_symbols = self.movie.get_placed_symbols(symbol_index);
         // iterate from top to bottom to get the item that's on top
         for i in (0..placed_symbols.len()).rev() {
@@ -350,7 +395,7 @@ impl Editor {
                     }
                 }
                 Symbol::MovieClip(_) => {
-                    if let Some(_) = self.get_placed_symbol_at_position(
+                    if let Some(_) = self.get_placed_symbol_at_position_world_space(
                         x - place_symbol_x,
                         y - place_symbol_y,
                         Some(place_symbol.symbol_index as usize),
@@ -404,7 +449,7 @@ impl Editor {
         });
         egui::SidePanel::right("library")
             .resizable(false) // resizing causes glitches
-            .min_width(150.0)
+            .min_width(LIBRARY_WIDTH as f32)
             .show(egui_ctx, |ui| {
                 ui.heading("Library");
                 if ui.button("Add MovieClip...").clicked() {
@@ -415,11 +460,6 @@ impl Editor {
                     .show(ui, |ui| {
                         for i in 0..self.movie.symbols.len() {
                             let symbol = self.movie.symbols.get(i).unwrap();
-                            /*let checked = if let Some(editing_clip) = self.editing_clip {
-                                editing_clip == i
-                            } else {
-                                false
-                            };*/
                             let checked = match &self.properties_panel {
                                 PropertiesPanel::SymbolProperties(panel) => panel.symbol_index == i,
                                 _ => false,
@@ -532,14 +572,22 @@ impl Editor {
     }
 
     fn change_editing_clip(&mut self, symbol_index: SymbolIndexOrRoot) {
+        self.change_editing_clip_without_resetting_selection(symbol_index);
+        self.set_selection(vec![]);
+    }
+    fn change_editing_clip_without_resetting_selection(&mut self, symbol_index: SymbolIndexOrRoot) {
         if let Some(symbol_index) = symbol_index {
             let Symbol::MovieClip(_) = self.movie.symbols[symbol_index] else {
                 // only select movieclips
                 return;
             };
+            // center the camera on the origin when you open a movieclip
+            self.camera = Matrix::IDENTITY;
+        } else {
+            // center the camera on the stage when you open root
+            self.camera = Self::center_stage_camera_matrix(self.movie.properties.clone());
         }
         self.editing_clip = symbol_index;
-        self.set_selection(vec![]);
     }
 
     fn set_selection(&mut self, selection: Vec<PlacedSymbolIndex>) {

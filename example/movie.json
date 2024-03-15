@@ -52,11 +52,6 @@
                 "matrix": {"tx": 100, "ty": 10}
             }
         },{
-            "symbol_index": 1,
-            "transform": {
-                "matrix": {"tx": 100, "ty": 10}
-            }
-        },{
             "symbol_index": 2,
             "transform": {
                 "matrix": {"tx": 10, "ty": 60}
