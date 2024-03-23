@@ -46,6 +46,10 @@ struct DragData {
     start_y: f64,
     place_symbol_index: SymbolIndex,
 }
+struct CameraDragData {
+    previous_x: f64,
+    previous_y: f64,
+}
 
 pub struct Editor {
     movie: Movie,
@@ -54,6 +58,7 @@ pub struct Editor {
     renderer: Renderer,
 
     camera: Matrix, // center of the screen
+    camera_drag_data: Option<CameraDragData>,
 
     history: Record<MovieEdit>,
 
@@ -77,6 +82,7 @@ impl Editor {
             renderer,
 
             camera: Self::center_stage_camera_matrix(movie_properties.clone()),
+            camera_drag_data: None,
 
             history: Record::new(),
 
@@ -283,6 +289,14 @@ impl Editor {
                     Twips::from_pixels(mouse_y - drag_data.start_y),
                 );
         }
+        
+        if let Some(camera_drag_data) = &self.camera_drag_data {
+            self.camera *= Matrix::translate(Twips::from_pixels(mouse_x - camera_drag_data.previous_x), Twips::from_pixels(mouse_y - camera_drag_data.previous_y));
+            self.camera_drag_data = Some(CameraDragData {
+                previous_x: mouse_x,
+                previous_y: mouse_y,
+            });
+        }
     }
 
     pub fn handle_mouse_input(
@@ -332,6 +346,15 @@ impl Editor {
                 }
                 self.drag_data = None;
             }
+        }
+        if button == MouseButton::Middle && state == ElementState::Pressed {
+            self.camera_drag_data = Some(CameraDragData {
+                previous_x: mouse_x,
+                previous_y: mouse_y,
+            });
+        }
+        if button == MouseButton::Middle && state == ElementState::Released {
+            self.camera_drag_data = None;
         }
     }
 
