@@ -289,9 +289,12 @@ impl Editor {
                     Twips::from_pixels(mouse_y - drag_data.start_y),
                 );
         }
-        
+
         if let Some(camera_drag_data) = &self.camera_drag_data {
-            self.camera *= Matrix::translate(Twips::from_pixels(mouse_x - camera_drag_data.previous_x), Twips::from_pixels(mouse_y - camera_drag_data.previous_y));
+            self.camera *= Matrix::translate(
+                Twips::from_pixels(mouse_x - camera_drag_data.previous_x),
+                Twips::from_pixels(mouse_y - camera_drag_data.previous_y),
+            );
             self.camera_drag_data = Some(CameraDragData {
                 previous_x: mouse_x,
                 previous_y: mouse_y,
@@ -637,6 +640,11 @@ impl Editor {
         self.set_selection(vec![]);
     }
     fn change_editing_clip_without_resetting_selection(&mut self, symbol_index: SymbolIndexOrRoot) {
+        // if switching to the same symbol, do nothing
+        if symbol_index == self.editing_clip {
+            return;
+        }
+        
         if let Some(symbol_index) = symbol_index {
             let Symbol::MovieClip(_) = self.movie.symbols[symbol_index] else {
                 // only select movieclips
@@ -648,6 +656,7 @@ impl Editor {
             // center the camera on the stage when you open root
             self.camera = Self::center_stage_camera_matrix(self.movie.properties.clone());
         }
+
         self.editing_clip = symbol_index;
     }
 
