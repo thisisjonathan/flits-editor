@@ -81,7 +81,7 @@ impl Editor {
             directory: PathBuf::from(path.parent().unwrap()),
             renderer,
 
-            camera: Self::center_stage_camera_matrix(movie_properties.clone()),
+            camera: Self::center_stage_camera_matrix(&movie_properties),
             camera_drag_data: None,
 
             history: Record::new(),
@@ -98,7 +98,7 @@ impl Editor {
         }
     }
 
-    fn center_stage_camera_matrix(movie_properties: MovieProperties) -> Matrix {
+    fn center_stage_camera_matrix(movie_properties: &MovieProperties) -> Matrix {
         Matrix::translate(
             Twips::from_pixels(movie_properties.width / -2.0),
             Twips::from_pixels(movie_properties.height / -2.0),
@@ -550,13 +550,19 @@ impl Editor {
                                     placed_symbol: PlaceSymbol {
                                         symbol_index: i,
                                         transform: Transform {
-                                            matrix: Matrix::translate(
-                                                Twips::from_pixels(mouse_pos.x as f64),
-                                                Twips::from_pixels(
-                                                    // TODO: don't hardcode the menu height
-                                                    mouse_pos.y as f64 - MENU_HEIGHT as f64,
+                                            matrix: (self.camera
+                                                * Self::camera_to_pixel_matrix(
+                                                    self.renderer.viewport_dimensions(),
+                                                ))
+                                            .inverse()
+                                            .unwrap_or(Matrix::IDENTITY) // TODO: does this make sense?
+                                                * Matrix::translate(
+                                                    Twips::from_pixels(mouse_pos.x as f64),
+                                                    Twips::from_pixels(
+                                                        // TODO: don't hardcode the menu height
+                                                        mouse_pos.y as f64 - MENU_HEIGHT as f64,
+                                                    ),
                                                 ),
-                                            ),
                                             color_transform: ColorTransform::IDENTITY,
                                         },
                                     },
@@ -644,7 +650,7 @@ impl Editor {
         if symbol_index == self.editing_clip {
             return;
         }
-        
+
         if let Some(symbol_index) = symbol_index {
             let Symbol::MovieClip(_) = self.movie.symbols[symbol_index] else {
                 // only select movieclips
@@ -654,7 +660,7 @@ impl Editor {
             self.camera = Matrix::IDENTITY;
         } else {
             // center the camera on the stage when you open root
-            self.camera = Self::center_stage_camera_matrix(self.movie.properties.clone());
+            self.camera = Self::center_stage_camera_matrix(&self.movie.properties);
         }
 
         self.editing_clip = symbol_index;
