@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use self::camera::Camera;
 use self::edit::{
     AddPlacedSymbolEdit, MovePlacedSymbolEdit, MovieEdit, MoviePropertiesOutput,
     RemovePlacedSymbolEdit,
@@ -10,8 +11,8 @@ use self::properties_panel::{
     PropertiesPanel, SymbolProperties, SymbolPropertiesPanel,
 };
 use crate::core::{
-    BitmapCacheStatus, CachedBitmap, Movie, MovieClip, MovieClipProperties, MovieProperties,
-    PlaceSymbol, PlacedSymbolIndex, Symbol, SymbolIndex, SymbolIndexOrRoot,
+    BitmapCacheStatus, CachedBitmap, Movie, MovieClip, MovieClipProperties, PlaceSymbol,
+    PlacedSymbolIndex, Symbol, SymbolIndex, SymbolIndexOrRoot,
 };
 use crate::desktop::custom_event::RuffleEvent;
 use egui::{Vec2, Widget};
@@ -30,6 +31,7 @@ use winit::{
     event_loop::EventLoopProxy,
 };
 
+mod camera;
 mod edit;
 mod menu;
 mod properties_panel;
@@ -46,9 +48,10 @@ struct DragData {
     start_y: f64,
     place_symbol_index: SymbolIndex,
 }
-struct CameraDragData {
-    previous_x: f64,
-    previous_y: f64,
+
+pub struct StageSize {
+    width: u32,
+    height: u32,
 }
 
 pub struct Editor {
@@ -57,8 +60,7 @@ pub struct Editor {
     directory: PathBuf,
     renderer: Renderer,
 
-    camera: Matrix, // center of the screen
-    camera_drag_data: Option<CameraDragData>,
+    camera: Camera,
 
     history: Record<MovieEdit>,
 
@@ -81,8 +83,7 @@ impl Editor {
             directory: PathBuf::from(path.parent().unwrap()),
             renderer,
 
-            camera: Self::center_stage_camera_matrix(&movie_properties),
-            camera_drag_data: None,
+            camera: Camera::new_center_stage(&movie_properties),
 
             history: Record::new(),
 
@@ -98,11 +99,15 @@ impl Editor {
         }
     }
 
-    fn center_stage_camera_matrix(movie_properties: &MovieProperties) -> Matrix {
-        Matrix::translate(
-            Twips::from_pixels(movie_properties.width / -2.0),
-            Twips::from_pixels(movie_properties.height / -2.0),
-        )
+    fn stage_size(&self) -> StageSize {
+        Self::stage_size_from_viewport_dimensions(self.renderer.viewport_dimensions())
+    }
+    fn stage_size_from_viewport_dimensions(viewport_dimensions: ViewportDimensions) -> StageSize {
+        StageSize {
+            width: viewport_dimensions.width - LIBRARY_WIDTH,
+            // we don't know the height of the properties panel, so just use an approximation
+            height: viewport_dimensions.height - 75,
+        }
     }
 
     #[instrument(level = "debug", skip_all)]
@@ -120,10 +125,14 @@ impl Editor {
             // when editing a clip, fade the stage background
             stage_color.a = 4;
         }
+        let world_to_screen_matrix =
+            self.camera
+                .world_to_screen_matrix(Self::stage_size_from_viewport_dimensions(
+                    viewport_dimensions,
+                ));
         commands.commands.push(Command::DrawRect {
             color: stage_color,
-            matrix: self.camera
-                * Self::camera_to_pixel_matrix(viewport_dimensions)
+            matrix: world_to_screen_matrix
                 * Matrix::create_box(
                     self.movie.properties.width as f32,
                     self.movie.properties.height as f32,
@@ -141,8 +150,7 @@ impl Editor {
             // horizontal
             commands.commands.push(Command::DrawRect {
                 color: CROSS_COLOR,
-                matrix: self.camera
-                    * Self::camera_to_pixel_matrix(viewport_dimensions)
+                matrix: world_to_screen_matrix
                     * Matrix::create_box(
                         CROSS_SIZE,
                         1.0,
@@ -154,8 +162,7 @@ impl Editor {
             // vertical
             commands.commands.push(Command::DrawRect {
                 color: CROSS_COLOR,
-                matrix: self.camera
-                    * Self::camera_to_pixel_matrix(viewport_dimensions)
+                matrix: world_to_screen_matrix
                     * Matrix::create_box(
                         1.0,
                         CROSS_SIZE,
@@ -194,20 +201,13 @@ impl Editor {
             &self.movie,
             self.editing_clip,
             Transform {
-                matrix: self.camera * Self::camera_to_pixel_matrix(viewport_dimensions),
+                matrix: world_to_screen_matrix,
                 color_transform: ColorTransform::IDENTITY,
             },
         ));
+
         self.renderer
             .submit_frame(Color::from_rgb(0x222222, 255), commands, vec![]);
-    }
-
-    fn camera_to_pixel_matrix(viewport_dimensions: ViewportDimensions) -> Matrix {
-        Matrix::translate(
-            Twips::from_pixels((viewport_dimensions.width - LIBRARY_WIDTH) as f64 / 2.0),
-            // we don't know the height of the properties panel, so just use an approximation
-            Twips::from_pixels((viewport_dimensions.height - 75) as f64 / 2.0),
-        )
     }
 
     fn cache_bitmap_handle(renderer: &mut Renderer, cached_bitmap: &mut CachedBitmap) {
@@ -278,6 +278,8 @@ impl Editor {
     }
 
     pub fn handle_mouse_move(&mut self, mouse_x: f64, mouse_y: f64) {
+        let world_space_mouse_position = self.camera.screen_to_world_matrix(self.stage_size())
+            * Matrix::translate(Twips::from_pixels(mouse_x), Twips::from_pixels(mouse_y));
         let placed_symbols = self.movie.get_placed_symbols_mut(self.editing_clip);
         if let Some(drag_data) = &self.drag_data {
             let place_symbol = placed_symbols
@@ -285,21 +287,16 @@ impl Editor {
                 .unwrap();
             place_symbol.transform.matrix = drag_data.symbol_start_matrix
                 * Matrix::translate(
-                    Twips::from_pixels(mouse_x - drag_data.start_x),
-                    Twips::from_pixels(mouse_y - drag_data.start_y),
+                    Twips::from_pixels(
+                        world_space_mouse_position.tx.to_pixels() - drag_data.start_x,
+                    ),
+                    Twips::from_pixels(
+                        world_space_mouse_position.ty.to_pixels() - drag_data.start_y,
+                    ),
                 );
         }
 
-        if let Some(camera_drag_data) = &self.camera_drag_data {
-            self.camera *= Matrix::translate(
-                Twips::from_pixels(mouse_x - camera_drag_data.previous_x),
-                Twips::from_pixels(mouse_y - camera_drag_data.previous_y),
-            );
-            self.camera_drag_data = Some(CameraDragData {
-                previous_x: mouse_x,
-                previous_y: mouse_y,
-            });
-        }
+        self.camera.update_drag(mouse_x, mouse_y);
     }
 
     pub fn handle_mouse_input(
@@ -309,6 +306,8 @@ impl Editor {
         button: MouseButton,
         state: ElementState,
     ) {
+        let world_space_mouse_position = self.camera.screen_to_world_matrix(self.stage_size())
+            * Matrix::translate(Twips::from_pixels(mouse_x), Twips::from_pixels(mouse_y));
         if button == MouseButton::Left && state == ElementState::Pressed {
             self.set_selection(vec![]);
             let symbol_index =
@@ -317,8 +316,8 @@ impl Editor {
                 let place_symbol = &self.movie.get_placed_symbols(self.editing_clip)[symbol_index];
                 self.drag_data = Some(DragData {
                     symbol_start_matrix: place_symbol.transform.matrix.clone(),
-                    start_x: mouse_x,
-                    start_y: mouse_y,
+                    start_x: world_space_mouse_position.tx.to_pixels(),
+                    start_y: world_space_mouse_position.ty.to_pixels(),
                     place_symbol_index: symbol_index,
                 });
                 self.set_selection(vec![symbol_index]);
@@ -328,10 +327,14 @@ impl Editor {
             if let Some(drag_data) = &self.drag_data {
                 let end = Matrix::translate(
                     Twips::from_pixels(
-                        drag_data.symbol_start_matrix.tx.to_pixels() + mouse_x - drag_data.start_x,
+                        drag_data.symbol_start_matrix.tx.to_pixels()
+                            + world_space_mouse_position.tx.to_pixels()
+                            - drag_data.start_x,
                     ),
                     Twips::from_pixels(
-                        drag_data.symbol_start_matrix.ty.to_pixels() + mouse_y - drag_data.start_y,
+                        drag_data.symbol_start_matrix.ty.to_pixels()
+                            + world_space_mouse_position.ty.to_pixels()
+                            - drag_data.start_y,
                     ),
                 );
                 // only insert an edit if you actually moved the placed symbol
@@ -351,13 +354,10 @@ impl Editor {
             }
         }
         if button == MouseButton::Middle && state == ElementState::Pressed {
-            self.camera_drag_data = Some(CameraDragData {
-                previous_x: mouse_x,
-                previous_y: mouse_y,
-            });
+            self.camera.start_drag(mouse_x, mouse_y)
         }
         if button == MouseButton::Middle && state == ElementState::Released {
-            self.camera_drag_data = None;
+            self.camera.stop_drag();
         }
     }
 
@@ -416,14 +416,12 @@ impl Editor {
         y: f64,
         symbol_index: SymbolIndexOrRoot,
     ) -> SymbolIndexOrRoot {
-        let world_space_matrix = Matrix::translate(Twips::from_pixels(x), Twips::from_pixels(y))
-            * (self.camera * Self::camera_to_pixel_matrix(self.renderer.viewport_dimensions()))
-                .inverse()
-                .unwrap_or(Matrix::IDENTITY);
+        let world_space_position = self.camera.screen_to_world_matrix(self.stage_size())
+            * Matrix::translate(Twips::from_pixels(x), Twips::from_pixels(y));
 
         self.get_placed_symbol_at_position_world_space(
-            world_space_matrix.tx.to_pixels(),
-            world_space_matrix.ty.to_pixels(),
+            world_space_position.tx.to_pixels(),
+            world_space_position.ty.to_pixels(),
             symbol_index,
         )
     }
@@ -545,24 +543,26 @@ impl Editor {
                             } else if response.drag_released() {
                                 // TODO: handle drag that doesn't end on stage
                                 let mouse_pos = response.interact_pointer_pos().unwrap();
+                                let mut matrix =
+                                    self.camera.screen_to_world_matrix(self.stage_size())
+                                        * Matrix::translate(
+                                            Twips::from_pixels(mouse_pos.x as f64),
+                                            Twips::from_pixels(
+                                                // TODO: don't hardcode the menu height
+                                                mouse_pos.y as f64 - MENU_HEIGHT as f64,
+                                            ),
+                                        );
+                                // reset zoom (otherwise when you are zoomed in the symbol becomes smaller)
+                                matrix.a = Matrix::IDENTITY.a;
+                                matrix.b = Matrix::IDENTITY.b;
+                                matrix.c = Matrix::IDENTITY.c;
+                                matrix.d = Matrix::IDENTITY.d;
                                 self.do_edit(MovieEdit::AddPlacedSymbol(AddPlacedSymbolEdit {
                                     editing_symbol_index: self.editing_clip,
                                     placed_symbol: PlaceSymbol {
                                         symbol_index: i,
                                         transform: Transform {
-                                            matrix: (self.camera
-                                                * Self::camera_to_pixel_matrix(
-                                                    self.renderer.viewport_dimensions(),
-                                                ))
-                                            .inverse()
-                                            .unwrap_or(Matrix::IDENTITY) // TODO: does this make sense?
-                                                * Matrix::translate(
-                                                    Twips::from_pixels(mouse_pos.x as f64),
-                                                    Twips::from_pixels(
-                                                        // TODO: don't hardcode the menu height
-                                                        mouse_pos.y as f64 - MENU_HEIGHT as f64,
-                                                    ),
-                                                ),
+                                            matrix,
                                             color_transform: ColorTransform::IDENTITY,
                                         },
                                     },
@@ -657,10 +657,10 @@ impl Editor {
                 return;
             };
             // center the camera on the origin when you open a movieclip
-            self.camera = Matrix::IDENTITY;
+            self.camera.reset_to_origin();
         } else {
             // center the camera on the stage when you open root
-            self.camera = Self::center_stage_camera_matrix(&self.movie.properties);
+            self.camera.reset_to_center_stage(&self.movie.properties);
         }
 
         self.editing_clip = symbol_index;
@@ -742,6 +742,15 @@ impl Editor {
         let directory = self.directory.clone();
         let swf_path = directory.clone().join("output.swf");
         self.movie.export(directory, swf_path);
+    }
+
+    // TODO: maybe just hardcode the zoom percentages: https://www.uxpin.com/studio/blog/the-strikingly-precise-zoom/
+    pub fn zoom(&mut self, zoom_amount: f64) {
+        self.camera.zoom(zoom_amount);
+    }
+
+    pub fn reset_zoom(&mut self) {
+        self.camera.reset_zoom();
     }
 }
 

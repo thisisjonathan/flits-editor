@@ -1,6 +1,6 @@
 use winit::event_loop::EventLoopProxy;
 
-use crate::{desktop::custom_event::RuffleEvent, core::Movie};
+use crate::{core::Movie, desktop::custom_event::RuffleEvent};
 
 use super::Editor;
 
@@ -91,6 +91,35 @@ pub const MENUS: &[Menu] = &[
         ],
     },
     Menu {
+        name: "View",
+        items: &[
+            MenuItem {
+                name: "Zoom in",
+                keyboard_shortcut: Some(egui::KeyboardShortcut::new(
+                    egui::Modifiers::NONE,
+                    egui::Key::PlusEquals,
+                )),
+                action: zoom_in,
+            },
+            MenuItem {
+                name: "Zoom out",
+                keyboard_shortcut: Some(egui::KeyboardShortcut::new(
+                    egui::Modifiers::NONE,
+                    egui::Key::Minus,
+                )),
+                action: zoom_out,
+            },
+            MenuItem {
+                name: "Reset zoom",
+                keyboard_shortcut: Some(egui::KeyboardShortcut::new(
+                    egui::Modifiers::NONE,
+                    egui::Key::Num0,
+                )),
+                action: reset_zoom,
+            },
+        ],
+    },
+    Menu {
         name: "Control",
         items: &[MenuItem {
             name: "Test Movie",
@@ -149,4 +178,16 @@ fn redo(player: &mut Editor, _event_loop: &EventLoopProxy<RuffleEvent>) {
 
 fn delete_selection(player: &mut Editor, _event_loop: &EventLoopProxy<RuffleEvent>) {
     player.delete_selection();
+}
+
+fn zoom_in(player: &mut Editor, _event_loop: &EventLoopProxy<RuffleEvent>) {
+    player.zoom(0.1);
+}
+
+fn zoom_out(player: &mut Editor, _event_loop: &EventLoopProxy<RuffleEvent>) {
+    player.zoom(-0.1);
+}
+
+fn reset_zoom(player: &mut Editor, _event_loop: &EventLoopProxy<RuffleEvent>) {
+    player.reset_zoom();
 }
