@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use self::camera::Camera;
 use self::edit::{
-    AddPlacedSymbolEdit, MovePlacedSymbolEdit, MovieEdit, MoviePropertiesOutput,
+    AddMovieClipEdit, AddPlacedSymbolEdit, MovePlacedSymbolEdit, MovieEdit, MoviePropertiesOutput,
     RemovePlacedSymbolEdit,
 };
 use self::menu::MENUS;
@@ -383,15 +383,7 @@ impl Editor {
     fn change_view_after_edit(&mut self, output: MoviePropertiesOutput) {
         match output {
             MoviePropertiesOutput::Stage(editing_clip) => {
-                self.change_editing_clip_without_resetting_selection(editing_clip);
-                if self.selection.len() == 1 {
-                    self.properties_panel =
-                        PropertiesPanel::PlacedSymbolProperties(PlacedSymbolPropertiesPanel {
-                            before_edit: self.movie.get_placed_symbols(self.editing_clip)
-                                [self.selection[0]]
-                                .clone(),
-                        });
-                }
+                self.change_editing_clip(editing_clip);
             }
             MoviePropertiesOutput::Properties(editing_clip) => {
                 if let Some(symbol_index) = editing_clip {
@@ -614,8 +606,8 @@ impl Editor {
         });
 
         if let Some(new_symbol_window) = &mut self.new_symbol_window {
-            if let Some(symbol) = new_symbol_window.do_ui(egui_ctx) {
-                self.movie.symbols.push(symbol);
+            if let Some(edit) = new_symbol_window.do_ui(egui_ctx) {
+                self.do_edit(edit);
                 self.new_symbol_window = None;
             }
         }
@@ -642,10 +634,6 @@ impl Editor {
     }
 
     fn change_editing_clip(&mut self, symbol_index: SymbolIndexOrRoot) {
-        self.change_editing_clip_without_resetting_selection(symbol_index);
-        self.set_selection(vec![]);
-    }
-    fn change_editing_clip_without_resetting_selection(&mut self, symbol_index: SymbolIndexOrRoot) {
         // if switching to the same symbol, do nothing
         if symbol_index == self.editing_clip {
             return;
@@ -664,6 +652,7 @@ impl Editor {
         }
 
         self.editing_clip = symbol_index;
+        self.set_selection(vec![]);
     }
 
     fn set_selection(&mut self, selection: Vec<PlacedSymbolIndex>) {
@@ -759,7 +748,7 @@ struct NewSymbolWindow {
     name: String,
 }
 impl NewSymbolWindow {
-    pub fn do_ui(&mut self, egui_ctx: &egui::Context) -> Option<Symbol> {
+    pub fn do_ui(&mut self, egui_ctx: &egui::Context) -> Option<MovieEdit> {
         let mut result = None;
         // title says new movieclip because there are no other options yet
         egui::Window::new("New movieclip")
@@ -776,12 +765,8 @@ impl NewSymbolWindow {
                         .add_enabled(!self.name.is_empty(), egui::Button::new("Create"))
                         .clicked()
                     {
-                        result = Some(Symbol::MovieClip(MovieClip {
-                            properties: MovieClipProperties {
-                                name: self.name.clone(),
-                                class_name: "".to_string(),
-                            },
-                            place_symbols: vec![],
+                        result = Some(MovieEdit::AddMovieClip(AddMovieClipEdit {
+                            name: self.name.clone(),
                         }));
                     }
                     ui.end_row();
