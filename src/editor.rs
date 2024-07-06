@@ -525,12 +525,17 @@ impl Editor {
                             let response = ui.selectable_label(checked, text);
                             let response = response.interact(egui::Sense::drag());
 
-                            if response.double_clicked() {
-                                self.change_editing_clip(Some(i));
-                                has_mutated = true;
-                            } else if response.clicked() {
-                                self.properties_panel =
-                                    Self::create_symbol_propeties_panel(i, symbol);
+                            if response.clicked() {
+                                match self.movie.symbols[i] {
+                                    Symbol::MovieClip(_) => {
+                                        self.change_editing_clip(Some(i));
+                                    }
+                                    _ => {
+                                        self.properties_panel =
+                                            Self::create_symbol_propeties_panel(i, symbol);
+                                    }
+                                }
+
                                 has_mutated = true;
                             } else if response.drag_released() {
                                 // TODO: handle drag that doesn't end on stage
