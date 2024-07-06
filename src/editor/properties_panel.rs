@@ -2,12 +2,15 @@ use egui::Vec2;
 use swf::Twips;
 
 use crate::core::{
-    Bitmap, Movie, MovieClip, MovieProperties, PlaceSymbol, PlacedSymbolIndex, Symbol, SymbolIndex,
-    SymbolIndexOrRoot, MovieClipProperties, BitmapProperties, BitmapCacheStatus,
+    Bitmap, BitmapCacheStatus, BitmapProperties, Movie, MovieClip, MovieClipProperties,
+    MovieProperties, PlaceSymbol, PlacedSymbolIndex, Symbol, SymbolIndex, SymbolIndexOrRoot,
 };
 
 use super::{
-    edit::{MovePlacedSymbolEdit, MovieEdit, MoviePropertiesEdit, MovieClipPropertiesEdit, BitmapPropertiesEdit},
+    edit::{
+        BitmapPropertiesEdit, MovePlacedSymbolEdit, MovieClipPropertiesEdit, MovieEdit,
+        MoviePropertiesEdit, RemoveMovieClipEdit,
+    },
     EDIT_EPSILON,
 };
 
@@ -79,70 +82,79 @@ impl SymbolPropertiesPanel {
         ui.heading("Bitmap properties");
 
         let mut edit: Option<MovieEdit> = None;
-        egui::Grid::new(format!("bitmap_{}_properties_grid", self.symbol_index)).show(
-            ui,
-            |ui| {
-                let mut edited = false;
-                
-                ui.label("Name:");
-                let response = ui.add(
-                    egui::TextEdit::singleline(&mut bitmap.properties.name).min_size(Vec2::new(200.0, 0.0)),
-                );
-                if response.lost_focus() {
-                    edited = true;
-                }
-                ui.end_row();
+        egui::Grid::new(format!("bitmap_{}_properties_grid", self.symbol_index)).show(ui, |ui| {
+            let mut edited = false;
 
-                ui.label("Path:");
-                let mut path_text_edit = egui::TextEdit::singleline(&mut bitmap.properties.path)
-                        .min_size(Vec2::new(200.0, 0.0));
-                if let BitmapCacheStatus::Invalid(_) = &bitmap.cache {
-                    path_text_edit = path_text_edit.text_color(ui.style().visuals.error_fg_color);
-                }
-                let response = ui.add(path_text_edit);
-                if response.lost_focus() {
-                    edited = true;
-                }
-                ui.end_row();
-                
-                if let BitmapCacheStatus::Invalid(error) = &bitmap.cache {
-                    ui.colored_label(ui.style().visuals.error_fg_color, "Error:");
-                    ui.colored_label(ui.style().visuals.error_fg_color, error);
-                } else {
-                    // add an empty row so the amount of rows is always the same
-                    // otherwise the height of the panel will only be updated on the next redraw
-                    ui.label("");
-                }
-                ui.end_row();
-                
-                let SymbolProperties::Bitmap(before_edit) = &self.before_edit else {
-                    panic!("before_edit is not a bitmap");
-                };
-                if edited && before_edit != &bitmap.properties {
-                    edit = Some(MovieEdit::EditBitmapProperties(BitmapPropertiesEdit {
-                        editing_symbol_index: self.symbol_index,
-                        before: before_edit.clone(),
-                        after: bitmap.properties.clone(),
-                    }));
-                }
-            },
-        );
-        
+            ui.label("Name:");
+            let response = ui.add(
+                egui::TextEdit::singleline(&mut bitmap.properties.name)
+                    .min_size(Vec2::new(200.0, 0.0)),
+            );
+            if response.lost_focus() {
+                edited = true;
+            }
+            ui.end_row();
+
+            ui.label("Path:");
+            let mut path_text_edit = egui::TextEdit::singleline(&mut bitmap.properties.path)
+                .min_size(Vec2::new(200.0, 0.0));
+            if let BitmapCacheStatus::Invalid(_) = &bitmap.cache {
+                path_text_edit = path_text_edit.text_color(ui.style().visuals.error_fg_color);
+            }
+            let response = ui.add(path_text_edit);
+            if response.lost_focus() {
+                edited = true;
+            }
+            ui.end_row();
+
+            if let BitmapCacheStatus::Invalid(error) = &bitmap.cache {
+                ui.colored_label(ui.style().visuals.error_fg_color, "Error:");
+                ui.colored_label(ui.style().visuals.error_fg_color, error);
+            } else {
+                // add an empty row so the amount of rows is always the same
+                // otherwise the height of the panel will only be updated on the next redraw
+                ui.label("");
+            }
+            ui.end_row();
+
+            let SymbolProperties::Bitmap(before_edit) = &self.before_edit else {
+                panic!("before_edit is not a bitmap");
+            };
+            if edited && before_edit != &bitmap.properties {
+                edit = Some(MovieEdit::EditBitmapProperties(BitmapPropertiesEdit {
+                    editing_symbol_index: self.symbol_index,
+                    before: before_edit.clone(),
+                    after: bitmap.properties.clone(),
+                }));
+            }
+        });
+
         edit
     }
 
     fn movieclip_ui(&self, movieclip: &mut MovieClip, ui: &mut egui::Ui) -> Option<MovieEdit> {
-        ui.heading("Movieclip properties");
-        
         let mut edit: Option<MovieEdit> = None;
+
+        ui.horizontal(|ui| {
+            ui.heading("Movieclip properties");
+            if ui.button("Remove MovieClip").clicked() {
+                edit = Some(MovieEdit::RemoveMovieClip(RemoveMovieClipEdit {
+                    symbol_index: self.symbol_index,
+                    movieclip: movieclip.clone(),
+                    remove_place_symbol_edits: vec![],
+                }));
+            }
+        });
+
         egui::Grid::new(format!("movieclip_{}_properties_grid", self.symbol_index)).show(
             ui,
             |ui| {
                 let mut edited = false;
-                
+
                 ui.label("Name:");
                 let response = ui.add(
-                    egui::TextEdit::singleline(&mut movieclip.properties.name).min_size(Vec2::new(200.0, 0.0)),
+                    egui::TextEdit::singleline(&mut movieclip.properties.name)
+                        .min_size(Vec2::new(200.0, 0.0)),
                 );
                 if response.lost_focus() {
                     edited = true;
@@ -158,16 +170,18 @@ impl SymbolPropertiesPanel {
                     edited = true;
                 }
                 ui.end_row();
-                
+
                 let SymbolProperties::MovieClip(before_edit) = &self.before_edit else {
                     panic!("before_edit is not a movieclip");
                 };
                 if edited && before_edit != &movieclip.properties {
-                    edit = Some(MovieEdit::EditMovieClipProperties(MovieClipPropertiesEdit {
-                        editing_symbol_index: self.symbol_index,
-                        before: before_edit.clone(),
-                        after: movieclip.properties.clone(),
-                    }));
+                    edit = Some(MovieEdit::EditMovieClipProperties(
+                        MovieClipPropertiesEdit {
+                            editing_symbol_index: self.symbol_index,
+                            before: before_edit.clone(),
+                            after: movieclip.properties.clone(),
+                        },
+                    ));
                 }
             },
         );
@@ -220,8 +234,14 @@ impl PlacedSymbolPropertiesPanel {
             if position_edited {
                 let placed_symbol_before_edit = &self.before_edit;
                 // only add edit when the position actually changed
-                if f64::abs(placed_symbol_before_edit.transform.matrix.tx.to_pixels() - placed_symbol.transform.matrix.ty.to_pixels()) > EDIT_EPSILON
-                    || f64::abs(placed_symbol_before_edit.transform.matrix.ty.to_pixels() - placed_symbol.transform.matrix.ty.to_pixels()) > EDIT_EPSILON
+                if f64::abs(
+                    placed_symbol_before_edit.transform.matrix.tx.to_pixels()
+                        - placed_symbol.transform.matrix.ty.to_pixels(),
+                ) > EDIT_EPSILON
+                    || f64::abs(
+                        placed_symbol_before_edit.transform.matrix.ty.to_pixels()
+                            - placed_symbol.transform.matrix.ty.to_pixels(),
+                    ) > EDIT_EPSILON
                 {
                     edit = Some(MovieEdit::MovePlacedSymbol(MovePlacedSymbolEdit {
                         editing_symbol_index: editing_clip,

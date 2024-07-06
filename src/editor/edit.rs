@@ -10,6 +10,7 @@ pub enum MovieEdit {
     EditMovieProperties(MoviePropertiesEdit),
 
     AddMovieClip(AddMovieClipEdit),
+    RemoveMovieClip(RemoveMovieClipEdit),
 
     EditBitmapProperties(BitmapPropertiesEdit),
     EditMovieClipProperties(MovieClipPropertiesEdit),
@@ -26,6 +27,7 @@ impl Edit for MovieEdit {
         match self {
             MovieEdit::EditMovieProperties(edit) => edit.edit(target),
             MovieEdit::AddMovieClip(edit) => edit.edit(target),
+            MovieEdit::RemoveMovieClip(edit) => edit.edit(target),
             MovieEdit::EditBitmapProperties(edit) => edit.edit(target),
             MovieEdit::EditMovieClipProperties(edit) => edit.edit(target),
             MovieEdit::MovePlacedSymbol(edit) => edit.edit(target),
@@ -38,6 +40,7 @@ impl Edit for MovieEdit {
         match self {
             MovieEdit::EditMovieProperties(edit) => edit.undo(target),
             MovieEdit::AddMovieClip(edit) => edit.undo(target),
+            MovieEdit::RemoveMovieClip(edit) => edit.undo(target),
             MovieEdit::EditBitmapProperties(edit) => edit.undo(target),
             MovieEdit::EditMovieClipProperties(edit) => edit.undo(target),
             MovieEdit::MovePlacedSymbol(edit) => edit.undo(target),
@@ -68,6 +71,75 @@ impl AddMovieClipEdit {
     fn undo(&mut self, target: &mut Movie) -> MoviePropertiesOutput {
         target.symbols.pop();
         MoviePropertiesOutput::Stage(None)
+    }
+}
+pub struct RemoveMovieClipEdit {
+    pub symbol_index: SymbolIndex,
+    pub movieclip: MovieClip, // for undoing
+    pub remove_place_symbol_edits: Vec<RemovePlacedSymbolEdit>,
+}
+impl RemoveMovieClipEdit {
+    fn edit(&mut self, target: &mut Movie) -> MoviePropertiesOutput {
+        self.remove_place_symbol_edits = vec![];
+        // remove the placed symbols that place this symbol
+        self.remove_placed_symbols(target, None);
+        for i in 0..target.symbols.len() {
+            match target.symbols[i] {
+                Symbol::MovieClip(_) => {
+                    self.remove_placed_symbols(target, Some(i));
+                }
+                _ => {}
+            }
+        }
+        for i in 0..self.remove_place_symbol_edits.len() {
+            self.remove_place_symbol_edits[i].edit(target);
+        }
+        target.symbols.remove(self.symbol_index);
+
+        MoviePropertiesOutput::Stage(None)
+    }
+    fn remove_placed_symbols(&mut self, target: &mut Movie, symbol_index: SymbolIndexOrRoot) {
+        let placed_symbols = target.get_placed_symbols_mut(symbol_index);
+        for i in (0..placed_symbols.len()).rev() {
+            // if the placed symbol is the movieclip we are removing
+            if placed_symbols[i].symbol_index == self.symbol_index {
+                // remove the placed symbol
+                self.remove_place_symbol_edits.push(RemovePlacedSymbolEdit {
+                    editing_symbol_index: symbol_index,
+                    placed_symbol_index: i,
+                    placed_symbol: placed_symbols[i].clone(),
+                });
+            } else if placed_symbols[i].symbol_index > self.symbol_index {
+                // decrease the symbol index because removing the movieclip causes the index of the other moveclips to change
+                placed_symbols[i].symbol_index -= 1;
+            }
+        }
+    }
+    fn undo(&mut self, target: &mut Movie) -> MoviePropertiesOutput {
+        self.increase_placed_symbols(target.get_placed_symbols_mut(None));
+        for i in 0..target.symbols.len() {
+            match target.symbols[i] {
+                Symbol::MovieClip(_) => {
+                    self.increase_placed_symbols(target.get_placed_symbols_mut(Some(i)))
+                }
+                _ => {}
+            }
+        }
+        target
+            .symbols
+            .insert(self.symbol_index, Symbol::MovieClip(self.movieclip.clone()));
+        for i in 0..self.remove_place_symbol_edits.len() {
+            self.remove_place_symbol_edits[i].undo(target);
+        }
+        MoviePropertiesOutput::Stage(Some(self.symbol_index))
+    }
+    fn increase_placed_symbols(&self, placed_symbols: &mut Vec<PlaceSymbol>) {
+        for i in (0..placed_symbols.len()).rev() {
+            if placed_symbols[i].symbol_index >= self.symbol_index {
+                // increase the symbol index to make room for the reinserted symbol
+                placed_symbols[i].symbol_index += 1;
+            }
+        }
     }
 }
 

@@ -229,7 +229,7 @@ pub struct CachedBitmap {
     pub bitmap_handle: Option<BitmapHandle>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct MovieClip {
     pub properties: MovieClipProperties,
     pub place_symbols: Vec<PlaceSymbol>,
@@ -241,7 +241,7 @@ pub struct MovieClipProperties {
     pub class_name: String,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct PlaceSymbol {
     pub symbol_index: SymbolIndex,
     #[serde(with = "TransformDef")]
