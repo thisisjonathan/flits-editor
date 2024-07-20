@@ -2,8 +2,8 @@ use ruffle_render::matrix::Matrix;
 use undo::Edit;
 
 use crate::core::{
-    BitmapProperties, Movie, MovieClip, MovieClipProperties, MovieProperties, PlaceSymbol,
-    PlacedSymbolIndex, Symbol, SymbolIndex, SymbolIndexOrRoot,
+    BitmapProperties, EditorTransform, Movie, MovieClip, MovieClipProperties, MovieProperties,
+    PlaceSymbol, PlacedSymbolIndex, Symbol, SymbolIndex, SymbolIndexOrRoot,
 };
 
 pub enum MovieEdit {
@@ -218,14 +218,14 @@ pub struct MovePlacedSymbolEdit {
     pub editing_symbol_index: SymbolIndexOrRoot,
     pub placed_symbol_index: PlacedSymbolIndex,
 
-    pub start: Matrix,
-    pub end: Matrix,
+    pub start: EditorTransform,
+    pub end: EditorTransform,
 }
 impl MovePlacedSymbolEdit {
     fn edit(&mut self, target: &mut Movie) -> MoviePropertiesOutput {
         let placed_symbols = target.get_placed_symbols_mut(self.editing_symbol_index);
         let symbol = &mut placed_symbols[self.placed_symbol_index];
-        symbol.transform.matrix = self.end.clone();
+        symbol.transform = self.end.clone();
 
         MoviePropertiesOutput::Stage(self.editing_symbol_index)
     }
@@ -233,7 +233,7 @@ impl MovePlacedSymbolEdit {
     fn undo(&mut self, target: &mut Movie) -> MoviePropertiesOutput {
         let placed_symbols = target.get_placed_symbols_mut(self.editing_symbol_index);
         let symbol = &mut placed_symbols[self.placed_symbol_index];
-        symbol.transform.matrix = self.start.clone();
+        symbol.transform = self.start.clone();
 
         MoviePropertiesOutput::Stage(self.editing_symbol_index)
     }

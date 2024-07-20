@@ -11,8 +11,8 @@ use self::properties_panel::{
     PropertiesPanel, SymbolProperties, SymbolPropertiesPanel,
 };
 use crate::core::{
-    BitmapCacheStatus, CachedBitmap, Movie, MovieClip, MovieClipProperties, PlaceSymbol,
-    PlacedSymbolIndex, Symbol, SymbolIndex, SymbolIndexOrRoot,
+    BitmapCacheStatus, CachedBitmap, EditorTransform, Movie, MovieClip, MovieClipProperties,
+    PlaceSymbol, PlacedSymbolIndex, Symbol, SymbolIndex, SymbolIndexOrRoot,
 };
 use crate::desktop::custom_event::RuffleEvent;
 use egui::{Vec2, Widget};
@@ -43,7 +43,7 @@ pub const EDIT_EPSILON: f64 = 0.00001;
 type Renderer = Box<dyn RenderBackend>;
 
 struct DragData {
-    symbol_start_matrix: Matrix,
+    symbol_start_transform: EditorTransform,
     start_x: f64,
     start_y: f64,
     place_symbol_index: SymbolIndex,
@@ -252,9 +252,11 @@ impl Editor {
                     commands.push(Command::RenderBitmap {
                         bitmap: bitmap_handle.clone(),
                         transform: Transform {
-                            matrix: transform.matrix * place_symbol.transform.matrix,
-                            color_transform: transform.color_transform
-                                * place_symbol.transform.color_transform,
+                            matrix: transform.matrix
+                                * <EditorTransform as Into<Matrix>>::into(
+                                    place_symbol.transform.clone(),
+                                ),
+                            color_transform: transform.color_transform,
                         },
                         smoothing: false,
                         pixel_snapping: PixelSnapping::Never, // TODO: figure out a good default
@@ -266,9 +268,11 @@ impl Editor {
                         movie,
                         Some(place_symbol.symbol_index as usize),
                         Transform {
-                            matrix: transform.matrix * place_symbol.transform.matrix,
-                            color_transform: transform.color_transform
-                                * place_symbol.transform.color_transform,
+                            matrix: transform.matrix
+                                * <EditorTransform as Into<Matrix>>::into(
+                                    place_symbol.transform.clone(),
+                                ),
+                            color_transform: transform.color_transform,
                         },
                     ));
                 }
@@ -285,15 +289,18 @@ impl Editor {
             let place_symbol = placed_symbols
                 .get_mut(drag_data.place_symbol_index)
                 .unwrap();
-            place_symbol.transform.matrix = drag_data.symbol_start_matrix
-                * Matrix::translate(
-                    Twips::from_pixels(
-                        world_space_mouse_position.tx.to_pixels() - drag_data.start_x,
-                    ),
-                    Twips::from_pixels(
-                        world_space_mouse_position.ty.to_pixels() - drag_data.start_y,
-                    ),
-                );
+            let end_matrix: Matrix =
+                <EditorTransform as Into<Matrix>>::into(drag_data.symbol_start_transform.clone())
+                    * Matrix::translate(
+                        Twips::from_pixels(
+                            world_space_mouse_position.tx.to_pixels() - drag_data.start_x,
+                        ),
+                        Twips::from_pixels(
+                            world_space_mouse_position.ty.to_pixels() - drag_data.start_y,
+                        ),
+                    );
+            place_symbol.transform.x = end_matrix.tx.to_pixels();
+            place_symbol.transform.y = end_matrix.ty.to_pixels();
         }
 
         self.camera.update_drag(mouse_x, mouse_y);
@@ -315,7 +322,7 @@ impl Editor {
             if let Some(symbol_index) = symbol_index {
                 let place_symbol = &self.movie.get_placed_symbols(self.editing_clip)[symbol_index];
                 self.drag_data = Some(DragData {
-                    symbol_start_matrix: place_symbol.transform.matrix.clone(),
+                    symbol_start_transform: place_symbol.transform.clone(),
                     start_x: world_space_mouse_position.tx.to_pixels(),
                     start_y: world_space_mouse_position.ty.to_pixels(),
                     place_symbol_index: symbol_index,
@@ -325,28 +332,23 @@ impl Editor {
         }
         if button == MouseButton::Left && state == ElementState::Released {
             if let Some(drag_data) = &self.drag_data {
-                let end = Matrix::translate(
-                    Twips::from_pixels(
-                        drag_data.symbol_start_matrix.tx.to_pixels()
-                            + world_space_mouse_position.tx.to_pixels()
-                            - drag_data.start_x,
-                    ),
-                    Twips::from_pixels(
-                        drag_data.symbol_start_matrix.ty.to_pixels()
-                            + world_space_mouse_position.ty.to_pixels()
-                            - drag_data.start_y,
-                    ),
-                );
+                let end = EditorTransform {
+                    x: drag_data.symbol_start_transform.x
+                        + world_space_mouse_position.tx.to_pixels()
+                        - drag_data.start_x,
+                    y: drag_data.symbol_start_transform.y
+                        + world_space_mouse_position.ty.to_pixels()
+                        - drag_data.start_y,
+                };
+
                 // only insert an edit if you actually moved the placed symbol
-                if f64::abs(drag_data.symbol_start_matrix.tx.to_pixels() - end.tx.to_pixels())
-                    > EDIT_EPSILON
-                    || f64::abs(drag_data.symbol_start_matrix.ty.to_pixels() - end.ty.to_pixels())
-                        > EDIT_EPSILON
+                if f64::abs(drag_data.symbol_start_transform.x - end.x) > EDIT_EPSILON
+                    || f64::abs(drag_data.symbol_start_transform.y - end.y) > EDIT_EPSILON
                 {
                     self.do_edit(MovieEdit::MovePlacedSymbol(MovePlacedSymbolEdit {
                         editing_symbol_index: self.editing_clip,
                         placed_symbol_index: drag_data.place_symbol_index,
-                        start: drag_data.symbol_start_matrix,
+                        start: drag_data.symbol_start_transform.clone(),
                         end,
                     }));
                 }
@@ -432,8 +434,8 @@ impl Editor {
                 .symbols
                 .get(place_symbol.symbol_index as usize)
                 .expect("Invalid symbol placed");
-            let place_symbol_x = place_symbol.transform.matrix.tx.to_pixels();
-            let place_symbol_y = place_symbol.transform.matrix.ty.to_pixels();
+            let place_symbol_x = place_symbol.transform.x;
+            let place_symbol_y = place_symbol.transform.y;
             match symbol {
                 Symbol::Bitmap(bitmap) => {
                     if let BitmapCacheStatus::Cached(cached_bitmap) = &bitmap.cache {
@@ -558,9 +560,9 @@ impl Editor {
                                     editing_symbol_index: self.editing_clip,
                                     placed_symbol: PlaceSymbol {
                                         symbol_index: i,
-                                        transform: Transform {
-                                            matrix,
-                                            color_transform: ColorTransform::IDENTITY,
+                                        transform: EditorTransform {
+                                            x: matrix.tx.to_pixels(),
+                                            y: matrix.ty.to_pixels(),
                                         },
                                     },
                                     placed_symbol_index: None,

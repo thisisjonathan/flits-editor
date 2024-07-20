@@ -23,14 +23,12 @@
             },
             "place_symbols": [{
                 "symbol_index": 1,
-                "transform": {
-                    "matrix": {"tx": 0, "ty": 0}
-                }
+                "x": 0,
+                "y": 0
             },{
                 "symbol_index": 1,
-                "transform": {
-                    "matrix": {"tx": 50, "ty": 0}
-                }
+                "x": 50,
+                "y": 0
             }]
         }}
     ],
@@ -38,24 +36,20 @@
     "root": [
         {
             "symbol_index": 0,
-            "transform": {
-                "matrix": {"tx": 10, "ty": 10}
-            }
+            "x": 10,
+            "y": 10
         },{
             "symbol_index": 1,
-            "transform": {
-                "matrix": {"tx": 60, "ty": 10}
-            }
+            "x": 60,
+            "y": 10
         },{
             "symbol_index": 1,
-            "transform": {
-                "matrix": {"tx": 100, "ty": 10}
-            }
+            "x": 100,
+            "y": 10
         },{
             "symbol_index": 2,
-            "transform": {
-                "matrix": {"tx": 10, "ty": 60}
-            }
+            "x": 10,
+            "y": 60
         }
     ]
 }
