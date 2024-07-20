@@ -252,20 +252,36 @@ pub struct PlaceSymbol {
 pub struct EditorTransform {
     pub x: f64,
     pub y: f64,
+
+    #[serde(default = "one", skip_serializing_if = "is_one")]
+    pub x_scale: f64,
+    #[serde(default = "one", skip_serializing_if = "is_one")]
+    pub y_scale: f64,
 }
 
 impl Into<Matrix> for EditorTransform {
     fn into(self) -> Matrix {
-        Matrix::translate(Twips::from_pixels(self.x), Twips::from_pixels(self.y))
+        <EditorTransform as Into<ruffle_render::matrix::Matrix>>::into(self).into()
     }
 }
 impl Into<ruffle_render::matrix::Matrix> for EditorTransform {
     fn into(self) -> ruffle_render::matrix::Matrix {
-        ruffle_render::matrix::Matrix::translate(
+        ruffle_render::matrix::Matrix::create_box(
+            self.x_scale as f32,
+            self.y_scale as f32,
+            0.0,
             Twips::from_pixels(self.x),
             Twips::from_pixels(self.y),
         )
     }
+}
+
+fn one() -> f64 {
+    1.0
+}
+
+fn is_one(value: &f64) -> bool {
+    *value == 1.0
 }
 
 // from: https://mth.st/blog/skip-default/

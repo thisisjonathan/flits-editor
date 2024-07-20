@@ -289,18 +289,12 @@ impl Editor {
             let place_symbol = placed_symbols
                 .get_mut(drag_data.place_symbol_index)
                 .unwrap();
-            let end_matrix: Matrix =
-                <EditorTransform as Into<Matrix>>::into(drag_data.symbol_start_transform.clone())
-                    * Matrix::translate(
-                        Twips::from_pixels(
-                            world_space_mouse_position.tx.to_pixels() - drag_data.start_x,
-                        ),
-                        Twips::from_pixels(
-                            world_space_mouse_position.ty.to_pixels() - drag_data.start_y,
-                        ),
-                    );
-            place_symbol.transform.x = end_matrix.tx.to_pixels();
-            place_symbol.transform.y = end_matrix.ty.to_pixels();
+            place_symbol.transform.x = drag_data.symbol_start_transform.x
+                + world_space_mouse_position.tx.to_pixels()
+                - drag_data.start_x;
+            place_symbol.transform.y = drag_data.symbol_start_transform.y
+                + world_space_mouse_position.ty.to_pixels()
+                - drag_data.start_y;
         }
 
         self.camera.update_drag(mouse_x, mouse_y);
@@ -339,6 +333,14 @@ impl Editor {
                     y: drag_data.symbol_start_transform.y
                         + world_space_mouse_position.ty.to_pixels()
                         - drag_data.start_y,
+                    x_scale: self.movie.get_placed_symbols(self.editing_clip)
+                        [drag_data.place_symbol_index]
+                        .transform
+                        .x_scale,
+                    y_scale: self.movie.get_placed_symbols(self.editing_clip)
+                        [drag_data.place_symbol_index]
+                        .transform
+                        .y_scale,
                 };
 
                 // only insert an edit if you actually moved the placed symbol
@@ -439,8 +441,10 @@ impl Editor {
             match symbol {
                 Symbol::Bitmap(bitmap) => {
                     if let BitmapCacheStatus::Cached(cached_bitmap) = &bitmap.cache {
-                        let width = cached_bitmap.image.width() as f64;
-                        let height = cached_bitmap.image.height() as f64;
+                        let width =
+                            cached_bitmap.image.width() as f64 * place_symbol.transform.x_scale;
+                        let height =
+                            cached_bitmap.image.height() as f64 * place_symbol.transform.y_scale;
                         if x > place_symbol_x
                             && y > place_symbol_y
                             && x < place_symbol_x + width
@@ -451,6 +455,7 @@ impl Editor {
                     }
                 }
                 Symbol::MovieClip(_) => {
+                    // TODO: handle scaled movieclips
                     if let Some(_) = self.get_placed_symbol_at_position_world_space(
                         x - place_symbol_x,
                         y - place_symbol_y,
@@ -563,6 +568,8 @@ impl Editor {
                                         transform: EditorTransform {
                                             x: matrix.tx.to_pixels(),
                                             y: matrix.ty.to_pixels(),
+                                            x_scale: 1.0,
+                                            y_scale: 1.0,
                                         },
                                     },
                                     placed_symbol_index: None,

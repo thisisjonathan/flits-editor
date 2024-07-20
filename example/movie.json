@@ -45,11 +45,13 @@
         },{
             "symbol_index": 1,
             "x": 100,
-            "y": 10
+            "y": 10,
+            "y_scale": 4
         },{
             "symbol_index": 2,
             "x": 10,
-            "y": 60
+            "y": 60,
+            "x_scale": 2
         }
     ]
 }
