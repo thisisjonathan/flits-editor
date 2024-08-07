@@ -1,7 +1,7 @@
 use std::{collections::HashMap, io::Write, path::Path, path::PathBuf};
 
 use image::{io::Reader as ImageReader, DynamicImage, EncodableLayout};
-use ruffle_render::{bitmap::BitmapHandle, transform::Transform};
+use ruffle_render::bitmap::BitmapHandle;
 use serde::{Deserialize, Serialize};
 use swf::{
     avm1::types::{Action, ConstantPool, Push},

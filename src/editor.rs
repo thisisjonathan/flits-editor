@@ -2,8 +2,8 @@ use std::path::PathBuf;
 
 use self::camera::Camera;
 use self::edit::{
-    AddMovieClipEdit, AddPlacedSymbolEdit, MovieEdit, MoviePropertiesOutput,
-    RemovePlacedSymbolEdit, TransformPlacedSymbolEdit,
+    AddPlacedSymbolEdit, MovieEdit, MoviePropertiesOutput, RemovePlacedSymbolEdit,
+    TransformPlacedSymbolEdit,
 };
 use self::menu::MENUS;
 use self::new_symbol_window::NewSymbolWindow;
@@ -16,7 +16,7 @@ use crate::core::{
     Symbol, SymbolIndex, SymbolIndexOrRoot,
 };
 use crate::desktop::custom_event::RuffleEvent;
-use egui::{Vec2, Widget};
+use egui::Widget;
 use ruffle_render::{
     backend::{RenderBackend, ViewportDimensions},
     bitmap::{Bitmap, BitmapFormat, PixelSnapping},
