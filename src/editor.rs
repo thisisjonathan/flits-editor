@@ -2,8 +2,8 @@ use std::path::PathBuf;
 
 use self::camera::Camera;
 use self::edit::{
-    AddMovieClipEdit, AddPlacedSymbolEdit, MovePlacedSymbolEdit, MovieEdit, MoviePropertiesOutput,
-    RemovePlacedSymbolEdit,
+    AddMovieClipEdit, AddPlacedSymbolEdit, MovieEdit, MoviePropertiesOutput,
+    RemovePlacedSymbolEdit, TransformPlacedSymbolEdit,
 };
 use self::menu::MENUS;
 use self::properties_panel::{
@@ -11,8 +11,8 @@ use self::properties_panel::{
     PropertiesPanel, SymbolProperties, SymbolPropertiesPanel,
 };
 use crate::core::{
-    BitmapCacheStatus, CachedBitmap, EditorTransform, Movie, MovieClip, MovieClipProperties,
-    PlaceSymbol, PlacedSymbolIndex, Symbol, SymbolIndex, SymbolIndexOrRoot,
+    BitmapCacheStatus, CachedBitmap, EditorTransform, Movie, PlaceSymbol, PlacedSymbolIndex,
+    Symbol, SymbolIndex, SymbolIndexOrRoot,
 };
 use crate::desktop::custom_event::RuffleEvent;
 use egui::{Vec2, Widget};
@@ -347,12 +347,14 @@ impl Editor {
                 if f64::abs(drag_data.symbol_start_transform.x - end.x) > EDIT_EPSILON
                     || f64::abs(drag_data.symbol_start_transform.y - end.y) > EDIT_EPSILON
                 {
-                    self.do_edit(MovieEdit::MovePlacedSymbol(MovePlacedSymbolEdit {
-                        editing_symbol_index: self.editing_clip,
-                        placed_symbol_index: drag_data.place_symbol_index,
-                        start: drag_data.symbol_start_transform.clone(),
-                        end,
-                    }));
+                    self.do_edit(MovieEdit::TransformPlacedSymbol(
+                        TransformPlacedSymbolEdit {
+                            editing_symbol_index: self.editing_clip,
+                            placed_symbol_index: drag_data.place_symbol_index,
+                            start: drag_data.symbol_start_transform.clone(),
+                            end,
+                        },
+                    ));
                 }
                 self.drag_data = None;
             }

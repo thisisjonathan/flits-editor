@@ -1,4 +1,3 @@
-use ruffle_render::matrix::Matrix;
 use undo::Edit;
 
 use crate::core::{
@@ -15,7 +14,7 @@ pub enum MovieEdit {
     EditBitmapProperties(BitmapPropertiesEdit),
     EditMovieClipProperties(MovieClipPropertiesEdit),
 
-    MovePlacedSymbol(MovePlacedSymbolEdit),
+    TransformPlacedSymbol(TransformPlacedSymbolEdit),
     AddPlacedSymbol(AddPlacedSymbolEdit),
     RemovePlacedSymbol(RemovePlacedSymbolEdit),
 }
@@ -30,7 +29,7 @@ impl Edit for MovieEdit {
             MovieEdit::RemoveMovieClip(edit) => edit.edit(target),
             MovieEdit::EditBitmapProperties(edit) => edit.edit(target),
             MovieEdit::EditMovieClipProperties(edit) => edit.edit(target),
-            MovieEdit::MovePlacedSymbol(edit) => edit.edit(target),
+            MovieEdit::TransformPlacedSymbol(edit) => edit.edit(target),
             MovieEdit::AddPlacedSymbol(edit) => edit.edit(target),
             MovieEdit::RemovePlacedSymbol(edit) => edit.edit(target),
         }
@@ -43,7 +42,7 @@ impl Edit for MovieEdit {
             MovieEdit::RemoveMovieClip(edit) => edit.undo(target),
             MovieEdit::EditBitmapProperties(edit) => edit.undo(target),
             MovieEdit::EditMovieClipProperties(edit) => edit.undo(target),
-            MovieEdit::MovePlacedSymbol(edit) => edit.undo(target),
+            MovieEdit::TransformPlacedSymbol(edit) => edit.undo(target),
             MovieEdit::AddPlacedSymbol(edit) => edit.undo(target),
             MovieEdit::RemovePlacedSymbol(edit) => edit.undo(target),
         }
@@ -214,14 +213,14 @@ impl MovieClipPropertiesEdit {
     }
 }
 
-pub struct MovePlacedSymbolEdit {
+pub struct TransformPlacedSymbolEdit {
     pub editing_symbol_index: SymbolIndexOrRoot,
     pub placed_symbol_index: PlacedSymbolIndex,
 
     pub start: EditorTransform,
     pub end: EditorTransform,
 }
-impl MovePlacedSymbolEdit {
+impl TransformPlacedSymbolEdit {
     fn edit(&mut self, target: &mut Movie) -> MoviePropertiesOutput {
         let placed_symbols = target.get_placed_symbols_mut(self.editing_symbol_index);
         let symbol = &mut placed_symbols[self.placed_symbol_index];

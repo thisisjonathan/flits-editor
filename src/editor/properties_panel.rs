@@ -1,5 +1,4 @@
 use egui::Vec2;
-use swf::Twips;
 
 use crate::core::{
     Bitmap, BitmapCacheStatus, BitmapProperties, Movie, MovieClip, MovieClipProperties,
@@ -8,8 +7,8 @@ use crate::core::{
 
 use super::{
     edit::{
-        BitmapPropertiesEdit, MovePlacedSymbolEdit, MovieClipPropertiesEdit, MovieEdit,
-        MoviePropertiesEdit, RemoveMovieClipEdit,
+        BitmapPropertiesEdit, MovieClipPropertiesEdit, MovieEdit, MoviePropertiesEdit,
+        RemoveMovieClipEdit, TransformPlacedSymbolEdit,
     },
     EDIT_EPSILON,
 };
@@ -218,10 +217,22 @@ impl PlacedSymbolPropertiesPanel {
             if response.lost_focus() || response.drag_released() {
                 position_edited = true;
             }
+
+            ui.label("X scale");
+            let response = ui.add(egui::DragValue::new(&mut placed_symbol.transform.x_scale));
+            if response.lost_focus() || response.drag_released() {
+                position_edited = true;
+            }
             ui.end_row();
 
             ui.label("y");
             let response = ui.add(egui::DragValue::new(&mut placed_symbol.transform.y));
+            if response.lost_focus() || response.drag_released() {
+                position_edited = true;
+            }
+
+            ui.label("Y scale");
+            let response = ui.add(egui::DragValue::new(&mut placed_symbol.transform.y_scale));
             if response.lost_focus() || response.drag_released() {
                 position_edited = true;
             }
@@ -234,13 +245,23 @@ impl PlacedSymbolPropertiesPanel {
                     > EDIT_EPSILON
                     || f64::abs(placed_symbol_before_edit.transform.y - placed_symbol.transform.y)
                         > EDIT_EPSILON
+                    || f64::abs(
+                        placed_symbol_before_edit.transform.x_scale
+                            - placed_symbol.transform.x_scale,
+                    ) > EDIT_EPSILON
+                    || f64::abs(
+                        placed_symbol_before_edit.transform.y_scale
+                            - placed_symbol.transform.y_scale,
+                    ) > EDIT_EPSILON
                 {
-                    edit = Some(MovieEdit::MovePlacedSymbol(MovePlacedSymbolEdit {
-                        editing_symbol_index: editing_clip,
-                        placed_symbol_index,
-                        start: placed_symbol_before_edit.transform.clone(),
-                        end: placed_symbol.transform.clone(),
-                    }));
+                    edit = Some(MovieEdit::TransformPlacedSymbol(
+                        TransformPlacedSymbolEdit {
+                            editing_symbol_index: editing_clip,
+                            placed_symbol_index,
+                            start: placed_symbol_before_edit.transform.clone(),
+                            end: placed_symbol.transform.clone(),
+                        },
+                    ));
                 }
             }
         });
