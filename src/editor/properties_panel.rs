@@ -211,34 +211,20 @@ impl PlacedSymbolPropertiesPanel {
             "placed_symbol_{placed_symbol_index}_properties_grid"
         ))
         .show(ui, |ui| {
-            let mut position_edited = false;
-            ui.label("x");
-            let response = ui.add(egui::DragValue::new(&mut placed_symbol.transform.x));
-            if response.lost_focus() || response.drag_released() {
-                position_edited = true;
-            }
+            let mut dvc = DragValueContext {
+                ui,
+                position_edited: false,
+            };
 
-            ui.label("X scale");
-            let response = ui.add(egui::DragValue::new(&mut placed_symbol.transform.x_scale));
-            if response.lost_focus() || response.drag_released() {
-                position_edited = true;
-            }
-            ui.end_row();
+            Self::drag_value(&mut dvc, "x", &mut placed_symbol.transform.x);
+            Self::drag_value(&mut dvc, "X scale", &mut placed_symbol.transform.x_scale);
+            dvc.ui.end_row();
 
-            ui.label("y");
-            let response = ui.add(egui::DragValue::new(&mut placed_symbol.transform.y));
-            if response.lost_focus() || response.drag_released() {
-                position_edited = true;
-            }
+            Self::drag_value(&mut dvc, "y", &mut placed_symbol.transform.y);
+            Self::drag_value(&mut dvc, "Y scale", &mut placed_symbol.transform.y_scale);
+            dvc.ui.end_row();
 
-            ui.label("Y scale");
-            let response = ui.add(egui::DragValue::new(&mut placed_symbol.transform.y_scale));
-            if response.lost_focus() || response.drag_released() {
-                position_edited = true;
-            }
-            ui.end_row();
-
-            if position_edited {
+            if dvc.position_edited {
                 let placed_symbol_before_edit = &self.before_edit;
                 // only add edit when the position actually changed
                 if f64::abs(placed_symbol_before_edit.transform.x - placed_symbol.transform.x)
@@ -268,6 +254,18 @@ impl PlacedSymbolPropertiesPanel {
 
         edit
     }
+
+    fn drag_value(dvc: &mut DragValueContext, label: &str, value: &mut f64) {
+        dvc.ui.label(label);
+        let response = dvc.ui.add(egui::DragValue::new(value));
+        if response.lost_focus() || response.drag_released() {
+            dvc.position_edited = true;
+        }
+    }
+}
+struct DragValueContext<'a> {
+    ui: &'a mut egui::Ui,
+    position_edited: bool,
 }
 
 pub struct MultiSelectionPropertiesPanel {}
