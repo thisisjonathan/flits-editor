@@ -257,7 +257,9 @@ impl PlacedSymbolPropertiesPanel {
 
     fn drag_value(dvc: &mut DragValueContext, label: &str, value: &mut f64) {
         dvc.ui.label(label);
-        let response = dvc.ui.add(egui::DragValue::new(value));
+        let response = dvc
+            .ui
+            .add_sized(Vec2::new(60.0, 20.0), egui::DragValue::new(value));
         if response.lost_focus() || response.drag_released() {
             dvc.position_edited = true;
         }
