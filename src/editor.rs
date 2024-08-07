@@ -652,8 +652,10 @@ impl Editor {
     }
 
     fn change_editing_clip(&mut self, symbol_index: SymbolIndexOrRoot) {
-        // if switching to the same symbol, do nothing
+        // if switching to the same symbol, just switch the properies panel
+        // (because you might have selected something else)
         if symbol_index == self.editing_clip {
+            self.change_view_after_edit(MoviePropertiesOutput::Properties(symbol_index));
             return;
         }
 
