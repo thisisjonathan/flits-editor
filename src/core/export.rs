@@ -31,6 +31,7 @@ pub fn export_movie_to_swf<'a>(movie: &Movie, project_directory: PathBuf, swf_pa
         tags: vec![],
         character_id_counter: 1,
         symbol_index_to_character_id: HashMap::new(),
+        symbol_index_to_tag_index: HashMap::new(),
     };
     build_library(&movie.symbols, &mut swf_builder, project_directory.clone());
     build_placed_symbols(&movie.root, &mut swf_builder);
@@ -135,6 +136,8 @@ struct SwfBuilder<'a> {
     tags: Vec<SwfBuilderTag<'a>>,
     character_id_counter: CharacterId,
     symbol_index_to_character_id: HashMap<SymbolIndex, CharacterId>,
+    // only used for bitmaps to get the size of the bitmap when placing it in order to center it
+    symbol_index_to_tag_index: HashMap<SymbolIndex, usize>,
 }
 
 impl<'a> SwfBuilder<'a> {
@@ -204,6 +207,9 @@ fn build_bitmap<'a>(
     swf_builder
         .symbol_index_to_character_id
         .insert(symbol_index, shape_id);
+    swf_builder
+        .symbol_index_to_tag_index
+        .insert(symbol_index, swf_builder.tags.len());
     swf_builder.tags.extend(vec![
         SwfBuilderTag::Bitmap(SwfBuilderBitmap {
             character_id: bitmap_id,
@@ -296,6 +302,23 @@ fn get_placed_symbols_tags<'a>(
     let mut i = 0;
     let mut tags = vec![];
     for place_symbol in placed_symbols {
+        let mut matrix: Matrix = place_symbol.transform.clone().into();
+        let tag_index = swf_builder
+            .symbol_index_to_tag_index
+            .get(&place_symbol.symbol_index);
+
+        // use the coordinates as the center of bitmaps instead of the top left
+        if let Some(tag_index) = tag_index {
+            let tag = &swf_builder.tags[*tag_index];
+            if let SwfBuilderTag::Bitmap(bitmap_tag) = tag {
+                matrix = matrix
+                    * Matrix::translate(
+                        Twips::from_pixels(bitmap_tag.width as f64 / -2.0),
+                        Twips::from_pixels(bitmap_tag.height as f64 / -2.0),
+                    );
+            }
+        }
+
         tags.push(Tag::PlaceObject(Box::new(PlaceObject {
             version: 2,
             action: PlaceObjectAction::Place(
@@ -310,7 +333,7 @@ fn get_placed_symbols_tags<'a>(
                     }),
             ),
             depth: (i as u16) + 1,
-            matrix: Some(place_symbol.transform.clone().into()),
+            matrix: Some(matrix.into()),
             color_transform: None,
             ratio: None,
             name: None,

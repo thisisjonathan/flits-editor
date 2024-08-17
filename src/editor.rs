@@ -254,10 +254,14 @@ impl Editor {
                     commands.push(Command::RenderBitmap {
                         bitmap: bitmap_handle.clone(),
                         transform: Transform {
+                            // bitmap coordinates are centered in orde rto make scaling and rotation easier
                             matrix: transform.matrix
-                                * <EditorTransform as Into<Matrix>>::into(
+                                * (<EditorTransform as Into<Matrix>>::into(
                                     place_symbol.transform.clone(),
-                                ),
+                                ) * Matrix::translate(
+                                    Twips::from_pixels(cached_bitmap.image.width() as f64 / -2.0),
+                                    Twips::from_pixels(cached_bitmap.image.height() as f64 / -2.0),
+                                )),
                             color_transform: transform.color_transform,
                         },
                         smoothing: false,
@@ -445,14 +449,16 @@ impl Editor {
             match symbol {
                 Symbol::Bitmap(bitmap) => {
                     if let BitmapCacheStatus::Cached(cached_bitmap) = &bitmap.cache {
-                        let width =
-                            cached_bitmap.image.width() as f64 * place_symbol.transform.x_scale;
-                        let height =
-                            cached_bitmap.image.height() as f64 * place_symbol.transform.y_scale;
-                        if x > place_symbol_x
-                            && y > place_symbol_y
-                            && x < place_symbol_x + width
-                            && y < place_symbol_y + height
+                        let half_width = cached_bitmap.image.width() as f64
+                            * place_symbol.transform.x_scale
+                            / 2.0;
+                        let half_height = cached_bitmap.image.height() as f64
+                            * place_symbol.transform.y_scale
+                            / 2.0;
+                        if x > place_symbol_x - half_width
+                            && y > place_symbol_y - half_height
+                            && x < place_symbol_x + half_width
+                            && y < place_symbol_y + half_height
                         {
                             return Some(i);
                         }
