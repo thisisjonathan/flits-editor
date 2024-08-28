@@ -79,6 +79,10 @@ impl Camera {
     pub fn zoom(&mut self, zoom_amount: f64) {
         self.zoom_level += zoom_amount;
     }
+
+    pub fn zoom_level(&self) -> f64 {
+        self.zoom_level
+    }
 }
 struct CameraDragData {
     previous_x: f64,

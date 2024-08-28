@@ -210,6 +210,15 @@ impl Bitmap {
     pub fn invalidate_cache(&mut self) {
         self.cache = BitmapCacheStatus::Uncached;
     }
+    pub fn size(&self) -> Option<(u32, u32)> {
+        match &self.cache {
+            BitmapCacheStatus::Uncached => None,
+            BitmapCacheStatus::Cached(cached_bitmap) => {
+                Some((cached_bitmap.image.width(), cached_bitmap.image.height()))
+            }
+            BitmapCacheStatus::Invalid(_) => None,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
@@ -235,6 +244,7 @@ pub struct MovieClip {
     pub properties: MovieClipProperties,
     pub place_symbols: Vec<PlaceSymbol>,
 }
+
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub struct MovieClipProperties {
     pub name: String,

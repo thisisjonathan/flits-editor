@@ -208,8 +208,150 @@ impl Editor {
             },
         ));
 
+        commands
+            .commands
+            .extend(self.render_selection(world_to_screen_matrix));
+
         self.renderer
             .submit_frame(Color::from_rgb(0x222222, 255), commands, vec![]);
+    }
+
+    fn render_selection(&self, world_to_screen_matrix: Matrix) -> Vec<Command> {
+        let mut commands = vec![];
+        let placed_symbols = self.movie.get_placed_symbols(self.editing_clip);
+        for i in &self.selection {
+            let place_symbol = placed_symbols.get(*i).unwrap();
+            let size = self.size_of_symbol(place_symbol.symbol_index);
+            if let Some(size) = size {
+                let scaled_size = (
+                    size.0 * place_symbol.transform.x_scale,
+                    size.1 * place_symbol.transform.y_scale,
+                );
+                let line_size = 1.0 / self.camera.zoom_level();
+                commands.extend(vec![
+                    // top
+                    Command::DrawRect {
+                        color: Color::BLACK,
+                        matrix: world_to_screen_matrix
+                            * Matrix::create_box(
+                                (scaled_size.0 + line_size * 2.0) as f32,
+                                line_size as f32,
+                                0.0,
+                                Twips::from_pixels(
+                                    place_symbol.transform.x - scaled_size.0 / 2.0 - line_size,
+                                ),
+                                Twips::from_pixels(
+                                    place_symbol.transform.y - scaled_size.1 / 2.0 - line_size,
+                                ),
+                            ),
+                    },
+                    // bottom
+                    Command::DrawRect {
+                        color: Color::BLACK,
+                        matrix: world_to_screen_matrix
+                            * Matrix::create_box(
+                                (scaled_size.0 + line_size * 2.0) as f32,
+                                line_size as f32,
+                                0.0,
+                                Twips::from_pixels(
+                                    place_symbol.transform.x - scaled_size.0 / 2.0 - line_size,
+                                ),
+                                Twips::from_pixels(place_symbol.transform.y + scaled_size.1 / 2.0),
+                            ),
+                    },
+                    // left
+                    Command::DrawRect {
+                        color: Color::BLACK,
+                        matrix: world_to_screen_matrix
+                            * Matrix::create_box(
+                                line_size as f32,
+                                (scaled_size.1 + line_size * 2.0) as f32,
+                                0.0,
+                                Twips::from_pixels(
+                                    place_symbol.transform.x - scaled_size.0 / 2.0 - line_size,
+                                ),
+                                Twips::from_pixels(
+                                    place_symbol.transform.y - scaled_size.1 / 2.0 - line_size,
+                                ),
+                            ),
+                    },
+                    // right
+                    Command::DrawRect {
+                        color: Color::BLACK,
+                        matrix: world_to_screen_matrix
+                            * Matrix::create_box(
+                                line_size as f32,
+                                (scaled_size.1 + line_size * 2.0) as f32,
+                                0.0,
+                                Twips::from_pixels(place_symbol.transform.x + scaled_size.0 / 2.0),
+                                Twips::from_pixels(
+                                    place_symbol.transform.y - scaled_size.1 / 2.0 - line_size,
+                                ),
+                            ),
+                    },
+                ]);
+                // fill whole selection
+                /*commands.push(Command::DrawRect {
+                    color: Color::BLACK,
+                    matrix: world_to_screen_matrix
+                        * Matrix::create_box(
+                            scaled_size.0 as f32,
+                            scaled_size.1 as f32,
+                            0.0,
+                            Twips::from_pixels(place_symbol.transform.x - scaled_size.0 / 2.0),
+                            Twips::from_pixels(place_symbol.transform.y - scaled_size.1 / 2.0),
+                        ),
+                });*/
+            }
+        }
+        commands
+    }
+
+    fn size_of_symbol(&self, symbol_index: SymbolIndex) -> Option<(f64, f64)> {
+        let symbol = self
+            .movie
+            .symbols
+            .get(symbol_index as usize)
+            .expect("Invalid symbol placed");
+        match symbol {
+            Symbol::Bitmap(bitmap) => match bitmap.size() {
+                Some(size) => Some((size.0 as f64, size.1 as f64)),
+                None => None,
+            },
+            Symbol::MovieClip(movieclip) => {
+                let mut total_x_min = 0.0;
+                let mut total_y_min = 0.0;
+                let mut total_x_max = 0.0;
+                let mut total_y_max = 0.0;
+                for place_symbol in &movieclip.place_symbols {
+                    let size = self.size_of_symbol(place_symbol.symbol_index);
+                    let Some(size) = size else {
+                        continue;
+                    };
+                    let scaled_half_size = (
+                        size.0 * place_symbol.transform.x_scale / 2.0,
+                        size.1 * place_symbol.transform.y_scale / 2.0,
+                    );
+                    let x_min = place_symbol.transform.x - scaled_half_size.0;
+                    if x_min < total_x_min {
+                        total_x_min = x_min;
+                    }
+                    let y_min = place_symbol.transform.y - scaled_half_size.1;
+                    if y_min < total_y_min {
+                        total_y_min = y_min;
+                    }
+                    let x_max = place_symbol.transform.x + scaled_half_size.0;
+                    if x_max > total_x_max {
+                        total_x_max = x_max;
+                    }
+                    let y_max = place_symbol.transform.y + scaled_half_size.1;
+                    if y_max > total_y_max {
+                        total_y_max = y_max;
+                    }
+                }
+                Some((total_x_max - total_x_min, total_y_max - total_y_min))
+            }
+        }
     }
 
     fn cache_bitmap_handle(renderer: &mut Renderer, cached_bitmap: &mut CachedBitmap) {
@@ -254,7 +396,7 @@ impl Editor {
                     commands.push(Command::RenderBitmap {
                         bitmap: bitmap_handle.clone(),
                         transform: Transform {
-                            // bitmap coordinates are centered in orde rto make scaling and rotation easier
+                            // bitmap coordinates are centered in order to make scaling and rotation easier
                             matrix: transform.matrix
                                 * (<EditorTransform as Into<Matrix>>::into(
                                     place_symbol.transform.clone(),
@@ -410,6 +552,15 @@ impl Editor {
                             before_edit: self.movie.properties.clone(),
                         });
                 }
+            }
+            MoviePropertiesOutput::PlacedSymbolProperties(editing_clip, placed_symbol_index) => {
+                self.change_editing_clip(editing_clip);
+                self.set_selection(vec![placed_symbol_index]);
+            }
+            MoviePropertiesOutput::RemovedPlacedSymbol(editing_clip) => {
+                // reset the selection to make sure the removed placed symbol isn't selected anymore
+                self.set_selection(vec![]);
+                self.change_editing_clip(editing_clip);
             }
         }
     }
