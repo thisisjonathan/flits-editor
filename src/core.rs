@@ -73,6 +73,9 @@ impl Movie {
             let file = fs_asset.unwrap();
             let file_name = file.file_name().into_string().unwrap();
             let file_path = format!("assets/{}", file_name);
+            if !file_name.ends_with(".png") {
+                continue;
+            }
             let existing_index = existing_assets
                 .iter()
                 .position(|asset| asset == file_path.as_str());

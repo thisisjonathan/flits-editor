@@ -1,5 +1,9 @@
 use image::{io::Reader as ImageReader, EncodableLayout};
-use std::{collections::HashMap, io::Write, path::PathBuf};
+use std::{
+    collections::HashMap,
+    io::{Read, Write},
+    path::PathBuf,
+};
 
 use swf::{
     avm1::types::{Action, ConstantPool, Push},
@@ -44,6 +48,9 @@ pub fn export_movie_to_swf<'a>(movie: &Movie, project_directory: PathBuf, swf_pa
         if let SwfBuilderTag::Bitmap(bitmap) = builder_tag {
             data_storage.push(bitmap.data.clone());
         }
+        if let SwfBuilderTag::Sound(sound) = builder_tag {
+            data_storage.push(sound.data.clone());
+        }
         if let SwfBuilderTag::ExportAssets(asset) = builder_tag {
             string_storage.push(asset.name.clone());
         }
@@ -57,21 +64,30 @@ pub fn export_movie_to_swf<'a>(movie: &Movie, project_directory: PathBuf, swf_pa
         }
     }
 
-    let mut bitmap_nr = 0;
+    let mut data_nr = 0;
     let mut swf_string_nr = 0;
     for builder_tag in swf_builder.tags {
         let tag: Tag = match builder_tag {
             SwfBuilderTag::Tag(tag) => tag,
             SwfBuilderTag::Bitmap(bitmap) => {
-                bitmap_nr += 1;
+                data_nr += 1;
                 Tag::DefineBitsLossless(DefineBitsLossless {
                     version: 2,
                     id: bitmap.character_id,
                     format: BitmapFormat::Rgb32,
                     width: bitmap.width as u16,
                     height: bitmap.height as u16,
-                    data: &data_storage[bitmap_nr - 1],
+                    data: &data_storage[data_nr - 1],
                 })
+            }
+            SwfBuilderTag::Sound(sound) => {
+                data_nr += 1;
+                Tag::DefineSound(Box::new(Sound {
+                    id: sound.id,
+                    format: sound.format,
+                    num_samples: sound.num_samples,
+                    data: &data_storage[data_nr - 1],
+                }))
             }
             SwfBuilderTag::ExportAssets(asset) => {
                 swf_string_nr += 1;
@@ -106,6 +122,71 @@ fn build_library<'a>(symbols: &Vec<Symbol>, swf_builder: &mut SwfBuilder, direct
             Symbol::MovieClip(movieclip) => build_movieclip(symbol_index, movieclip, swf_builder),
         }
         symbol_index += 1;
+    }
+    build_audio(swf_builder, directory);
+}
+
+fn build_audio(swf_builder: &mut SwfBuilder, directory: PathBuf) {
+    let asset_dir = directory.join("assets");
+    let fs_assets = std::fs::read_dir(asset_dir).unwrap();
+    for fs_asset in fs_assets {
+        let file = fs_asset.unwrap();
+        let file_name = file.file_name().into_string().unwrap();
+        if !file_name.ends_with(".wav") {
+            continue;
+        }
+        let reader = hound::WavReader::open(file.path()).unwrap();
+        let duration = reader.duration();
+        let spec = reader.spec();
+
+        if !(spec.channels == 1 || spec.channels == 2) {
+            panic!(
+                "Wave file should have 1 or 2 channels, has {}",
+                spec.channels
+            );
+        }
+        if !(spec.bits_per_sample == 8 || spec.bits_per_sample == 16) {
+            panic!(
+                "Wave file should have 8 or 16 bits per sample, has {}",
+                spec.bits_per_sample
+            );
+        }
+        let suppored_sample_rate = match spec.sample_rate {
+            5512 => true,
+            11025 => true,
+            22050 => true,
+            44100 => true,
+            _ => false,
+        };
+        if !suppored_sample_rate {
+            panic!(
+                "Wave file should have a sample rate of 5512, 11025, 22050, or 44100, is {}",
+                spec.sample_rate
+            );
+        }
+
+        let mut data: Vec<u8> = vec![];
+        // use the underlying reader because we just want the data instead of decoding it ourselves
+        reader.into_inner().read_to_end(&mut data).unwrap();
+        let character_id = swf_builder.next_character_id();
+        swf_builder.tags.push(SwfBuilderTag::Sound(SwfBuilderSound {
+            id: character_id,
+            format: SoundFormat {
+                // TODO: validate all these values
+                compression: AudioCompression::Uncompressed,
+                sample_rate: spec.sample_rate as u16,
+                is_stereo: spec.channels == 2,
+                is_16_bit: spec.bits_per_sample == 16,
+            },
+            num_samples: duration,
+            data,
+        }));
+        swf_builder
+            .tags
+            .push(SwfBuilderTag::ExportAssets(SwfBuilderExportedAsset {
+                character_id,
+                name: file_name,
+            }));
     }
 }
 
@@ -152,6 +233,8 @@ enum SwfBuilderTag<'a> {
     Tag(Tag<'a>),
     // we need this to avoid lifetime issues with DefineBitsLossless because data is &[u8] instead of Vec<u8>
     Bitmap(SwfBuilderBitmap),
+    // we need this to avoid lifetime issues with DefineSound because data is &[u8] instead of Vec<u8>
+    Sound(SwfBuilderSound),
     // avoid lifetime issues with &str, own it instead
     // only export one asset per tag to make the code simpler
     ExportAssets(SwfBuilderExportedAsset),
@@ -160,6 +243,12 @@ struct SwfBuilderBitmap {
     character_id: CharacterId,
     width: u32,
     height: u32,
+    data: Vec<u8>,
+}
+struct SwfBuilderSound {
+    id: CharacterId,
+    format: SoundFormat,
+    num_samples: u32,
     data: Vec<u8>,
 }
 struct SwfBuilderExportedAsset {
@@ -370,6 +459,7 @@ fn compile_as2(
     let mtasc_path = dependencies_dir.join("mtasc");
 
     let mut command = std::process::Command::new(mtasc_path);
+    // TODO: add -infer?
     command.arg("-swf").arg(swf_path.clone());
     command.arg("-version").arg("8"); // use newer as2 standard library
     command.arg("-cp").arg(dependencies_dir.join("std")); // set class path
