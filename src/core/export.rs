@@ -25,12 +25,9 @@ pub fn export_movie_to_swf<'a>(movie: &Movie, project_directory: PathBuf, swf_pa
         frame_rate: Fixed8::from_f32(movie.properties.frame_rate),
         num_frames: 1,
     };
-    let mut tags = vec![Tag::SetBackgroundColor(Color {
-        r: 0,
-        g: 0,
-        b: 255,
-        a: 255,
-    })];
+    let mut tags = vec![Tag::SetBackgroundColor(
+        movie.properties.background_color.clone().into(),
+    )];
     let mut swf_builder = SwfBuilder {
         tags: vec![],
         character_id_counter: 1,

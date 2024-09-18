@@ -3,7 +3,7 @@ use std::{path::Path, path::PathBuf};
 use image::{io::Reader as ImageReader, DynamicImage};
 use ruffle_render::bitmap::BitmapHandle;
 use serde::{Deserialize, Serialize};
-use swf::{Matrix, Twips};
+use swf::{Color, Matrix, Twips};
 
 use self::export::export_movie_to_swf;
 
@@ -155,6 +155,7 @@ pub struct MovieProperties {
     pub width: f64,
     pub height: f64,
     pub frame_rate: f32,
+    pub background_color: EditorColor,
 }
 impl Default for MovieProperties {
     fn default() -> Self {
@@ -163,6 +164,29 @@ impl Default for MovieProperties {
             width: 640.0,
             height: 360.0,
             frame_rate: 60.0,
+            background_color: EditorColor {
+                r: 255,
+                g: 255,
+                b: 255,
+                a: 255,
+            },
+        }
+    }
+}
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
+pub struct EditorColor {
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+    pub a: u8,
+}
+impl Into<Color> for EditorColor {
+    fn into(self) -> Color {
+        Color {
+            r: self.r,
+            g: self.g,
+            b: self.b,
+            a: self.a,
         }
     }
 }

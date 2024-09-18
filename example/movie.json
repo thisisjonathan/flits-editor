@@ -2,7 +2,8 @@
     "properties": {
         "width": 640,
         "height": 480,
-        "frame_rate": 60
+        "frame_rate": 60,
+        "background_color": {"r": 0, "g": 255, "b": 255, "a": 255}
     },
     
     "symbols": [
