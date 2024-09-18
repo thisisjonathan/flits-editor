@@ -37,6 +37,12 @@ impl MoviePropertiesPanel {
             if response.lost_focus() || response.drag_released() {
                 properties_edited = true;
             }
+
+            ui.label("Framerate:");
+            let response = ui.add(egui::DragValue::new(&mut movie.properties.frame_rate));
+            if response.lost_focus() || response.drag_released() {
+                properties_edited = true;
+            }
             ui.end_row();
 
             ui.label("Height:");
@@ -44,7 +50,6 @@ impl MoviePropertiesPanel {
             if response.lost_focus() || response.drag_released() {
                 properties_edited = true;
             }
-            ui.end_row();
 
             ui.label("Background color:");
             let mut color: egui::Rgba = egui::Rgba::from_rgba_premultiplied(
