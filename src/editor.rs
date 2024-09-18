@@ -122,7 +122,7 @@ impl Editor {
         let mut commands = CommandList::new();
 
         // stage background
-        let mut stage_color = Color::from_rgba(0xFFFFFFFF);
+        let mut stage_color: Color = self.movie.properties.background_color.clone().into();
         if self.editing_clip != None {
             // when editing a clip, fade the stage background
             stage_color.a = 4;

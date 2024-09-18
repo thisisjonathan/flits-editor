@@ -1,8 +1,9 @@
 use egui::Vec2;
 
 use crate::core::{
-    Bitmap, BitmapCacheStatus, BitmapProperties, Movie, MovieClip, MovieClipProperties,
-    MovieProperties, PlaceSymbol, PlacedSymbolIndex, Symbol, SymbolIndex, SymbolIndexOrRoot,
+    Bitmap, BitmapCacheStatus, BitmapProperties, EditorColor, Movie, MovieClip,
+    MovieClipProperties, MovieProperties, PlaceSymbol, PlacedSymbolIndex, Symbol, SymbolIndex,
+    SymbolIndexOrRoot,
 };
 
 use super::{
@@ -40,6 +41,29 @@ impl MoviePropertiesPanel {
 
             ui.label("Height:");
             let response = ui.add(egui::DragValue::new(&mut movie.properties.height));
+            if response.lost_focus() || response.drag_released() {
+                properties_edited = true;
+            }
+            ui.end_row();
+
+            ui.label("Background color:");
+            let mut color: egui::Rgba = egui::Rgba::from_rgba_premultiplied(
+                movie.properties.background_color.r as f32 / 255.0,
+                movie.properties.background_color.g as f32 / 255.0,
+                movie.properties.background_color.b as f32 / 255.0,
+                movie.properties.background_color.a as f32 / 255.0,
+            );
+            let response = egui::color_picker::color_edit_button_rgba(
+                ui,
+                &mut color,
+                egui::color_picker::Alpha::OnlyBlend,
+            );
+            movie.properties.background_color = EditorColor {
+                r: (color.r() * 255.0) as u8,
+                g: (color.g() * 255.0) as u8,
+                b: (color.b() * 255.0) as u8,
+                a: (color.a() * 255.0) as u8,
+            };
             if response.lost_focus() || response.drag_released() {
                 properties_edited = true;
             }
