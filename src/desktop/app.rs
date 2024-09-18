@@ -47,7 +47,7 @@ impl App {
 
         let window = WindowBuilder::new()
             .with_visible(false)
-            .with_title("Ruffle")
+            .with_title("Flits Editor")
             //.with_window_icon(Some(icon))
             .with_min_inner_size(min_window_size)
             .with_max_inner_size(max_window_size)

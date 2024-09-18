@@ -2,8 +2,8 @@ use crate::desktop::cli::Opt;
 use crate::desktop::custom_event::RuffleEvent;
 use crate::desktop::executor::GlutinAsyncExecutor;
 use crate::desktop::gui::MovieView;
-use crate::{RENDER_INFO, SWF_INFO};
 use crate::editor::Editor;
+use crate::{RENDER_INFO, SWF_INFO};
 use anyhow::anyhow;
 use ruffle_render::backend::RenderBackend;
 use ruffle_render_wgpu::backend::WgpuRenderBackend;
@@ -16,7 +16,7 @@ use winit::event_loop::EventLoopProxy;
 use winit::window::Window;
 
 struct ActivePlayer {
-    player: Arc<Mutex<Editor>>,    
+    player: Arc<Mutex<Editor>>,
     executor: Arc<Mutex<GlutinAsyncExecutor>>,
 }
 
@@ -81,11 +81,17 @@ impl ActivePlayer {
 
         let name = movie_url
             .path_segments()
-            .and_then(|segments| segments.last())
+            .and_then(|segments| {
+                // show the directory the project is in
+                segments
+                    .rev()
+                    .skip_while(|segment| segment.ends_with(".json"))
+                    .nth(0)
+            })
             .unwrap_or_else(|| movie_url.as_str())
             .to_string();
 
-        window.set_title(&format!("Ruffle - {name}"));
+        window.set_title(&format!("{name} - Flits Editor"));
 
         /*SWF_INFO.with(|i| *i.borrow_mut() = Some(name.clone()));
 
@@ -103,8 +109,11 @@ impl ActivePlayer {
             });
             player_lock.fetch_root_movie(movie_url.to_string(), parameters, Box::new(on_metadata));
         }*/
-        
-        let player = Arc::new(Mutex::new(Editor::new(Box::new(renderer), movie_url.to_file_path().expect("Invalid movie path"))));
+
+        let player = Arc::new(Mutex::new(Editor::new(
+            Box::new(renderer),
+            movie_url.to_file_path().expect("Invalid movie path"),
+        )));
 
         Self { player, executor }
     }
@@ -162,10 +171,10 @@ impl PlayerController {
     pub fn poll(&self) {
         if let Some(player) = &self.player {
             /*player
-                .executor
-                .lock()
-                .expect("Executor lock must be available")
-                .poll_all()*/
+            .executor
+            .lock()
+            .expect("Executor lock must be available")
+            .poll_all()*/
         }
     }
 }
