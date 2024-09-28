@@ -3264,6 +3264,7 @@ dependencies = [
  "vergen",
  "webbrowser",
  "wgpu",
+ "winapi",
  "winit",
 ]
 

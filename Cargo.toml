@@ -47,6 +47,9 @@ fluent-templates = "0.8.0"
 # Deliberately held back to match tracy client used by profiling crate
 tracing-tracy = { version = "=0.10.0", optional = true }
 
+[target.'cfg(windows)'.dependencies]
+winapi = "0.3.9"
+
 [build-dependencies]
 embed-resource = "2"
 vergen = { version = "8.2.0", features = ["build", "git", "gitcl", "cargo"] }

@@ -14,7 +14,7 @@ target
       mtasc
       ruffle
 ```
-On windows the file names of the binaries should end with `.exe`, however this has not been tested.
+On windows the file names of the binaries should end with `.exe`.
 
 ## License
 
