@@ -97,7 +97,7 @@ pub const MENUS: &[Menu] = &[
                 name: "Zoom in",
                 keyboard_shortcut: Some(egui::KeyboardShortcut::new(
                     egui::Modifiers::NONE,
-                    egui::Key::PlusEquals,
+                    egui::Key::Equals,
                 )),
                 action: zoom_in,
             },

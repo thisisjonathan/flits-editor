@@ -307,7 +307,6 @@ impl Into<ruffle_render::matrix::Matrix> for EditorTransform {
         ruffle_render::matrix::Matrix::create_box(
             self.x_scale as f32,
             self.y_scale as f32,
-            0.0,
             Twips::from_pixels(self.x),
             Twips::from_pixels(self.y),
         )

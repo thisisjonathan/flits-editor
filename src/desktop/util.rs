@@ -4,8 +4,9 @@ use rfd::FileDialog;
 use std::path::{Path, PathBuf};
 use url::Url;
 use winit::dpi::PhysicalSize;
-use winit::event::{ModifiersState, VirtualKeyCode};
+//use winit::event::{ModifiersState, VirtualKeyCode};
 use winit::event_loop::EventLoop;
+use winit::window::Window;
 
 /*/// Converts a `VirtualKeyCode` and `ModifiersState` to a Ruffle `TextControlCode`.
 /// Returns `None` if there is no match.
@@ -271,13 +272,13 @@ pub fn winit_key_to_char(key_code: VirtualKeyCode, is_shift_down: bool) -> Optio
     })
 }*/
 
-pub fn get_screen_size(event_loop: &EventLoop<RuffleEvent>) -> PhysicalSize<u32> {
+pub fn get_screen_size(window: &Window) -> PhysicalSize<u32> {
     let mut min_x = 0;
     let mut min_y = 0;
     let mut max_x = 0;
     let mut max_y = 0;
 
-    for monitor in event_loop.available_monitors() {
+    for monitor in window.available_monitors() {
         let size = monitor.size();
         let position = monitor.position();
         min_x = min_x.min(position.x);

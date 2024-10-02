@@ -6,15 +6,15 @@
 // See https://docs.microsoft.com/en-us/cpp/build/reference/subsystem?view=msvc-160 for details.
 #![windows_subsystem = "windows"]
 
-
 mod core;
-mod editor;
 mod desktop;
+mod editor;
 
 use anyhow::Error;
-use desktop::app::App;
 use clap::Parser;
+use desktop::app::App;
 use desktop::cli::Opt;
+use rfd::MessageDialogResult;
 use std::cell::RefCell;
 use std::panic::PanicInfo;
 use url::Url;
@@ -69,7 +69,6 @@ fn init() {
 }
 
 fn panic_hook(info: &PanicInfo) {
-
     // [NA] Let me just point out that PanicInfo::message() exists but isn't stable and that sucks.
     let panic_text = info.to_string();
     let message = if let Some(text) = panic_text.strip_prefix("panicked at '") {
@@ -93,6 +92,7 @@ fn panic_hook(info: &PanicInfo) {
         ))
         .set_buttons(rfd::MessageButtons::YesNo)
         .show()
+        == MessageDialogResult::Yes
     {
         let mut params = vec![
             ("panic_text", info.to_string()),
@@ -132,7 +132,7 @@ fn shutdown() {
 fn main() -> Result<(), Error> {
     init();
     let opt = Opt::parse();
-    let result = App::new(opt).map(|app| app.run());
+    let result = App::new(opt).and_then(|app| app.run());
     #[cfg(windows)]
     if let Err(error) = &result {
         eprintln!("{:?}", error)

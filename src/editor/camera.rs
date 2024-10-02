@@ -31,7 +31,6 @@ impl Camera {
         ) * Matrix::create_box(
             self.zoom_level as f32,
             self.zoom_level as f32,
-            0.0,
             Twips::from_pixels(-self.x * self.zoom_level),
             Twips::from_pixels(-self.y * self.zoom_level),
         )

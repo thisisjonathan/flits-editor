@@ -138,7 +138,6 @@ impl Editor {
                 * Matrix::create_box(
                     self.movie.properties.width as f32,
                     self.movie.properties.height as f32,
-                    0.0,
                     Twips::ZERO,
                     Twips::ZERO,
                 ),
@@ -156,7 +155,6 @@ impl Editor {
                     * Matrix::create_box(
                         CROSS_SIZE,
                         1.0,
-                        0.0,
                         Twips::from_pixels(CROSS_SIZE as f64 / -2.0),
                         Twips::ZERO,
                     ),
@@ -168,7 +166,6 @@ impl Editor {
                     * Matrix::create_box(
                         1.0,
                         CROSS_SIZE,
-                        0.0,
                         Twips::ZERO,
                         Twips::from_pixels(CROSS_SIZE as f64 / -2.0),
                     ),
@@ -236,7 +233,6 @@ impl Editor {
                             * Matrix::create_box(
                                 (scaled_size.0 + line_size * 2.0) as f32,
                                 line_size as f32,
-                                0.0,
                                 Twips::from_pixels(
                                     place_symbol.transform.x - scaled_size.0 / 2.0 - line_size,
                                 ),
@@ -252,7 +248,6 @@ impl Editor {
                             * Matrix::create_box(
                                 (scaled_size.0 + line_size * 2.0) as f32,
                                 line_size as f32,
-                                0.0,
                                 Twips::from_pixels(
                                     place_symbol.transform.x - scaled_size.0 / 2.0 - line_size,
                                 ),
@@ -266,7 +261,6 @@ impl Editor {
                             * Matrix::create_box(
                                 line_size as f32,
                                 (scaled_size.1 + line_size * 2.0) as f32,
-                                0.0,
                                 Twips::from_pixels(
                                     place_symbol.transform.x - scaled_size.0 / 2.0 - line_size,
                                 ),
@@ -282,7 +276,6 @@ impl Editor {
                             * Matrix::create_box(
                                 line_size as f32,
                                 (scaled_size.1 + line_size * 2.0) as f32,
-                                0.0,
                                 Twips::from_pixels(place_symbol.transform.x + scaled_size.0 / 2.0),
                                 Twips::from_pixels(
                                     place_symbol.transform.y - scaled_size.1 / 2.0 - line_size,

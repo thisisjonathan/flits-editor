@@ -8,19 +8,18 @@ use super::util::{
     get_screen_size, parse_url, pick_file
 };
 use anyhow::{Context, Error};
+use rfd::MessageDialogResult;
 use ruffle_render::backend::ViewportDimensions;
-use ruffle_render_wgpu::backend::WgpuRenderBackend;
-use std::rc::Rc;
 use std::sync::{Arc, Mutex};
-use std::time::Instant;
-use winit::dpi::{LogicalSize, PhysicalPosition, PhysicalSize, Size};
-use winit::event::{ElementState, KeyboardInput, ModifiersState, VirtualKeyCode, WindowEvent};
-use winit::event_loop::{ControlFlow, EventLoop, EventLoopBuilder};
-use winit::window::{Fullscreen, Icon, Window, WindowBuilder};
+use std::time::{Duration, Instant};
+use winit::dpi::{LogicalSize, PhysicalPosition, PhysicalSize};
+use winit::event::{ElementState, Modifiers, WindowEvent};
+use winit::event_loop::{ControlFlow, EventLoop};
+use winit::window::{Window, WindowAttributes};
 
 pub struct App {
     opt: Opt,
-    window: Rc<Window>,
+    window: Arc<Window>,
     event_loop: Option<EventLoop<RuffleEvent>>,
     gui: Arc<Mutex<GuiController>>,
     player: PlayerController,
@@ -40,19 +39,19 @@ impl App {
         let icon =
             Icon::from_rgba(icon_bytes.to_vec(), 32, 32).context("Couldn't load app icon")?;*/
 
-        let event_loop = EventLoopBuilder::with_user_event().build();
+        let event_loop = EventLoop::with_user_event().build()?;
 
         let min_window_size = (16, MENU_HEIGHT + 16).into();
-        let max_window_size = get_screen_size(&event_loop);
 
-        let window = WindowBuilder::new()
+        let window_attributes = WindowAttributes::default()
             .with_visible(false)
             .with_title("Flits Editor")
             //.with_window_icon(Some(icon))
-            .with_min_inner_size(min_window_size)
-            .with_max_inner_size(max_window_size)
-            .build(&event_loop)?;
-        let window = Rc::new(window);
+            .with_min_inner_size(min_window_size);
+        let window = event_loop.create_window(window_attributes)?;
+        let max_window_size = get_screen_size(&window);
+        window.set_max_inner_size(Some(max_window_size));
+        let window = Arc::new(window);
 
         let gui = GuiController::new(
             window.clone(),
@@ -84,7 +83,7 @@ impl App {
         })
     }
 
-    pub fn run(mut self) -> ! {
+    pub fn run(mut self) -> Result<(), Error> {
         enum LoadingState {
             Loading,
             WaitingForResize,
@@ -92,11 +91,11 @@ impl App {
         }
         let mut loaded = LoadingState::Loading;
         let mut mouse_pos = PhysicalPosition::new(0.0, 0.0);
-        let mut time = Instant::now();
-        let mut next_frame_time = Instant::now();
+        //let mut time = Instant::now();
+        //let mut next_frame_time = Instant::now();
         let mut minimized = false;
-        let mut modifiers = ModifiersState::empty();
-        let mut fullscreen_down = false;
+        let mut modifiers = Modifiers::default();
+        //let mut fullscreen_down = false;
 
         //if self.opt.input_path.is_none() {
             // No SWF provided on command line; show window with dummy movie immediately.
@@ -106,10 +105,10 @@ impl App {
 
         // Poll UI events.
         let event_loop = self.event_loop.take().expect("App already running");
-        event_loop.run(move |event, _window_target, control_flow| {
+        event_loop.run(move |event, elwt| {
             let mut check_redraw = false;
             match event {
-                winit::event::Event::LoopDestroyed => {
+                winit::event::Event::LoopExiting => {
                     /*if let Some(mut player) = self.player.get() {
                         player.flush_shared_objects();
                     }*/
@@ -118,7 +117,7 @@ impl App {
                 }
 
                 // Core loop
-                winit::event::Event::MainEventsCleared => (),
+                winit::event::Event::AboutToWait => (),
                 /*    if matches!(loaded, LoadingState::Loaded) =>
                 {
                     println!("Doing frame loop");
@@ -135,7 +134,10 @@ impl App {
                 }*/
 
                 // Render
-                winit::event::Event::RedrawRequested(_) => {
+                winit::event::Event::WindowEvent {
+                    event: WindowEvent::RedrawRequested,
+                    ..
+                } => {
                     // Don't render when minimized to avoid potential swap chain errors in `wgpu`.
                     if !minimized {
                         if let Some(mut player) = self.player.get() {
@@ -173,7 +175,7 @@ impl App {
                     };
                     match event {
                         WindowEvent::CloseRequested => {
-                            *control_flow = ControlFlow::Exit;
+                            elwt.exit();
                             return;
                         }
                         WindowEvent::Resized(size) => {
@@ -270,81 +272,7 @@ impl App {
                         WindowEvent::ModifiersChanged(new_modifiers) => {
                             modifiers = new_modifiers;
                         }
-                        WindowEvent::KeyboardInput { input, .. } => {
-                            // Handle fullscreen keyboard shortcuts: Alt+Return, Escape.
-                            match input {
-                                KeyboardInput {
-                                    state: ElementState::Pressed,
-                                    virtual_keycode: Some(VirtualKeyCode::Return),
-                                    ..
-                                } if modifiers.alt() => {
-                                    if !fullscreen_down {
-                                        /*if let Some(mut player) = self.player.get() {
-                                            player.update(|uc| {
-                                                uc.stage.toggle_display_state(uc);
-                                            });
-                                        }*/
-                                    }
-                                    fullscreen_down = true;
-                                    return;
-                                }
-                                KeyboardInput {
-                                    state: ElementState::Released,
-                                    virtual_keycode: Some(VirtualKeyCode::Return),
-                                    ..
-                                } if fullscreen_down => {
-                                    fullscreen_down = false;
-                                }
-                                /*KeyboardInput {
-                                    state: ElementState::Pressed,
-                                    virtual_keycode: Some(VirtualKeyCode::Escape),
-                                    ..
-                                } => {
-                                    if let Some(mut player) = self.player.get() {
-                                        player.update(|uc| {
-                                            uc.stage
-                                                .set_display_state(uc, StageDisplayState::Normal);
-                                        })
-                                    }
-                                }*/
-                                _ => (),
-                            }
-
-                            /*if let Some(mut player) = self.player.get() {
-                                if let Some(key) = input.virtual_keycode {
-                                    let key_code = winit_to_ruffle_key_code(key);
-                                    let key_char = winit_key_to_char(key, modifiers.shift());
-                                    match input.state {
-                                        ElementState::Pressed => {
-                                            /*player.handle_event(PlayerEvent::KeyDown {
-                                                key_code,
-                                                key_char,
-                                            });
-                                            if let Some(control_code) =
-                                                winit_to_ruffle_text_control(key, modifiers)
-                                            {
-                                                player.handle_event(PlayerEvent::TextControl {
-                                                    code: control_code,
-                                                });
-                                            }*/
-                                        }
-                                        ElementState::Released => {
-                                            /*player.handle_event(PlayerEvent::KeyUp {
-                                                key_code,
-                                                key_char,
-                                            });*/
-                                        }
-                                    };
-                                    check_redraw = true;
-                                }
-                            }*/
-                        }
-                        WindowEvent::ReceivedCharacter(_codepoint) => {
-                            /*if let Some(mut player) = self.player.get() {
-                                let event = PlayerEvent::TextInput { codepoint };
-                                player.handle_event(event);
-                            }*/
-                            check_redraw = true;
+                        WindowEvent::KeyboardInput { event, .. } => {
                         }
                         _ => (),
                     }
@@ -432,10 +360,10 @@ impl App {
                         return;
                     }
                     if !new_project_data.path.read_dir().unwrap().next().is_none() {
-                        if !rfd::MessageDialog::new()
+                        if rfd::MessageDialog::new()
                             .set_buttons(rfd::MessageButtons::OkCancel)
                             .set_description("The directory is not empty, are you sure you want to create a project in this directory?")
-                            .show() {
+                            .show() != MessageDialogResult::Yes {
                             return;
                         }
                     }
@@ -463,7 +391,7 @@ impl App {
                 }
 
                 winit::event::Event::UserEvent(RuffleEvent::ExitRequested) => {
-                    *control_flow = ControlFlow::Exit;
+                    elwt.exit();
                     return;
                 }
                 
@@ -483,13 +411,19 @@ impl App {
                 }
             }
 
-            /*// After polling events, sleep the event loop until the next event or the next frame.
-            *control_flow = if matches!(loaded, LoadingState::Loaded) {
-                ControlFlow::WaitUntil(next_frame_time)
+             // After polling events, sleep the event loop until the next event or the next frame.
+            elwt.set_control_flow(if matches!(loaded, LoadingState::Loaded) {
+                /*if let Some(next_frame_time) = next_frame_time {
+                    ControlFlow::WaitUntil(next_frame_time)
+                } else {*/
+                    // prevent 100% cpu use
+                    // TODO: use set_request_repaint_callback to correctly get egui repaint requests.
+                    ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(10))
+                //}
             } else {
                 ControlFlow::Wait
-            };*/
-            *control_flow = ControlFlow::Wait;
-        });
+            });
+        })?;
+        Ok(())
     }
 }

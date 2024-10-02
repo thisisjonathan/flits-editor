@@ -6,8 +6,8 @@ pub use movie::MovieView;
 use std::borrow::Cow;
 use std::path::PathBuf;
 
-use crate::desktop::custom_event::{RuffleEvent, NewProjectData};
 use crate::core::Movie;
+use crate::desktop::custom_event::{NewProjectData, RuffleEvent};
 use crate::editor::Editor;
 use chrono::DateTime;
 use egui::*;
@@ -17,7 +17,7 @@ use fluent_templates::{static_loader, Loader};
 use std::collections::HashMap;
 use sys_locale::get_locale;
 use unic_langid::LanguageIdentifier;
-use winit::event_loop::{EventLoopProxy, self};
+use winit::event_loop::EventLoopProxy;
 
 static US_ENGLISH: LanguageIdentifier = langid!("en-US");
 
@@ -29,10 +29,13 @@ static_loader! {
 }
 
 pub fn text<'a>(locale: &LanguageIdentifier, id: &'a str) -> Cow<'a, str> {
-    TEXTS.lookup(locale, id).map(Cow::Owned).unwrap_or_else(|| {
-        tracing::error!("Unknown desktop text id '{id}'");
-        Cow::Borrowed(id)
-    })
+    TEXTS
+        .try_lookup(locale, id)
+        .map(Cow::Owned)
+        .unwrap_or_else(|| {
+            tracing::error!("Unknown desktop text id '{id}'");
+            Cow::Borrowed(id)
+        })
 }
 
 #[allow(dead_code)]
@@ -42,7 +45,7 @@ pub fn text_with_args<'a, T: AsRef<str>>(
     args: &HashMap<T, FluentValue>,
 ) -> Cow<'a, str> {
     TEXTS
-        .lookup_with_args(locale, id, args)
+        .try_lookup_with_args(locale, id, args)
         .map(Cow::Owned)
         .unwrap_or_else(|| {
             tracing::error!("Unknown desktop text id '{id}'");
@@ -135,7 +138,7 @@ impl RuffleGui {
     fn new_project_window(&mut self, egui_ctx: &egui::Context) {
         if self.new_project.is_some() {
             let event_loop = &self.event_loop;
-            
+
             egui::Window::new("New project")
                 .collapsible(false)
                 .resizable(false)
@@ -151,17 +154,22 @@ impl RuffleGui {
                             }
                         }
                         ui.end_row();
-                        
+
                         ui.label("Width:");
-                        ui.add(egui::DragValue::new(&mut new_project.movie_properties.width));
+                        ui.add(egui::DragValue::new(
+                            &mut new_project.movie_properties.width,
+                        ));
                         ui.end_row();
 
                         ui.label("Height:");
-                        ui.add(egui::DragValue::new(&mut new_project.movie_properties.height));
+                        ui.add(egui::DragValue::new(
+                            &mut new_project.movie_properties.height,
+                        ));
                         ui.end_row();
-                        
+
                         if ui.button("Create").clicked() {
-                            let _ = event_loop.send_event(RuffleEvent::NewFile(new_project.clone()));
+                            let _ =
+                                event_loop.send_event(RuffleEvent::NewFile(new_project.clone()));
                             self.new_project = None;
                         }
                         ui.end_row();

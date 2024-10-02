@@ -74,7 +74,7 @@ pub fn export_movie_to_swf<'a>(movie: &Movie, project_directory: PathBuf, swf_pa
                     format: BitmapFormat::Rgb32,
                     width: bitmap.width as u16,
                     height: bitmap.height as u16,
-                    data: &data_storage[data_nr - 1],
+                    data: std::borrow::Cow::from(&data_storage[data_nr - 1]),
                 })
             }
             SwfBuilderTag::Sound(sound) => {
@@ -229,6 +229,7 @@ impl<'a> SwfBuilder<'a> {
 enum SwfBuilderTag<'a> {
     Tag(Tag<'a>),
     // we need this to avoid lifetime issues with DefineBitsLossless because data is &[u8] instead of Vec<u8>
+    // TODO: it uses Cow now, we might not need this anymore
     Bitmap(SwfBuilderBitmap),
     // we need this to avoid lifetime issues with DefineSound because data is &[u8] instead of Vec<u8>
     Sound(SwfBuilderSound),
