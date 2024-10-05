@@ -773,9 +773,15 @@ impl Editor {
         });
 
         if let Some(new_symbol_window) = &mut self.new_symbol_window {
-            if let Some(edit) = new_symbol_window.do_ui(egui_ctx) {
-                self.do_edit(edit);
-                self.new_symbol_window = None;
+            match new_symbol_window.do_ui(egui_ctx) {
+                new_symbol_window::NewSymbolWindowResult::NoAction => {}
+                new_symbol_window::NewSymbolWindowResult::Cancel => {
+                    self.new_symbol_window = None;
+                }
+                new_symbol_window::NewSymbolWindowResult::Confirm(edit) => {
+                    self.do_edit(edit);
+                    self.new_symbol_window = None;
+                }
             }
         }
 
