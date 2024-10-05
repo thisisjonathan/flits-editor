@@ -139,9 +139,11 @@ impl RuffleGui {
         if self.new_project.is_some() {
             let event_loop = &self.event_loop;
 
+            let mut is_window_open = true;
             egui::Window::new("New project")
                 .collapsible(false)
                 .resizable(false)
+                .open(&mut is_window_open)
                 .anchor(Align2::CENTER_CENTER, egui::Vec2::ZERO)
                 .show(egui_ctx, |ui| {
                     egui::Grid::new("movie_properties_grid").show(ui, |ui| {
@@ -175,6 +177,9 @@ impl RuffleGui {
                         ui.end_row();
                     });
                 });
+            if !is_window_open {
+                self.new_project = None;
+            }
         }
     }
 
