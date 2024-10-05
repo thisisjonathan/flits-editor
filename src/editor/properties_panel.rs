@@ -69,8 +69,10 @@ impl MoviePropertiesPanel {
                 b: (color.b() * 255.0) as u8,
                 a: (color.a() * 255.0) as u8,
             };
-            // TODO: this doesn't work, the color picker doesn't register undos
-            if response.lost_focus() || response.drag_stopped() {
+            // this is true even when you don't have the color picker selected
+            // and you click anywhere in the program
+            // but that is mitigated by the equality check below
+            if response.clicked_elsewhere() {
                 properties_edited = true;
             }
             ui.end_row();

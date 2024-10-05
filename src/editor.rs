@@ -94,7 +94,7 @@ impl Editor {
             selection: vec![],
             drag_data: None,
             properties_panel: PropertiesPanel::MovieProperties(MoviePropertiesPanel {
-                before_edit: movie_properties,
+                before_edit: movie_properties.clone(),
             }),
 
             new_symbol_window: None,
@@ -846,10 +846,13 @@ impl Editor {
                             },
                         });
                 } else {
-                    self.properties_panel =
-                        PropertiesPanel::MovieProperties(MoviePropertiesPanel {
-                            before_edit: self.movie.properties.clone(),
-                        });
+                    // only recreate the panel if it doesn't exist already
+                    if !matches!(self.properties_panel, PropertiesPanel::MovieProperties(_)) {
+                        self.properties_panel =
+                            PropertiesPanel::MovieProperties(MoviePropertiesPanel {
+                                before_edit: self.movie.properties.clone(),
+                            });
+                    }
                 }
             }
             1 => {
