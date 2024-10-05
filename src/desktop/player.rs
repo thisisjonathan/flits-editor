@@ -152,6 +152,8 @@ impl PlayerController {
     }
 
     pub fn destroy(&mut self) {
+        // set the window title back to the default
+        self.window.set_title("Flits Editor");
         self.player = None;
     }
 
