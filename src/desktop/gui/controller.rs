@@ -95,6 +95,13 @@ impl GuiController {
         let descriptors = Descriptors::new(instance, adapter, device, queue);
         let egui_ctx = Context::default();
 
+        let event_loop_proxy = event_loop.clone();
+        egui_ctx.set_request_repaint_callback(move |info| {
+            event_loop_proxy
+                .send_event(RuffleEvent::RedrawRequested(info.delay))
+                .expect("Cannot send custom repaint event");
+        });
+
         let mut egui_winit = egui_winit::State::new(
             egui_ctx,
             ViewportId::ROOT,

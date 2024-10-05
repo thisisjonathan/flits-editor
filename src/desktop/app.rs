@@ -25,6 +25,7 @@ pub struct App {
     player: PlayerController,
     min_window_size: LogicalSize<u32>,
     max_window_size: PhysicalSize<u32>,
+    redraw_next_wait: bool,
 }
 
 impl App {
@@ -80,6 +81,7 @@ impl App {
             player,
             min_window_size,
             max_window_size,
+            redraw_next_wait: false,
         })
     }
 
@@ -107,6 +109,7 @@ impl App {
         let event_loop = self.event_loop.take().expect("App already running");
         event_loop.run(move |event, elwt| {
             let mut check_redraw = false;
+            let mut redraw_delay: Option<std::time::Duration> = None;
             match event {
                 winit::event::Event::LoopExiting => {
                     /*if let Some(mut player) = self.player.get() {
@@ -117,7 +120,12 @@ impl App {
                 }
 
                 // Core loop
-                winit::event::Event::AboutToWait => (),
+                winit::event::Event::AboutToWait => {
+                    if self.redraw_next_wait {
+                        self.redraw_next_wait = false;
+                        check_redraw = true;
+                    }
+                },
                 /*    if matches!(loaded, LoadingState::Loaded) =>
                 {
                     println!("Doing frame loop");
@@ -398,6 +406,10 @@ impl App {
                 winit::event::Event::UserEvent(RuffleEvent::About) => {
                     self.gui.lock().expect("Gui locked").show_about_screen();
                 }
+                
+                winit::event::Event::UserEvent(RuffleEvent::RedrawRequested(delay)) => {
+                    redraw_delay = Some(delay);
+                }
 
                 _ => (),
             }
@@ -411,8 +423,22 @@ impl App {
                 }
             }
 
-             // After polling events, sleep the event loop until the next event or the next frame.
-            elwt.set_control_flow(if matches!(loaded, LoadingState::Loaded) {
+            // unlike ruffle (at the time of writing), we use set_request_repaint_callback
+            elwt.set_control_flow(if let Some(delay) = redraw_delay {
+                if let Some(redraw_after_instant) =
+                    std::time::Instant::now().checked_add(delay)
+                {
+                    self.redraw_next_wait = true;
+                    ControlFlow::WaitUntil(redraw_after_instant)
+                } else {
+                    ControlFlow::Wait
+                }
+            } else {
+                ControlFlow::Wait
+            }); 
+            // ruffle version:
+            // After polling events, sleep the event loop until the next event or the next frame.
+            /*elwt.set_control_flow(if matches!(loaded, LoadingState::Loaded) {
                 /*if let Some(next_frame_time) = next_frame_time {
                     ControlFlow::WaitUntil(next_frame_time)
                 } else {*/
@@ -422,7 +448,7 @@ impl App {
                 //}
             } else {
                 ControlFlow::Wait
-            });
+            });*/
         })?;
         Ok(())
     }

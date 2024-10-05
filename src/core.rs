@@ -150,7 +150,7 @@ impl Movie {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
 pub struct MovieProperties {
     pub width: f64,
     pub height: f64,
@@ -173,7 +173,7 @@ impl Default for MovieProperties {
         }
     }
 }
-#[derive(Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
 pub struct EditorColor {
     pub r: u8,
     pub g: u8,

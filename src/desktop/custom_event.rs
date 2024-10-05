@@ -1,28 +1,31 @@
 //! Custom event type for desktop ruffle
 
-use std::path::PathBuf;
+use std::{path::PathBuf, time::Duration};
 
 use crate::core::MovieProperties;
 
 /// User-defined events.
+#[derive(Debug)]
 pub enum RuffleEvent {
+    RedrawRequested(Duration),
+
     /// The user requested to create a new project.
     NewFile(NewProjectData),
-    
+
     /// The user requested to open a new local SWF.
     OpenFile,
 
     /// The user requested to close the current SWF.
     CloseFile,
-    
-        /// THe user requested to open the about screen
+
+    /// THe user requested to open the about screen
     About,
 
     /// The user requested to exit Ruffle.
     ExitRequested,
 }
 
-#[derive(Default, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct NewProjectData {
     pub movie_properties: MovieProperties,
     pub path: PathBuf,
