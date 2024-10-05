@@ -34,20 +34,20 @@ impl MoviePropertiesPanel {
 
             ui.label("Width:");
             let response = ui.add(egui::DragValue::new(&mut movie.properties.width));
-            if response.lost_focus() || response.drag_released() {
+            if response.lost_focus() || response.drag_stopped() {
                 properties_edited = true;
             }
 
             ui.label("Framerate:");
             let response = ui.add(egui::DragValue::new(&mut movie.properties.frame_rate));
-            if response.lost_focus() || response.drag_released() {
+            if response.lost_focus() || response.drag_stopped() {
                 properties_edited = true;
             }
             ui.end_row();
 
             ui.label("Height:");
             let response = ui.add(egui::DragValue::new(&mut movie.properties.height));
-            if response.lost_focus() || response.drag_released() {
+            if response.lost_focus() || response.drag_stopped() {
                 properties_edited = true;
             }
 
@@ -70,7 +70,7 @@ impl MoviePropertiesPanel {
                 a: (color.a() * 255.0) as u8,
             };
             // TODO: this doesn't work, the color picker doesn't register undos
-            if response.lost_focus() || response.drag_released() {
+            if response.lost_focus() || response.drag_stopped() {
                 properties_edited = true;
             }
             ui.end_row();
@@ -290,7 +290,7 @@ impl PlacedSymbolPropertiesPanel {
         let response = dvc
             .ui
             .add_sized(Vec2::new(60.0, 20.0), egui::DragValue::new(value));
-        if response.lost_focus() || response.drag_released() {
+        if response.lost_focus() || response.drag_stopped() {
             dvc.position_edited = true;
         }
     }

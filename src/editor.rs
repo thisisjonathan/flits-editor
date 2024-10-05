@@ -698,7 +698,7 @@ impl Editor {
                                 }
 
                                 has_mutated = true;
-                            } else if response.drag_released() {
+                            } else if response.drag_stopped() {
                                 // TODO: handle drag that doesn't end on stage
                                 let mouse_pos = response.interact_pointer_pos().unwrap();
                                 let mut matrix =
