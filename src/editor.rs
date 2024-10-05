@@ -567,13 +567,13 @@ impl Editor {
         let world_space_position = self.camera.screen_to_world_matrix(self.stage_size())
             * Matrix::translate(Twips::from_pixels(x), Twips::from_pixels(y));
 
-        self.get_placed_symbol_at_position_world_space(
+        self.get_placed_symbol_at_position_local_space(
             world_space_position.tx.to_pixels(),
             world_space_position.ty.to_pixels(),
             symbol_index,
         )
     }
-    fn get_placed_symbol_at_position_world_space(
+    fn get_placed_symbol_at_position_local_space(
         &self,
         x: f64,
         y: f64,
@@ -609,10 +609,9 @@ impl Editor {
                     }
                 }
                 Symbol::MovieClip(_) => {
-                    // TODO: handle scaled movieclips
-                    if let Some(_) = self.get_placed_symbol_at_position_world_space(
-                        x - place_symbol_x,
-                        y - place_symbol_y,
+                    if let Some(_) = self.get_placed_symbol_at_position_local_space(
+                        (x - place_symbol_x) / place_symbol.transform.x_scale,
+                        (y - place_symbol_y) / place_symbol.transform.y_scale,
                         Some(place_symbol.symbol_index as usize),
                     ) {
                         return Some(i);
