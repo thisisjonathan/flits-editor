@@ -169,7 +169,13 @@ impl RuffleGui {
                         ));
                         ui.end_row();
 
-                        if ui.button("Create").clicked() {
+                        if ui
+                            .add_enabled(
+                                !new_project.path.to_str().unwrap().is_empty(),
+                                egui::Button::new("Create"),
+                            )
+                            .clicked()
+                        {
                             let _ =
                                 event_loop.send_event(RuffleEvent::NewFile(new_project.clone()));
                             self.new_project = None;
