@@ -169,6 +169,12 @@ impl RuffleGui {
                         ));
                         ui.end_row();
 
+                        ui.label("Framerate:");
+                        ui.add(egui::DragValue::new(
+                            &mut new_project.movie_properties.frame_rate,
+                        ));
+                        ui.end_row();
+
                         if ui
                             .add_enabled(
                                 !new_project.path.to_str().unwrap().is_empty(),
