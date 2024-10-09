@@ -202,7 +202,6 @@ fn build_audio_file(
     swf_builder.tags.push(SwfBuilderTag::Sound(SwfBuilderSound {
         id: character_id,
         format: SoundFormat {
-            // TODO: validate all these values
             compression: AudioCompression::Uncompressed,
             sample_rate: spec.sample_rate as u16,
             is_stereo: spec.channels == 2,
@@ -339,7 +338,7 @@ fn build_bitmap<'a>(
     let compressed_image_data_buffer = Vec::new();
     let mut encoder =
         flate2::write::ZlibEncoder::new(compressed_image_data_buffer, flate2::Compression::best());
-    encoder.write(image_data)?;
+    encoder.write_all(image_data)?;
     let compressed_image_data = encoder.finish()?;
 
     let bitmap_id = swf_builder.next_character_id();
