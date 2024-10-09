@@ -162,10 +162,7 @@ fn request_exit(_player: &mut Editor, event_loop: &EventLoopProxy<RuffleEvent>) 
 }
 
 fn run_project(player: &mut Editor, _event_loop: &EventLoopProxy<RuffleEvent>) {
-    // only run the movie if the export is successful
-    if player.export_swf().is_ok() {
-        Movie::run(&player.directory.join("output.swf"));
-    }
+    player.export_and_run();
 }
 
 fn show_about_screen(_player: &mut Editor, event_loop: &EventLoopProxy<RuffleEvent>) {

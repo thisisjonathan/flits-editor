@@ -913,6 +913,17 @@ impl Editor {
         self.renderer.set_viewport_dimensions(dimensions);
     }
 
+    pub fn export_and_run(&mut self) {
+        // only run the movie if the export is successful
+        if self.export_swf().is_ok() {
+            let result = Movie::run(&self.directory.join("output.swf"));
+            self.export_error = match &result {
+                Ok(_) => None,
+                Err(err) => Some(err.to_string()),
+            };
+        }
+    }
+
     pub fn export_swf(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let directory = self.directory.clone();
         let swf_path = directory.clone().join("output.swf");

@@ -113,17 +113,22 @@ impl Movie {
         export_movie_to_swf(self, project_directory, swf_path)
     }
 
-    pub fn run(swf_path: &PathBuf) {
+    pub fn run(swf_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
         // No need to add .exe on windows, Command does that automatically
-        let ruffle_path = std::env::current_exe()
-            .unwrap()
+        let ruffle_path = std::env::current_exe()?
             .parent()
-            .unwrap()
+            .ok_or("Editor executable is not in a directory")?
             .join("dependencies/ruffle");
         std::process::Command::new(ruffle_path)
             .arg(swf_path)
             .spawn()
-            .unwrap();
+            .map_err(|err| match err.kind() {
+                std::io::ErrorKind::NotFound => {
+                    "Could not find ruffle executable. There is supposed to be a 'dependencies' directory in the same directory as this program with the ruffle executable.".into()
+                }
+                _ => format!("Unable to run ruffle: {}", err),
+            })?;
+        Ok(())
     }
 
     pub fn get_placed_symbols(&self, symbol_index: SymbolIndexOrRoot) -> &Vec<PlaceSymbol> {

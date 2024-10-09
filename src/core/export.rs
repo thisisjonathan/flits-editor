@@ -529,7 +529,12 @@ fn compile_as2(
     }
 
     if at_least_one_file {
-        let output = command.output()?;
+        let output = command.output().map_err(|err| match err.kind() {
+            std::io::ErrorKind::NotFound => {
+                "Could not find mtasc executable. There is supposed to be a 'dependencies' directory in the same directory as this program with the mtasc executable.".into()
+            }
+            _ => format!("Unable to run mtasc (as2 compiler): {}", err),
+        })?;
 
         if !output.status.success() {
             return Err(format!(
