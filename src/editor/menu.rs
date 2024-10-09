@@ -149,7 +149,8 @@ fn save_project(player: &mut Editor, _event_loop: &EventLoopProxy<RuffleEvent>) 
 }
 
 fn export_swf(player: &mut Editor, _event_loop: &EventLoopProxy<RuffleEvent>) {
-    player.export_swf();
+    // we don't care about the result here, export_swf sets the error message on the editor
+    _ = player.export_swf();
 }
 
 fn close_project(_player: &mut Editor, event_loop: &EventLoopProxy<RuffleEvent>) {
@@ -161,8 +162,10 @@ fn request_exit(_player: &mut Editor, event_loop: &EventLoopProxy<RuffleEvent>) 
 }
 
 fn run_project(player: &mut Editor, _event_loop: &EventLoopProxy<RuffleEvent>) {
-    player.export_swf();
-    Movie::run(&player.directory.join("output.swf"));
+    // only run the movie if the export is successful
+    if player.export_swf().is_ok() {
+        Movie::run(&player.directory.join("output.swf"));
+    }
 }
 
 fn show_about_screen(_player: &mut Editor, event_loop: &EventLoopProxy<RuffleEvent>) {

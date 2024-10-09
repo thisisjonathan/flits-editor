@@ -12,7 +12,11 @@ use swf::{
 
 use super::{Bitmap, Movie, MovieClip, PlaceSymbol, Symbol, SymbolIndex, SWF_VERSION};
 
-pub fn export_movie_to_swf<'a>(movie: &Movie, project_directory: PathBuf, swf_path: PathBuf) {
+pub fn export_movie_to_swf<'a>(
+    movie: &Movie,
+    project_directory: PathBuf,
+    swf_path: PathBuf,
+) -> Result<(), Box<dyn std::error::Error>> {
     let header = Header {
         compression: Compression::Zlib,
         version: SWF_VERSION,
@@ -34,8 +38,8 @@ pub fn export_movie_to_swf<'a>(movie: &Movie, project_directory: PathBuf, swf_pa
         symbol_index_to_character_id: HashMap::new(),
         symbol_index_to_tag_index: HashMap::new(),
     };
-    build_library(&movie.symbols, &mut swf_builder, project_directory.clone());
-    build_placed_symbols(&movie.root, &mut swf_builder);
+    build_library(&movie.symbols, &mut swf_builder, project_directory.clone())?;
+    build_placed_symbols(&movie.root, &mut swf_builder)?;
 
     let mut data_storage = vec![];
     let mut string_storage: Vec<String> = vec![];
@@ -97,97 +101,130 @@ pub fn export_movie_to_swf<'a>(movie: &Movie, project_directory: PathBuf, swf_pa
         tags.push(tag);
     }
 
-    let file = std::fs::File::create(swf_path.clone()).unwrap();
+    let file = std::fs::File::create(swf_path.clone())?;
     let writer = std::io::BufWriter::new(file);
-    swf::write_swf(&header, &tags, writer).unwrap();
+    swf::write_swf(&header, &tags, writer)?;
 
     compile_as2(
         &movie,
         &swf_builder.symbol_index_to_character_id,
         project_directory,
         swf_path,
-    );
+    )?;
+
+    Ok(())
 }
 
-fn build_library<'a>(symbols: &Vec<Symbol>, swf_builder: &mut SwfBuilder, directory: PathBuf) {
+fn build_library<'a>(
+    symbols: &Vec<Symbol>,
+    swf_builder: &mut SwfBuilder,
+    directory: PathBuf,
+) -> Result<(), Box<dyn std::error::Error>> {
     let mut symbol_index: SymbolIndex = 0;
     for symbol in symbols {
         match symbol {
             Symbol::Bitmap(bitmap) => {
-                build_bitmap(symbol_index, bitmap, swf_builder, directory.clone())
+                build_bitmap(symbol_index, bitmap, swf_builder, directory.clone())?
             }
-            Symbol::MovieClip(movieclip) => build_movieclip(symbol_index, movieclip, swf_builder),
+            Symbol::MovieClip(movieclip) => build_movieclip(symbol_index, movieclip, swf_builder)?,
         }
         symbol_index += 1;
     }
-    build_audio(swf_builder, directory);
+    build_audio(swf_builder, directory)?;
+    Ok(())
 }
 
-fn build_audio(swf_builder: &mut SwfBuilder, directory: PathBuf) {
+fn build_audio(
+    swf_builder: &mut SwfBuilder,
+    directory: PathBuf,
+) -> Result<(), Box<dyn std::error::Error>> {
     let asset_dir = directory.join("assets");
-    let fs_assets = std::fs::read_dir(asset_dir).unwrap();
+    let fs_assets = std::fs::read_dir(asset_dir)?;
     for fs_asset in fs_assets {
-        let file = fs_asset.unwrap();
-        let file_name = file.file_name().into_string().unwrap();
+        let file = fs_asset?;
+        let file_name = file
+            .file_name()
+            .into_string()
+            .map_err(|original_os_string| {
+                format!("Non utf-8 filename: '{:?}'", original_os_string)
+            })?;
         if !file_name.ends_with(".wav") {
             continue;
         }
-        let reader = hound::WavReader::open(file.path()).unwrap();
-        let duration = reader.duration();
-        let spec = reader.spec();
-
-        if !(spec.channels == 1 || spec.channels == 2) {
-            panic!(
-                "Wave file should have 1 or 2 channels, has {}",
-                spec.channels
-            );
-        }
-        if !(spec.bits_per_sample == 8 || spec.bits_per_sample == 16) {
-            panic!(
-                "Wave file should have 8 or 16 bits per sample, has {}",
-                spec.bits_per_sample
-            );
-        }
-        let suppored_sample_rate = match spec.sample_rate {
-            5512 => true,
-            11025 => true,
-            22050 => true,
-            44100 => true,
-            _ => false,
-        };
-        if !suppored_sample_rate {
-            panic!(
-                "Wave file should have a sample rate of 5512, 11025, 22050, or 44100, is {}",
-                spec.sample_rate
-            );
-        }
-
-        let mut data: Vec<u8> = vec![];
-        // use the underlying reader because we just want the data instead of decoding it ourselves
-        reader.into_inner().read_to_end(&mut data).unwrap();
-        let character_id = swf_builder.next_character_id();
-        swf_builder.tags.push(SwfBuilderTag::Sound(SwfBuilderSound {
-            id: character_id,
-            format: SoundFormat {
-                // TODO: validate all these values
-                compression: AudioCompression::Uncompressed,
-                sample_rate: spec.sample_rate as u16,
-                is_stereo: spec.channels == 2,
-                is_16_bit: spec.bits_per_sample == 16,
-            },
-            num_samples: duration,
-            data,
-        }));
-        swf_builder
-            .tags
-            .push(SwfBuilderTag::ExportAssets(SwfBuilderExportedAsset {
-                character_id,
-                name: file_name,
-            }));
+        build_audio_file(swf_builder, file, file_name.clone())
+            .map_err(|err| format!("Error decoding '{}': {}", file_name, err))?;
     }
+    Ok(())
 }
 
-fn build_movieclip(symbol_index: SymbolIndex, movieclip: &MovieClip, swf_builder: &mut SwfBuilder) {
+fn build_audio_file(
+    swf_builder: &mut SwfBuilder,
+    file: std::fs::DirEntry,
+    file_name: String,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let reader = hound::WavReader::open(file.path())?;
+    let duration = reader.duration();
+    let spec = reader.spec();
+
+    if !(spec.channels == 1 || spec.channels == 2) {
+        return Err(format!(
+            "Wave file should have 1 or 2 channels, has {}",
+            spec.channels
+        )
+        .into());
+    }
+    if !(spec.bits_per_sample == 8 || spec.bits_per_sample == 16) {
+        return Err(format!(
+            "Wave file should have 8 or 16 bits per sample, has {}",
+            spec.bits_per_sample
+        )
+        .into());
+    }
+    let suppored_sample_rate = match spec.sample_rate {
+        5512 => true,
+        11025 => true,
+        22050 => true,
+        44100 => true,
+        _ => false,
+    };
+    if !suppored_sample_rate {
+        return Err(format!(
+            "Wave file should have a sample rate of 5512, 11025, 22050, or 44100, is {}",
+            spec.sample_rate
+        )
+        .into());
+    }
+
+    let mut data: Vec<u8> = vec![];
+    // use the underlying reader because we just want the data instead of decoding it ourselves
+    reader.into_inner().read_to_end(&mut data)?;
+    let character_id = swf_builder.next_character_id();
+    swf_builder.tags.push(SwfBuilderTag::Sound(SwfBuilderSound {
+        id: character_id,
+        format: SoundFormat {
+            // TODO: validate all these values
+            compression: AudioCompression::Uncompressed,
+            sample_rate: spec.sample_rate as u16,
+            is_stereo: spec.channels == 2,
+            is_16_bit: spec.bits_per_sample == 16,
+        },
+        num_samples: duration,
+        data,
+    }));
+    swf_builder
+        .tags
+        .push(SwfBuilderTag::ExportAssets(SwfBuilderExportedAsset {
+            character_id,
+            name: file_name,
+        }));
+    Ok(())
+}
+
+fn build_movieclip(
+    symbol_index: SymbolIndex,
+    movieclip: &MovieClip,
+    swf_builder: &mut SwfBuilder,
+) -> Result<(), Box<dyn std::error::Error>> {
     let character_id = swf_builder.next_character_id();
     swf_builder
         .symbol_index_to_character_id
@@ -197,7 +234,7 @@ fn build_movieclip(symbol_index: SymbolIndex, movieclip: &MovieClip, swf_builder
         .push(SwfBuilderTag::Tag(Tag::DefineSprite(Sprite {
             id: character_id,
             num_frames: 1,
-            tags: get_placed_symbols_tags(&movieclip.place_symbols, swf_builder),
+            tags: get_placed_symbols_tags(&movieclip.place_symbols, swf_builder)?,
         })));
     if movieclip.properties.class_name.len() > 0 {
         // the movieclip needs to be exported to be able to add a tag to it
@@ -208,6 +245,7 @@ fn build_movieclip(symbol_index: SymbolIndex, movieclip: &MovieClip, swf_builder
                 name: movieclip.properties.name.clone(),
             }));
     }
+    Ok(())
 }
 
 struct SwfBuilder<'a> {
@@ -259,12 +297,27 @@ fn build_bitmap<'a>(
     bitmap: &Bitmap,
     swf_builder: &mut SwfBuilder,
     directory: PathBuf,
-) {
+) -> Result<(), Box<dyn std::error::Error>> {
     // TODO: the images are probably already loaded when exporting a movie you are editing, maybe reuse that?
     let img = ImageReader::open(directory.join(bitmap.properties.path.clone()))
-        .expect("Unable to read image")
+        .map_err(|err| match err.kind() {
+            std::io::ErrorKind::NotFound => {
+                format!("File not found: '{}'", bitmap.properties.path.clone())
+            }
+            _ => format!(
+                "Unable to open file: '{}' Reason: {}",
+                bitmap.properties.path.clone(),
+                err
+            ),
+        })?
         .decode()
-        .expect("Unable to decode image");
+        .map_err(|err| {
+            format!(
+                "Error decoding '{}': {}",
+                bitmap.properties.path.clone(),
+                err
+            )
+        })?;
     let image_width = img.width();
     let image_height = img.height();
     let rgba8 = img.into_rgba8();
@@ -286,8 +339,8 @@ fn build_bitmap<'a>(
     let compressed_image_data_buffer = Vec::new();
     let mut encoder =
         flate2::write::ZlibEncoder::new(compressed_image_data_buffer, flate2::Compression::best());
-    encoder.write(image_data).expect("Unable to compress image");
-    let compressed_image_data = encoder.finish().unwrap();
+    encoder.write(image_data)?;
+    let compressed_image_data = encoder.finish()?;
 
     let bitmap_id = swf_builder.next_character_id();
     let shape_id = swf_builder.next_character_id();
@@ -372,20 +425,25 @@ fn build_bitmap<'a>(
                 },
             ],
         })),
-    ])
+    ]);
+    Ok(())
 }
 
-fn build_placed_symbols(placed_symbols: &Vec<PlaceSymbol>, swf_builder: &mut SwfBuilder) {
+fn build_placed_symbols(
+    placed_symbols: &Vec<PlaceSymbol>,
+    swf_builder: &mut SwfBuilder,
+) -> Result<(), Box<dyn std::error::Error>> {
     let mut tags = vec![];
-    for tag in get_placed_symbols_tags(placed_symbols, swf_builder) {
+    for tag in get_placed_symbols_tags(placed_symbols, swf_builder)? {
         tags.push(SwfBuilderTag::Tag(tag));
     }
     swf_builder.tags.extend(tags);
+    Ok(())
 }
 fn get_placed_symbols_tags<'a>(
     placed_symbols: &Vec<PlaceSymbol>,
     swf_builder: &SwfBuilder,
-) -> Vec<Tag<'a>> {
+) -> Result<Vec<Tag<'a>>, Box<dyn std::error::Error>> {
     let mut i = 0;
     let mut tags = vec![];
     for place_symbol in placed_symbols {
@@ -412,12 +470,12 @@ fn get_placed_symbols_tags<'a>(
                 *swf_builder
                     .symbol_index_to_character_id
                     .get(&place_symbol.symbol_index)
-                    .unwrap_or_else(|| {
-                        panic!(
+                    .ok_or_else(|| {
+                        format!(
                             "No character id for symbol id {}",
                             place_symbol.symbol_index
                         )
-                    }),
+                    })?,
             ),
             depth: (i as u16) + 1,
             matrix: Some(matrix.into()),
@@ -439,7 +497,7 @@ fn get_placed_symbols_tags<'a>(
     }
     tags.push(Tag::ShowFrame);
 
-    tags
+    Ok(tags)
 }
 
 fn compile_as2(
@@ -447,11 +505,10 @@ fn compile_as2(
     symbol_index_to_character_id: &HashMap<SymbolIndex, CharacterId>,
     project_directory: PathBuf,
     swf_path: PathBuf,
-) {
-    let dependencies_dir = std::env::current_exe()
-        .unwrap()
+) -> Result<(), Box<dyn std::error::Error>> {
+    let dependencies_dir = std::env::current_exe()?
         .parent()
-        .unwrap()
+        .ok_or("Editor executable is not in a directory")?
         .join("dependencies");
     // No need to add .exe on windows, Command does that automatically
     let mtasc_path = dependencies_dir.join("mtasc");
@@ -465,25 +522,30 @@ fn compile_as2(
 
     let mut at_least_one_file = false;
     let src_dir = project_directory.join("src");
-    std::fs::create_dir_all(src_dir.clone()).unwrap();
+    std::fs::create_dir_all(src_dir.clone())?;
     // TODO: subdirectories
-    for src_file in src_dir.read_dir().unwrap() {
-        command.arg(src_file.unwrap().path());
+    for src_file in src_dir.read_dir()? {
+        command.arg(src_file?.path());
         at_least_one_file = true;
     }
 
     if at_least_one_file {
-        let output = command.output().unwrap();
-        println!("mtasc status: {}", output.status);
-        std::io::stdout().write_all(&output.stdout).unwrap();
-        std::io::stderr().write_all(&output.stderr).unwrap();
-        // TODO: error handling
+        let output = command.output()?;
+
+        if !output.status.success() {
+            return Err(format!(
+                "{}{}",
+                std::str::from_utf8(&output.stdout)?,
+                std::str::from_utf8(&output.stderr)?
+            )
+            .into());
+        }
 
         // put placeobject after the class definitions, otherwise it won't work
-        let file = std::fs::File::open(swf_path.clone()).unwrap();
+        let file = std::fs::File::open(swf_path.clone())?;
         let reader = std::io::BufReader::new(file);
-        let swf_buf = swf::decompress_swf(reader).unwrap();
-        let mut swf = swf::parse_swf(&swf_buf).unwrap();
+        let swf_buf = swf::decompress_swf(reader)?;
+        let mut swf = swf::parse_swf(&swf_buf)?;
 
         // add actions to call Object.registerClass for each movieclip with a class
         let mut symbol_index = 0;
@@ -502,13 +564,13 @@ fn compile_as2(
                             SwfStr::from_utf8_str(&movieclip.properties.class_name),
                         ],
                     });
-                    action_writer.write_action(&action).unwrap();
+                    action_writer.write_action(&action)?;
                     let action = Action::Push(Push {
                         values: vec![swf::avm1::types::Value::ConstantPool(3)],
                     });
-                    action_writer.write_action(&action).unwrap();
+                    action_writer.write_action(&action)?;
                     let action = Action::GetVariable;
-                    action_writer.write_action(&action).unwrap();
+                    action_writer.write_action(&action)?;
                     let action = Action::Push(Push {
                         values: vec![
                             swf::avm1::types::Value::ConstantPool(2),
@@ -516,17 +578,17 @@ fn compile_as2(
                             swf::avm1::types::Value::ConstantPool(0),
                         ],
                     });
-                    action_writer.write_action(&action).unwrap();
+                    action_writer.write_action(&action)?;
                     let action = Action::GetVariable;
-                    action_writer.write_action(&action).unwrap();
+                    action_writer.write_action(&action)?;
                     let action = Action::Push(Push {
                         values: vec![swf::avm1::types::Value::ConstantPool(1)],
                     });
-                    action_writer.write_action(&action).unwrap();
+                    action_writer.write_action(&action)?;
                     let action = Action::CallMethod;
-                    action_writer.write_action(&action).unwrap();
+                    action_writer.write_action(&action)?;
                     let action = Action::Pop;
-                    action_writer.write_action(&action).unwrap();
+                    action_writer.write_action(&action)?;
                     action_datas.push(action_data);
                 }
             }
@@ -537,7 +599,9 @@ fn compile_as2(
         for symbol in &movie.symbols {
             if let Symbol::MovieClip(movieclip) = symbol {
                 if movieclip.properties.class_name.len() > 0 {
-                    let character_id = *symbol_index_to_character_id.get(&symbol_index).unwrap();
+                    let character_id = *symbol_index_to_character_id
+                        .get(&symbol_index)
+                        .ok_or("MovieClip with unknown character id")?;
                     // -1 because of ShowFrame
                     swf.tags.insert(
                         swf.tags.len() - 1,
@@ -571,8 +635,9 @@ fn compile_as2(
         }
 
         // write the new version
-        let file = std::fs::File::create(swf_path).unwrap();
+        let file = std::fs::File::create(swf_path)?;
         let writer = std::io::BufWriter::new(file);
-        swf::write_swf(&swf.header.swf_header(), &swf.tags, writer).unwrap();
+        swf::write_swf(&swf.header.swf_header(), &swf.tags, writer)?;
     }
+    Ok(())
 }

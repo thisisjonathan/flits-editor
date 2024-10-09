@@ -73,6 +73,7 @@ pub struct Editor {
     properties_panel: PropertiesPanel,
 
     new_symbol_window: Option<NewSymbolWindow>,
+    export_error: Option<String>,
 }
 
 impl Editor {
@@ -98,6 +99,7 @@ impl Editor {
             }),
 
             new_symbol_window: None,
+            export_error: None,
         }
     }
 
@@ -785,6 +787,12 @@ impl Editor {
             }
         }
 
+        if let Some(export_error) = &self.export_error {
+            egui::TopBottomPanel::bottom("export_error").show(egui_ctx, |ui| {
+                ui.colored_label(ui.style().visuals.error_fg_color, export_error);
+            });
+        }
+
         has_mutated
     }
 
@@ -905,10 +913,15 @@ impl Editor {
         self.renderer.set_viewport_dimensions(dimensions);
     }
 
-    pub fn export_swf(&self) {
+    pub fn export_swf(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let directory = self.directory.clone();
         let swf_path = directory.clone().join("output.swf");
-        self.movie.export(directory, swf_path);
+        let result = self.movie.export(directory, swf_path);
+        self.export_error = match &result {
+            Ok(_) => None,
+            Err(err) => Some(err.to_string()),
+        };
+        result
     }
 
     // TODO: maybe just hardcode the zoom percentages: https://www.uxpin.com/studio/blog/the-strikingly-precise-zoom/

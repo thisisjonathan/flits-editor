@@ -105,8 +105,12 @@ impl Movie {
         serde_json::to_writer(file, self).unwrap();
     }
 
-    pub fn export(&self, project_directory: PathBuf, swf_path: PathBuf) {
-        export_movie_to_swf(self, project_directory, swf_path);
+    pub fn export(
+        &self,
+        project_directory: PathBuf,
+        swf_path: PathBuf,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        export_movie_to_swf(self, project_directory, swf_path)
     }
 
     pub fn run(swf_path: &PathBuf) {
