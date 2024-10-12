@@ -1,1 +1,3 @@
 /target
+# used by release script
+/release
