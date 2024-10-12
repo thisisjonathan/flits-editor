@@ -81,7 +81,15 @@ fn panic_hook(info: &PanicInfo) {
     } else {
         panic_text.trim()
     };
-    if rfd::MessageDialog::new()
+    rfd::MessageDialog::new()
+        .set_level(rfd::MessageLevel::Error)
+        .set_title("Flits Editor")
+        .set_description(&format!(
+            "Flits Editor has encountered an error:\n\n\
+            {message}\n\n"
+        ))
+        .show();
+    /*if rfd::MessageDialog::new()
         .set_level(rfd::MessageLevel::Error)
         .set_title("Ruffle")
         .set_description(&format!(
@@ -118,7 +126,7 @@ fn panic_hook(info: &PanicInfo) {
         if let Ok(url) = Url::parse_with_params("https://github.com/ruffle-rs/ruffle/issues/new?assignees=&labels=bug&template=crash_report.yml", &params) {
             let _ = webbrowser::open(url.as_str());
         }
-    }
+    }*/
 }
 
 fn shutdown() {
@@ -129,14 +137,13 @@ fn shutdown() {
     }
 }
 
-fn main() -> Result<(), Error> {
+fn main() {
     init();
     let opt = Opt::parse();
-    let result = App::new(opt).and_then(|app| app.run());
-    #[cfg(windows)]
+    App::new(opt).and_then(|app| app.run()).unwrap();
+    /*#[cfg(windows)]
     if let Err(error) = &result {
         eprintln!("{:?}", error)
-    }
+    }*/
     shutdown();
-    result
 }
