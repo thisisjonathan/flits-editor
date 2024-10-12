@@ -42,17 +42,20 @@ impl Movie {
         let directory = path.parent().unwrap();
         let file = std::fs::File::open(path.clone()).expect("Unable to load file");
         let mut movie: Movie = serde_json::from_reader(file).expect("Unable to load file");
+        movie.reload_assets(directory);
 
-        movie.add_unimported_assets(directory);
+        movie
+    }
 
-        for symbol in movie.symbols.iter_mut() {
+    pub fn reload_assets(&mut self, directory: &Path) {
+        self.add_unimported_assets(directory);
+
+        for symbol in self.symbols.iter_mut() {
             let Symbol::Bitmap(bitmap) = symbol else {
                 continue;
             };
             bitmap.cache_image(directory);
         }
-
-        movie
     }
 
     fn add_unimported_assets(&mut self, directory: &Path) {

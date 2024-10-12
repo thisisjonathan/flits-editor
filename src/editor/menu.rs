@@ -1,6 +1,6 @@
 use winit::event_loop::EventLoopProxy;
 
-use crate::{core::Movie, desktop::custom_event::RuffleEvent};
+use crate::desktop::custom_event::RuffleEvent;
 
 use super::Editor;
 
@@ -87,6 +87,14 @@ pub const MENUS: &[Menu] = &[
                     egui::Key::Delete,
                 )),
                 action: delete_selection,
+            },
+            MenuItem {
+                name: "Reload assets",
+                keyboard_shortcut: Some(egui::KeyboardShortcut::new(
+                    egui::Modifiers::NONE,
+                    egui::Key::F5,
+                )),
+                action: reload_assets,
             },
         ],
     },
@@ -178,6 +186,10 @@ fn redo(player: &mut Editor, _event_loop: &EventLoopProxy<RuffleEvent>) {
 
 fn delete_selection(player: &mut Editor, _event_loop: &EventLoopProxy<RuffleEvent>) {
     player.delete_selection();
+}
+
+fn reload_assets(player: &mut Editor, _event_loop: &EventLoopProxy<RuffleEvent>) {
+    player.reload_assets();
 }
 
 fn zoom_in(player: &mut Editor, _event_loop: &EventLoopProxy<RuffleEvent>) {

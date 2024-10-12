@@ -913,6 +913,10 @@ impl Editor {
         self.renderer.set_viewport_dimensions(dimensions);
     }
 
+    pub fn reload_assets(&mut self) {
+        self.movie.reload_assets(&self.directory);
+    }
+
     pub fn export_and_run(&mut self) {
         // only run the movie if the export is successful
         if self.export_swf().is_ok() {
