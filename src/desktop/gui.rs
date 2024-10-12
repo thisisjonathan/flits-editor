@@ -196,7 +196,7 @@ impl RuffleGui {
     }
 
     fn about_window(&mut self, egui_ctx: &egui::Context) {
-        egui::Window::new(text(&self.locale, "about-ruffle"))
+        egui::Window::new("About Flits Editor")
             .collapsible(false)
             .resizable(false)
             .anchor(Align2::CENTER_CENTER, egui::Vec2::ZERO)
@@ -204,11 +204,12 @@ impl RuffleGui {
             .show(egui_ctx, |ui| {
                 ui.vertical_centered(|ui| {
                     ui.label(
-                        RichText::new("Ruffle")
-                            .color(Color32::from_rgb(0xFF, 0xAD, 0x33))
+                        RichText::new("Flits Editor")
+                            //.color(Color32::BLUE)
                             .size(32.0),
                     );
-                    Grid::new("about_ruffle_version_info")
+                    ui.label("Preview build");
+                    /*Grid::new("about_ruffle_version_info")
                         .striped(true)
                         .show(ui, |ui| {
                             ui.label(text(&self.locale, "about-ruffle-version"));
@@ -272,7 +273,7 @@ impl RuffleGui {
                             "https://opencollective.com/ruffle/",
                         );
                         ui.shrink_width_to_current();
-                    });
+                    });*/
                 })
             });
     }
