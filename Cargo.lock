@@ -972,6 +972,46 @@ dependencies = [
 ]
 
 [[package]]
+name = "flits-editor"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bytemuck",
+ "chrono",
+ "clap",
+ "dirs",
+ "egui",
+ "egui-wgpu",
+ "egui-winit",
+ "embed-resource",
+ "flate2",
+ "fluent-templates",
+ "futures",
+ "generational-arena",
+ "hound",
+ "image 0.24.9",
+ "os_info",
+ "rfd",
+ "ruffle_render",
+ "ruffle_render_wgpu",
+ "serde",
+ "serde_json",
+ "swf",
+ "sys-locale",
+ "tracing",
+ "tracing-subscriber",
+ "tracing-tracy",
+ "undo",
+ "unic-langid",
+ "url",
+ "vergen",
+ "webbrowser 0.8.15",
+ "wgpu",
+ "winapi",
+ "winit",
+]
+
+[[package]]
 name = "float_next_after"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3014,46 +3054,6 @@ dependencies = [
  "num-derive",
  "num-traits",
  "simple_asn1",
-]
-
-[[package]]
-name = "swfcompiler"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bytemuck",
- "chrono",
- "clap",
- "dirs",
- "egui",
- "egui-wgpu",
- "egui-winit",
- "embed-resource",
- "flate2",
- "fluent-templates",
- "futures",
- "generational-arena",
- "hound",
- "image 0.24.9",
- "os_info",
- "rfd",
- "ruffle_render",
- "ruffle_render_wgpu",
- "serde",
- "serde_json",
- "swf",
- "sys-locale",
- "tracing",
- "tracing-subscriber",
- "tracing-tracy",
- "undo",
- "unic-langid",
- "url",
- "vergen",
- "webbrowser 0.8.15",
- "wgpu",
- "winapi",
- "winit",
 ]
 
 [[package]]
