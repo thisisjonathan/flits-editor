@@ -30,5 +30,32 @@ mv release/downloads/x86_64-unknown-linux-gnu/mtasc/Readme.txt release/assets/x8
 mv release/downloads/x86_64-unknown-linux-gnu/mtasc/mtasc release/assets/x86_64-unknown-linux-gnu/dependencies/mtasc
 mv release/downloads/x86_64-unknown-linux-gnu/mtasc/std release/assets/x86_64-unknown-linux-gnu/dependencies/std
 mv release/downloads/x86_64-unknown-linux-gnu/mtasc/std8 release/assets/x86_64-unknown-linux-gnu/dependencies/std8
+
 # create tarball
 tar -czvf release/flits-editor-x86_64-unknown-linux-gnu.tar.gz --owner=1000 --group=1000 LICENSE -C target/x86_64-unknown-linux-gnu/release/ flits-editor -C ../../../release/assets/shared $(ls release/assets/shared) -C ../x86_64-unknown-linux-gnu $(ls release/assets/x86_64-unknown-linux-gnu)
+
+# --- download windows assets and create zip ---
+
+# ruffle
+downloadFileIfItDoesntExist 'release/downloads/ruffle-windows-x86_64.zip' 'https://github.com/ruffle-rs/ruffle/releases/download/nightly-2024-10-12/ruffle-nightly-2024_10_12-windows-x86_64.zip'
+mkdir -p release/downloads/x86_64-pc-windows-gnu/ruffle
+unzip -u release/downloads/ruffle-windows-x86_64.zip -d release/downloads/x86_64-pc-windows-gnu/ruffle
+mkdir -p release/assets/x86_64-pc-windows-gnu/dependencies
+mv release/downloads/x86_64-pc-windows-gnu/ruffle/LICENSE.md release/assets/x86_64-pc-windows-gnu/LICENSE-ruffle.md
+mv release/downloads/x86_64-pc-windows-gnu/ruffle/ruffle.exe release/assets/x86_64-pc-windows-gnu/dependencies/ruffle.exe
+
+# mtasc
+mkdir -p release/downloads/x86_64-pc-windows-gnu/mtasc
+# same comment as above about missing files because the internet archive is down
+mv release/downloads/x86_64-pc-windows-gnu/mtasc/Readme.txt release/assets/x86_64-pc-windows-gnu/LICENSE-mtasc.txt
+mv release/downloads/x86_64-pc-windows-gnu/mtasc/mtasc.exe release/assets/x86_64-pc-windows-gnu/dependencies/mtasc.exe
+mv release/downloads/x86_64-pc-windows-gnu/mtasc/std release/assets/x86_64-pc-windows-gnu/dependencies/std
+mv release/downloads/x86_64-pc-windows-gnu/mtasc/std8 release/assets/x86_64-pc-windows-gnu/dependencies/std8
+
+# create zipfile
+# remove old one otherwise zip will add to it
+rm release/flits-editor-x86_64-pc-windows-gnu.zip
+zip release/flits-editor-x86_64-pc-windows-gnu.zip LICENSE -j target/x86_64-pc-windows-gnu/release/flits-editor.exe -rj release/assets/shared
+cd release/assets/x86_64-pc-windows-gnu
+zip ../../flits-editor-x86_64-pc-windows-gnu.zip -r .
+cd ../../../
