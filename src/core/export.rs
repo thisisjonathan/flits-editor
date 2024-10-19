@@ -126,7 +126,22 @@ fn build_library<'a>(
             Symbol::Bitmap(bitmap) => {
                 build_bitmap(symbol_index, bitmap, swf_builder, directory.clone())?
             }
-            Symbol::MovieClip(movieclip) => build_movieclip(symbol_index, movieclip, swf_builder)?,
+            Symbol::MovieClip(movieclip) => {
+                build_movieclip_outer(symbol_index, movieclip, swf_builder)?
+            }
+        }
+        symbol_index += 1;
+    }
+
+    // create the inner tags of movieclips after we've assigned all the character ids to make sure
+    // the character ids for all the symbols exist
+    symbol_index = 0;
+    for symbol in symbols {
+        match symbol {
+            Symbol::MovieClip(movieclip) => {
+                build_movieclip_inner(symbol_index, movieclip, swf_builder)?
+            }
+            _ => {}
         }
         symbol_index += 1;
     }
@@ -219,7 +234,7 @@ fn build_audio_file(
     Ok(())
 }
 
-fn build_movieclip(
+fn build_movieclip_outer(
     symbol_index: SymbolIndex,
     movieclip: &MovieClip,
     swf_builder: &mut SwfBuilder,
@@ -229,11 +244,14 @@ fn build_movieclip(
         .symbol_index_to_character_id
         .insert(symbol_index, character_id);
     swf_builder
+        .symbol_index_to_tag_index
+        .insert(symbol_index, swf_builder.tags.len());
+    swf_builder
         .tags
         .push(SwfBuilderTag::Tag(Tag::DefineSprite(Sprite {
             id: character_id,
             num_frames: 1,
-            tags: get_placed_symbols_tags(&movieclip.place_symbols, swf_builder)?,
+            tags: vec![], // these are filled in by build_movieclip_inner()
         })));
     if movieclip.properties.class_name.len() > 0 {
         // the movieclip needs to be exported to be able to add a tag to it
@@ -247,11 +265,31 @@ fn build_movieclip(
     Ok(())
 }
 
+fn build_movieclip_inner(
+    symbol_index: SymbolIndex,
+    movieclip: &MovieClip,
+    swf_builder: &mut SwfBuilder,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let inner_tags = get_placed_symbols_tags(&movieclip.place_symbols, swf_builder)?;
+    let tag = &mut swf_builder.tags[swf_builder.symbol_index_to_tag_index[&symbol_index]];
+    let SwfBuilderTag::Tag(actual_tag) = tag else {
+        return Err(format!("The tag for symbol {} is not a standard tag", symbol_index).into());
+    };
+    let Tag::DefineSprite(define_sprite_tag) = actual_tag else {
+        return Err(format!(
+            "The tag for the movieclip with symbol index {} is not a DefineSprite tag",
+            symbol_index
+        )
+        .into());
+    };
+    define_sprite_tag.tags = inner_tags;
+    Ok(())
+}
+
 struct SwfBuilder<'a> {
     tags: Vec<SwfBuilderTag<'a>>,
     character_id_counter: CharacterId,
     symbol_index_to_character_id: HashMap<SymbolIndex, CharacterId>,
-    // only used for bitmaps to get the size of the bitmap when placing it in order to center it
     symbol_index_to_tag_index: HashMap<SymbolIndex, usize>,
 }
 
