@@ -32,8 +32,8 @@
             }]
         }},{"MovieClip": {
             "properties": {
-                "name": "PlayButton",
-                "class_name": "SoundButton"
+                "name": "WavButton",
+                "class_name": "WavButton"
             },
             "place_symbols": [{
                 "symbol_index": 4,
@@ -45,6 +45,16 @@
                 "name": "play.png",
                 "path": "assets/play.png"
             }
+        }},{"MovieClip": {
+            "properties": {
+                "name": "Mp3Button",
+                "class_name": "Mp3Button"
+            },
+            "place_symbols": [{
+                "symbol_index": 4,
+                "x": 0,
+                "y": 0
+            }]
         }}
     ],
     
@@ -70,6 +80,12 @@
         },{
             "symbol_index": 3,
             "x": 64,
+            "y": 320,
+            "x_scale": 3,
+            "y_scale": 3
+        },{
+            "symbol_index": 5,
+            "x": 128,
             "y": 320,
             "x_scale": 3,
             "y_scale": 3

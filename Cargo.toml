@@ -16,6 +16,7 @@ serde_json = "1.0"
 swf = { git = "https://github.com/ruffle-rs/ruffle" }
 image = "0.24.6"
 hound = "3.5.1"
+puremp3 = "0.1.0"
 
 # editor dependencies
 undo = "0.51.0"

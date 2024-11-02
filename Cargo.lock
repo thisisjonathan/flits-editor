@@ -250,6 +250,12 @@ checksum = "b048fb63fd8b5923fc5aa7b340d8e156aec7ec02f0c78fa8a6ddc2613f6f71de"
 
 [[package]]
 name = "bitstream-io"
+version = "0.8.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "614aa3f2bac03707e62a84d18a48dd3d9ea6171313fd5e6a53b5054d8ae74601"
+
+[[package]]
+name = "bitstream-io"
 version = "2.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b81e1519b0d82120d2fd469d5bfb2919a9361c48b02d82d04befc1cdd2002452"
@@ -991,6 +997,7 @@ dependencies = [
  "hound",
  "image 0.24.9",
  "os_info",
+ "puremp3",
  "rfd",
  "ruffle_render",
  "ruffle_render_wgpu",
@@ -2532,6 +2539,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "43d84d1d7a6ac92673717f9f6d1518374ef257669c24ebc5ac25d5033828be58"
 
 [[package]]
+name = "puremp3"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f2b7efbb39e373af70c139e0611375fa6cad751fb93d528a610b55302710d883"
+dependencies = [
+ "bitstream-io 0.8.5",
+ "byteorder",
+]
+
+[[package]]
 name = "qoi"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3044,7 +3061,7 @@ version = "0.2.1"
 source = "git+https://github.com/ruffle-rs/ruffle#8224dac31eb9e5f2f4778e9b702d93fefdba6600"
 dependencies = [
  "bitflags 2.6.0",
- "bitstream-io",
+ "bitstream-io 2.5.3",
  "byteorder",
  "encoding_rs",
  "enum-map",

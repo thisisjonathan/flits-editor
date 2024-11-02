@@ -1,4 +1,4 @@
-class SoundButton extends MovieClip {
+class WavButton extends MovieClip {
     function onPress() {
         var sound = new Sound();
         sound.attachSound("pickupCoin.wav");
