@@ -242,6 +242,8 @@ fn build_mp3(
     file_name: String,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let data: Vec<u8> = std::fs::read(file.path())?;
+    // TODO: swfmill adds padding to the data, but it seems to work in Flash player without that padding?
+    // see: https://github.com/djcsdy/swfmill/blob/master/src/swft/swft_import_mp3.cpp#L213
     let (header, samples) = puremp3::read_mp3(data.as_slice())?;
 
     if !(header.channels.num_channels() == 1 || header.channels.num_channels() == 2) {
@@ -293,7 +295,7 @@ fn build_mp3(
 
 fn build_movieclip_outer(
     symbol_index: SymbolIndex,
-    movieclip: &MovieClip,
+    _movieclip: &MovieClip,
     swf_builder: &mut SwfBuilder,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let character_id = swf_builder.next_character_id();
@@ -310,15 +312,6 @@ fn build_movieclip_outer(
             num_frames: 1,
             tags: vec![], // these are filled in by build_movieclip_inner()
         })));
-    if movieclip.properties.class_name.len() > 0 {
-        // the movieclip needs to be exported to be able to add a tag to it
-        swf_builder
-            .tags
-            .push(SwfBuilderTag::ExportAssets(SwfBuilderExportedAsset {
-                character_id,
-                name: movieclip.properties.name.clone(),
-            }));
-    }
     Ok(())
 }
 
@@ -340,6 +333,19 @@ fn build_movieclip_inner(
         .into());
     };
     define_sprite_tag.tags = inner_tags;
+    // TODO: i think i want to export all movieclips?
+    if movieclip.properties.class_name.len() > 0 {
+        // ffdec gives a warning about export asset tags for assets where not all the symbols inside are defined
+        // that's why we only create the export assets tag in the second iteration, after we've created all the regular tags
+
+        // the movieclip needs to be exported to be able to add a tag to it
+        swf_builder
+            .tags
+            .push(SwfBuilderTag::ExportAssets(SwfBuilderExportedAsset {
+                character_id: swf_builder.symbol_index_to_character_id[&symbol_index],
+                name: movieclip.properties.name.clone(),
+            }));
+    }
     Ok(())
 }
 
@@ -687,6 +693,9 @@ fn compile_as2(
                     let action = Action::CallMethod;
                     action_writer.write_action(&action)?;
                     let action = Action::Pop;
+                    action_writer.write_action(&action)?;
+                    // Flash player crashes without this end action, see: https://github.com/ruffle-rs/ruffle/issues/18560
+                    let action = Action::End;
                     action_writer.write_action(&action)?;
                     action_datas.push(action_data);
                 }
