@@ -41,6 +41,8 @@ mod properties_panel;
 pub const MENU_HEIGHT: u32 = 48; // also defined in desktop/gui.rs
 const LIBRARY_WIDTH: u32 = 150;
 pub const EDIT_EPSILON: f64 = 0.00001;
+const EMPTY_CLIP_WIDTH: f64 = 16.0;
+const EMPTY_CLIP_HEIGHT: f64 = 16.0;
 
 type Renderer = Box<dyn RenderBackend>;
 
@@ -314,6 +316,9 @@ impl Editor {
                 None => None,
             },
             Symbol::MovieClip(movieclip) => {
+                if movieclip.place_symbols.len() == 0 {
+                    return Some((EMPTY_CLIP_WIDTH, EMPTY_CLIP_HEIGHT));
+                }
                 let mut total_x_min = 0.0;
                 let mut total_y_min = 0.0;
                 let mut total_x_max = 0.0;
@@ -405,7 +410,23 @@ impl Editor {
                         pixel_snapping: PixelSnapping::Never, // TODO: figure out a good default
                     });
                 }
-                Symbol::MovieClip(_) => {
+                Symbol::MovieClip(clip) => {
+                    // draw empty clip as purple square
+                    if clip.place_symbols.len() == 0 {
+                        commands.push(Command::DrawRect {
+                            color: Color::MAGENTA,
+                            matrix: transform.matrix
+                                * <EditorTransform as Into<Matrix>>::into(
+                                    place_symbol.transform.clone(),
+                                )
+                                * Matrix::create_box(
+                                    EMPTY_CLIP_WIDTH as f32,
+                                    EMPTY_CLIP_HEIGHT as f32,
+                                    Twips::from_pixels(EMPTY_CLIP_WIDTH / -2.0),
+                                    Twips::from_pixels(EMPTY_CLIP_HEIGHT / -2.0),
+                                ),
+                        })
+                    }
                     commands.extend(Editor::render_placed_symbols(
                         renderer,
                         movie,
@@ -610,7 +631,18 @@ impl Editor {
                         }
                     }
                 }
-                Symbol::MovieClip(_) => {
+                Symbol::MovieClip(clip) => {
+                    if clip.place_symbols.len() == 0 {
+                        let half_width = EMPTY_CLIP_WIDTH / 2.0;
+                        let half_height = EMPTY_CLIP_HEIGHT / 2.0;
+                        if x > place_symbol_x - half_width
+                            && y > place_symbol_y - half_height
+                            && x < place_symbol_x + half_width
+                            && y < place_symbol_y + half_height
+                        {
+                            return Some(i);
+                        }
+                    }
                     if let Some(_) = self.get_placed_symbol_at_position_local_space(
                         (x - place_symbol_x) / place_symbol.transform.x_scale,
                         (y - place_symbol_y) / place_symbol.transform.y_scale,
