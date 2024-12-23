@@ -168,6 +168,7 @@ pub struct MovieProperties {
     pub height: f64,
     pub frame_rate: f32,
     pub background_color: EditorColor,
+    pub preloader: PreloaderType,
 }
 impl Default for MovieProperties {
     fn default() -> Self {
@@ -182,6 +183,7 @@ impl Default for MovieProperties {
                 b: 255,
                 a: 255,
             },
+            preloader: PreloaderType::None,
         }
     }
 }
@@ -201,6 +203,12 @@ impl Into<Color> for EditorColor {
             a: self.a,
         }
     }
+}
+#[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
+pub enum PreloaderType {
+    None,
+    StartAfterLoading,
+    WithPlayButton,
 }
 
 #[derive(Serialize, Deserialize)]
