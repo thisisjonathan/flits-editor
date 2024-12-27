@@ -4,7 +4,7 @@
         "height": 480,
         "frame_rate": 60,
         "background_color": {"r": 255, "g": 255, "b": 255, "a": 255},
-        "preloader": "WithPlayButton"
+        "preloader": "None"
     },
     
     "symbols": [
@@ -56,6 +56,15 @@
                 "x": 0,
                 "y": 0
             }]
+        }},{"Bitmap": {
+            "properties": {
+                "name": "bouncing_ball.png",
+                "path": "assets/bouncing_ball.png",
+                "animation": {
+                    "frame_count": 6,
+                    "frame_delay": 6
+                }
+            }
         }}
     ],
     
@@ -90,6 +99,10 @@
             "y": 320,
             "x_scale": 3,
             "y_scale": 3
+        },{
+            "symbol_index": 6,
+            "x": 224,
+            "y": 320
         }
     ]
 }

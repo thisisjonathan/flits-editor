@@ -91,6 +91,7 @@ impl Movie {
                     properties: BitmapProperties {
                         name: file_name,
                         path: file_path,
+                        animation: None,
                     },
                     cache: BitmapCacheStatus::Uncached,
                 }));
@@ -272,6 +273,13 @@ impl Bitmap {
 pub struct BitmapProperties {
     pub name: String,
     pub path: String,
+    #[serde(default)]
+    pub animation: Option<Animation>,
+}
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
+pub struct Animation {
+    pub frame_count: u32,
+    pub frame_delay: u32,
 }
 
 #[derive(Default)]
