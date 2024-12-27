@@ -1,7 +1,7 @@
 use egui::Vec2;
 
 use crate::core::{
-    Bitmap, BitmapCacheStatus, BitmapProperties, EditorColor, Movie, MovieClip,
+    Animation, Bitmap, BitmapCacheStatus, BitmapProperties, EditorColor, Movie, MovieClip,
     MovieClipProperties, MovieProperties, PlaceSymbol, PlacedSymbolIndex, Symbol, SymbolIndex,
     SymbolIndexOrRoot,
 };
@@ -113,9 +113,8 @@ impl SymbolPropertiesPanel {
         ui.heading("Bitmap properties");
 
         let mut edit: Option<MovieEdit> = None;
+        let mut edited = false;
         egui::Grid::new(format!("bitmap_{}_properties_grid", self.symbol_index)).show(ui, |ui| {
-            let mut edited = false;
-
             ui.label("Name:");
             let response = ui.add(
                 egui::TextEdit::singleline(&mut bitmap.properties.name)
@@ -137,28 +136,65 @@ impl SymbolPropertiesPanel {
                 edited = true;
             }
             ui.end_row();
+        });
 
-            if let BitmapCacheStatus::Invalid(error) = &bitmap.cache {
-                ui.colored_label(ui.style().visuals.error_fg_color, "Error:");
-                ui.colored_label(ui.style().visuals.error_fg_color, error);
-            } else {
-                // add an empty row so the amount of rows is always the same
-                // otherwise the height of the panel will only be updated on the next redraw
-                ui.label("");
+        ui.horizontal(|ui| {
+            let mut has_animation = bitmap.properties.animation.is_some();
+            let response = ui.checkbox(&mut has_animation, "Animated");
+            if response.changed() {
+                edited = true;
+                // change the property to match the new value of the checkbox
+                if has_animation {
+                    bitmap.properties.animation = Some(Animation {
+                        frame_count: 2,
+                        frame_delay: 0,
+                    });
+                } else {
+                    bitmap.properties.animation = None;
+                }
             }
-            ui.end_row();
-
-            let SymbolProperties::Bitmap(before_edit) = &self.before_edit else {
-                panic!("before_edit is not a bitmap");
-            };
-            if edited && before_edit != &bitmap.properties {
-                edit = Some(MovieEdit::EditBitmapProperties(BitmapPropertiesEdit {
-                    editing_symbol_index: self.symbol_index,
-                    before: before_edit.clone(),
-                    after: bitmap.properties.clone(),
-                }));
+            if let Some(animation) = &mut bitmap.properties.animation {
+                ui.label("Frames:");
+                let response = ui.add_sized(
+                    Vec2::new(60.0, 20.0),
+                    // TODO: if the value is too big the editor crashes because the frame is less than 1px
+                    egui::DragValue::new(&mut animation.frame_count).speed(0.05),
+                );
+                if response.lost_focus() || response.drag_stopped() {
+                    edited = true;
+                }
+                ui.label("Frames delay after each frame:");
+                let response = ui.add_sized(
+                    Vec2::new(60.0, 20.0),
+                    egui::DragValue::new(&mut animation.frame_delay).speed(0.05),
+                );
+                if response.lost_focus() || response.drag_stopped() {
+                    edited = true;
+                }
+                ui.end_row();
             }
         });
+
+        if let BitmapCacheStatus::Invalid(error) = &bitmap.cache {
+            ui.colored_label(ui.style().visuals.error_fg_color, "Error:");
+            ui.colored_label(ui.style().visuals.error_fg_color, error);
+        } else {
+            // add an empty row so the amount of rows is always the same
+            // otherwise the height of the panel will only be updated on the next redraw
+            ui.label("");
+        }
+        ui.end_row();
+
+        let SymbolProperties::Bitmap(before_edit) = &self.before_edit else {
+            panic!("before_edit is not a bitmap");
+        };
+        if edited && before_edit != &bitmap.properties {
+            edit = Some(MovieEdit::EditBitmapProperties(BitmapPropertiesEdit {
+                editing_symbol_index: self.symbol_index,
+                before: before_edit.clone(),
+                after: bitmap.properties.clone(),
+            }));
+        }
 
         edit
     }
