@@ -1,6 +1,6 @@
 use std::{path::Path, path::PathBuf};
 
-use image::{io::Reader as ImageReader, DynamicImage};
+use image::{io::Reader as ImageReader, DynamicImage, GenericImage};
 use ruffle_render::bitmap::BitmapHandle;
 use serde::{Deserialize, Serialize};
 use swf::{Color, Matrix, Twips};
@@ -246,10 +246,21 @@ impl Bitmap {
     pub fn cache_image(&mut self, directory: &Path) {
         self.cache = match ImageReader::open(directory.join(self.properties.path.clone())) {
             Ok(reader) => match reader.decode() {
-                Ok(image) => BitmapCacheStatus::Cached(CachedBitmap {
-                    image,
-                    bitmap_handle: None,
-                }),
+                Ok(mut image) => match &self.properties.animation {
+                    None => BitmapCacheStatus::Cached(CachedBitmap {
+                        image,
+                        bitmap_handle: None,
+                    }),
+                    Some(animation) => {
+                        let first_frame = image
+                            .sub_image(0, 0, image.width() / animation.frame_count, image.height())
+                            .to_image();
+                        BitmapCacheStatus::Cached(CachedBitmap {
+                            image: first_frame.into(),
+                            bitmap_handle: None,
+                        })
+                    }
+                },
                 Err(err) => BitmapCacheStatus::Invalid(err.to_string()),
             },
             Err(err) => BitmapCacheStatus::Invalid(err.to_string()),
