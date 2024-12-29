@@ -291,6 +291,9 @@ pub struct BitmapProperties {
 pub struct Animation {
     pub frame_count: u32,
     pub frame_delay: u32,
+    /// empty string means no end action
+    #[serde(default)]
+    pub end_action: String,
 }
 
 #[derive(Default)]

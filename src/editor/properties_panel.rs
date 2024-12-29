@@ -148,6 +148,7 @@ impl SymbolPropertiesPanel {
                     bitmap.properties.animation = Some(Animation {
                         frame_count: 2,
                         frame_delay: 0,
+                        end_action: "".into(),
                     });
                 } else {
                     bitmap.properties.animation = None;

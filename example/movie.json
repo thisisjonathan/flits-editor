@@ -65,6 +65,16 @@
                     "frame_delay": 6
                 }
             }
+        }},{"Bitmap": {
+            "properties": {
+                "name": "bouncing_ball.png (stop)",
+                "path": "assets/bouncing_ball.png",
+                "animation": {
+                    "frame_count": 6,
+                    "frame_delay": 6,
+                    "end_action": "stop"
+                }
+            }
         }}
     ],
     
@@ -102,6 +112,10 @@
         },{
             "symbol_index": 6,
             "x": 224,
+            "y": 320
+        },{
+            "symbol_index": 7,
+            "x": 272,
             "y": 320
         }
     ]

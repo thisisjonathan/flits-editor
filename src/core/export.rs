@@ -1,6 +1,9 @@
 use std::{collections::HashMap, path::PathBuf};
 
-use swf::*;
+use swf::{
+    avm1::types::{Action, Push},
+    *,
+};
 
 use self::{
     as2::compile_as2,
@@ -63,6 +66,10 @@ pub fn export_movie_to_swf<'a>(
     let mut data_storage = vec![];
     let mut string_storage: Vec<String> = vec![];
     let mut swf_string_storage: Vec<&SwfStr> = vec![];
+    // separate lists to make getting the index easier
+    let mut action_data_storage = vec![];
+    let mut action_string_storage: Vec<String> = vec![];
+    let mut action_swf_string_storage: Vec<&SwfStr> = vec![];
     for i in 0..swf_builder.tags.len() {
         let builder_tag = &swf_builder.tags[i];
         match builder_tag {
@@ -84,14 +91,55 @@ pub fn export_movie_to_swf<'a>(
                     data_storage.push(action.action_data.clone());
                 }
             }
+            SwfBuilderTag::DefineSpriteWithEndAction(_, action_str) => {
+                action_string_storage.push(action_str.clone());
+            }
         }
     }
+    let mut action_string_index = 0;
     for i in 0..swf_builder.tags.len() {
-        let builder_tag = &swf_builder.tags[i];
+        let builder_tag = &mut swf_builder.tags[i];
         if let SwfBuilderTag::ExportAssets(_asset) = builder_tag {
             swf_string_storage.push(SwfStr::from_utf8_str(
                 &string_storage[swf_string_storage.len()],
             ));
+        }
+        if let SwfBuilderTag::DefineSpriteWithEndAction(_, _) = builder_tag {
+            {
+                let mut action_data: Vec<u8> = vec![];
+                let mut action_writer =
+                    swf::avm1::write::Writer::new(&mut action_data, SWF_VERSION);
+                action_swf_string_storage.push(SwfStr::from_utf8_str(
+                    &action_string_storage[action_string_index],
+                ));
+                action_string_index += 1;
+                let action = Action::Push(Push {
+                    values: vec![
+                        swf::avm1::types::Value::Double(0.0), // amount of arguments
+                        swf::avm1::types::Value::Str(action_swf_string_storage.last().unwrap()),
+                    ],
+                });
+                action_writer.write_action(&action)?;
+                let action = Action::CallFunction;
+                action_writer.write_action(&action)?;
+                let action = Action::Pop;
+                action_writer.write_action(&action)?;
+                let action = Action::End;
+                action_writer.write_action(&action)?;
+                action_data_storage.push(action_data);
+            }
+        }
+    }
+    let mut action_data_nr = 0;
+    for i in 0..swf_builder.tags.len() {
+        let builder_tag = &mut swf_builder.tags[i];
+        if let SwfBuilderTag::DefineSpriteWithEndAction(sprite, _) = builder_tag {
+            sprite.tags.pop();
+            sprite
+                .tags
+                .push(Tag::DoAction(&action_data_storage[action_data_nr]));
+            action_data_nr += 1;
+            sprite.tags.push(Tag::ShowFrame);
         }
     }
 
@@ -147,6 +195,7 @@ pub fn export_movie_to_swf<'a>(
                     actions,
                 }))
             }
+            SwfBuilderTag::DefineSpriteWithEndAction(sprite, _) => Tag::DefineSprite(sprite),
         };
         tags.push(tag);
     }
@@ -228,6 +277,8 @@ enum SwfBuilderTag<'a> {
     DoAction(Vec<u8>),
     // we need this to avoid lifetime issues because action_data is &[u8] instead of Vec<u8>
     DefineButton2(Box<SwfBuilderButton>),
+    // TODO: explain why
+    DefineSpriteWithEndAction(Sprite<'a>, String),
 }
 impl<'a> SwfBuilderTag<'a> {
     pub fn stop_action() -> SwfBuilderTag<'a> {

@@ -226,13 +226,26 @@ pub(super) fn build_bitmap<'a>(
                 tags.push(Tag::ShowFrame);
             }
         }
-        swf_builder
-            .tags
-            .push(SwfBuilderTag::Tag(Tag::DefineSprite(Sprite {
-                id: movieclip_id,
-                num_frames: (frame_count * frames_per_animation_frame) as u16,
-                tags,
-            })));
+        let end_action: Option<String> = match &bitmap.properties.animation {
+            Some(animation) => {
+                if animation.end_action.is_empty() {
+                    None
+                } else {
+                    Some(animation.end_action.clone())
+                }
+            }
+            None => None,
+        };
+        let sprite = Sprite {
+            id: movieclip_id,
+            num_frames: (frame_count * frames_per_animation_frame) as u16,
+            tags,
+        };
+        let swf_builder_tag = match end_action {
+            Some(action_str) => SwfBuilderTag::DefineSpriteWithEndAction(sprite, action_str),
+            None => SwfBuilderTag::Tag(Tag::DefineSprite(sprite)),
+        };
+        swf_builder.tags.push(swf_builder_tag);
     }
 
     Ok(())
