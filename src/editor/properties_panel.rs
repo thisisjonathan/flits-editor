@@ -138,23 +138,23 @@ impl SymbolPropertiesPanel {
             ui.end_row();
         });
 
-        ui.horizontal(|ui| {
-            let mut has_animation = bitmap.properties.animation.is_some();
-            let response = ui.checkbox(&mut has_animation, "Animated");
-            if response.changed() {
-                edited = true;
-                // change the property to match the new value of the checkbox
-                if has_animation {
-                    bitmap.properties.animation = Some(Animation {
-                        frame_count: 2,
-                        frame_delay: 0,
-                        end_action: "".into(),
-                    });
-                } else {
-                    bitmap.properties.animation = None;
-                }
+        let mut has_animation = bitmap.properties.animation.is_some();
+        let response = ui.checkbox(&mut has_animation, "Animated");
+        if response.changed() {
+            edited = true;
+            // change the property to match the new value of the checkbox
+            if has_animation {
+                bitmap.properties.animation = Some(Animation {
+                    frame_count: 2,
+                    frame_delay: 0,
+                    end_action: "".into(),
+                });
+            } else {
+                bitmap.properties.animation = None;
             }
-            if let Some(animation) = &mut bitmap.properties.animation {
+        }
+        if let Some(animation) = &mut bitmap.properties.animation {
+            ui.horizontal(|ui| {
                 ui.label("Frames:");
                 let response = ui.add_sized(
                     Vec2::new(60.0, 20.0),
@@ -172,9 +172,18 @@ impl SymbolPropertiesPanel {
                 if response.lost_focus() || response.drag_stopped() {
                     edited = true;
                 }
-                ui.end_row();
-            }
-        });
+            });
+            ui.horizontal(|ui| {
+                ui.label("On last frame call (e.g. 'stop' or 'removeMovieClip'): ");
+                let response = ui.add(
+                    egui::TextEdit::singleline(&mut animation.end_action)
+                        .min_size(Vec2::new(100.0, 0.0)),
+                );
+                if response.lost_focus() {
+                    edited = true;
+                }
+            });
+        }
 
         if let BitmapCacheStatus::Invalid(error) = &bitmap.cache {
             ui.colored_label(ui.style().visuals.error_fg_color, "Error:");
