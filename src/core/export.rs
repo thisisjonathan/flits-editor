@@ -277,7 +277,9 @@ enum SwfBuilderTag<'a> {
     DoAction(Vec<u8>),
     // we need this to avoid lifetime issues because action_data is &[u8] instead of Vec<u8>
     DefineButton2(Box<SwfBuilderButton>),
-    // TODO: explain why
+    // adds a DoAction with a call to the method named by the String before the last ShowFrame
+    // a more proper way to do this would be to have a list of SwfBuilderTags
+    // but that got complicated with lifetimes of lists
     DefineSpriteWithEndAction(Sprite<'a>, String),
 }
 impl<'a> SwfBuilderTag<'a> {
