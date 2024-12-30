@@ -9,7 +9,7 @@ pub enum MovieEdit {
     EditMovieProperties(MoviePropertiesEdit),
 
     AddMovieClip(AddMovieClipEdit),
-    RemoveMovieClip(RemoveMovieClipEdit),
+    RemoveSymbol(RemoveSymbolEdit),
 
     EditBitmapProperties(BitmapPropertiesEdit),
     EditMovieClipProperties(MovieClipPropertiesEdit),
@@ -26,7 +26,7 @@ impl Edit for MovieEdit {
         match self {
             MovieEdit::EditMovieProperties(edit) => edit.edit(target),
             MovieEdit::AddMovieClip(edit) => edit.edit(target),
-            MovieEdit::RemoveMovieClip(edit) => edit.edit(target),
+            MovieEdit::RemoveSymbol(edit) => edit.edit(target),
             MovieEdit::EditBitmapProperties(edit) => edit.edit(target),
             MovieEdit::EditMovieClipProperties(edit) => edit.edit(target),
             MovieEdit::TransformPlacedSymbol(edit) => edit.edit(target),
@@ -39,7 +39,7 @@ impl Edit for MovieEdit {
         match self {
             MovieEdit::EditMovieProperties(edit) => edit.undo(target),
             MovieEdit::AddMovieClip(edit) => edit.undo(target),
-            MovieEdit::RemoveMovieClip(edit) => edit.undo(target),
+            MovieEdit::RemoveSymbol(edit) => edit.undo(target),
             MovieEdit::EditBitmapProperties(edit) => edit.undo(target),
             MovieEdit::EditMovieClipProperties(edit) => edit.undo(target),
             MovieEdit::TransformPlacedSymbol(edit) => edit.undo(target),
@@ -75,12 +75,12 @@ impl AddMovieClipEdit {
         MoviePropertiesOutput::Stage(None)
     }
 }
-pub struct RemoveMovieClipEdit {
+pub struct RemoveSymbolEdit {
     pub symbol_index: SymbolIndex,
-    pub movieclip: MovieClip, // for undoing
+    pub symbol: Symbol, // for undoing
     pub remove_place_symbol_edits: Vec<RemovePlacedSymbolEdit>,
 }
-impl RemoveMovieClipEdit {
+impl RemoveSymbolEdit {
     fn edit(&mut self, target: &mut Movie) -> MoviePropertiesOutput {
         self.remove_place_symbol_edits = vec![];
         // remove the placed symbols that place this symbol
@@ -129,11 +129,14 @@ impl RemoveMovieClipEdit {
         }
         target
             .symbols
-            .insert(self.symbol_index, Symbol::MovieClip(self.movieclip.clone()));
+            .insert(self.symbol_index, self.symbol.clone_without_cache());
         for i in 0..self.remove_place_symbol_edits.len() {
             self.remove_place_symbol_edits[i].undo(target);
         }
-        MoviePropertiesOutput::Stage(Some(self.symbol_index))
+        match &self.symbol {
+            Symbol::Bitmap(_) => MoviePropertiesOutput::Properties(Some(self.symbol_index)),
+            Symbol::MovieClip(_) => MoviePropertiesOutput::Stage(Some(self.symbol_index)),
+        }
     }
     fn increase_placed_symbols(&self, placed_symbols: &mut Vec<PlaceSymbol>) {
         for i in (0..placed_symbols.len()).rev() {

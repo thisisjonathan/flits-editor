@@ -234,6 +234,23 @@ impl Symbol {
             _ => false,
         }
     }
+    pub fn type_name(&self) -> &str {
+        match self {
+            Symbol::Bitmap(_) => "Bitmap",
+            Symbol::MovieClip(_) => "MovieClip",
+        }
+    }
+    pub fn clone_without_cache(&self) -> Self {
+        match self {
+            Symbol::Bitmap(bitmap) => Symbol::Bitmap(Bitmap {
+                properties: bitmap.properties.clone(),
+                // when undoing removing a bitmap the cache is empty because it was removed when the bitmap was removed
+                // keeping removed bitmaps cached would be wasteful
+                cache: BitmapCacheStatus::Uncached,
+            }),
+            Symbol::MovieClip(movieclip) => Symbol::MovieClip(movieclip.clone()),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize)]

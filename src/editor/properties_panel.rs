@@ -9,7 +9,7 @@ use crate::core::{
 use super::{
     edit::{
         BitmapPropertiesEdit, MovieClipPropertiesEdit, MovieEdit, MoviePropertiesEdit,
-        RemoveMovieClipEdit, TransformPlacedSymbolEdit,
+        RemoveSymbolEdit, TransformPlacedSymbolEdit,
     },
     EDIT_EPSILON,
 };
@@ -102,16 +102,36 @@ pub enum SymbolProperties {
 }
 impl SymbolPropertiesPanel {
     pub fn do_ui(&mut self, movie: &mut Movie, ui: &mut egui::Ui) -> Option<MovieEdit> {
+        let mut edit1: Option<MovieEdit> = None;
+
         let symbol = &mut movie.symbols[self.symbol_index];
-        match symbol {
+        ui.horizontal(|ui| {
+            ui.heading(format!("{} properties", symbol.type_name()));
+            ui.with_layout(
+                egui::Layout::default().with_cross_align(egui::Align::RIGHT),
+                |ui| {
+                    if ui.button("Remove").clicked() {
+                        edit1 = Some(MovieEdit::RemoveSymbol(RemoveSymbolEdit {
+                            symbol_index: self.symbol_index,
+                            symbol: symbol.clone_without_cache(),
+                            remove_place_symbol_edits: vec![],
+                        }));
+                    }
+                },
+            );
+        });
+        let edit2 = match symbol {
             Symbol::Bitmap(bitmap) => self.bitmap_ui(bitmap, ui),
             Symbol::MovieClip(movieclip) => self.movieclip_ui(movieclip, ui),
+        };
+        if edit1.is_some() {
+            edit1
+        } else {
+            edit2
         }
     }
 
     fn bitmap_ui(&self, bitmap: &mut Bitmap, ui: &mut egui::Ui) -> Option<MovieEdit> {
-        ui.heading("Bitmap properties");
-
         let mut edit: Option<MovieEdit> = None;
         let mut edited = false;
         egui::Grid::new(format!("bitmap_{}_properties_grid", self.symbol_index)).show(ui, |ui| {
@@ -211,17 +231,6 @@ impl SymbolPropertiesPanel {
 
     fn movieclip_ui(&self, movieclip: &mut MovieClip, ui: &mut egui::Ui) -> Option<MovieEdit> {
         let mut edit: Option<MovieEdit> = None;
-
-        ui.horizontal(|ui| {
-            ui.heading("Movieclip properties");
-            if ui.button("Remove MovieClip").clicked() {
-                edit = Some(MovieEdit::RemoveMovieClip(RemoveMovieClipEdit {
-                    symbol_index: self.symbol_index,
-                    movieclip: movieclip.clone(),
-                    remove_place_symbol_edits: vec![],
-                }));
-            }
-        });
 
         egui::Grid::new(format!("movieclip_{}_properties_grid", self.symbol_index)).show(
             ui,
