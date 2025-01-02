@@ -161,6 +161,14 @@ impl Movie {
             &mut self.root
         }
     }
+
+    pub fn num_frames(&self) -> u16 {
+        match self.properties.preloader {
+            PreloaderType::None => 1,
+            PreloaderType::StartAfterLoading => 2,
+            PreloaderType::WithPlayButton => 3,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]

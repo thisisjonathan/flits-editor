@@ -26,6 +26,7 @@ pub(super) fn compile_as2(
     command.arg("-version").arg("8"); // use newer as2 standard library
     command.arg("-cp").arg(dependencies_dir.join("std")); // set class path
     command.arg("-cp").arg(dependencies_dir.join("std8")); // set class path for version 8
+    command.arg("-frame").arg(movie.num_frames().to_string()); // put classes in last frame
 
     let mut at_least_one_file = false;
     let src_dir = project_directory.join("src");

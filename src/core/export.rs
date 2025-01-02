@@ -36,11 +36,7 @@ pub fn export_movie_to_swf<'a>(
             y_max: Twips::from_pixels(movie.properties.height),
         },
         frame_rate: Fixed8::from_f32(movie.properties.frame_rate),
-        num_frames: match movie.properties.preloader {
-            PreloaderType::None => 1,
-            PreloaderType::StartAfterLoading => 2,
-            PreloaderType::WithPlayButton => 3,
-        },
+        num_frames: movie.num_frames(),
     };
     let mut tags = vec![Tag::SetBackgroundColor(
         movie.properties.background_color.clone().into(),
