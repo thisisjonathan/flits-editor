@@ -21,12 +21,12 @@ pub(super) fn compile_as2(
     let mtasc_path = dependencies_dir.join("mtasc");
 
     let mut command = std::process::Command::new(mtasc_path);
-    // TODO: add -infer?
     command.arg("-swf").arg(swf_path.clone());
     command.arg("-version").arg("8"); // use newer as2 standard library
     command.arg("-cp").arg(dependencies_dir.join("std")); // set class path
     command.arg("-cp").arg(dependencies_dir.join("std8")); // set class path for version 8
     command.arg("-frame").arg(movie.num_frames().to_string()); // put classes in last frame
+    command.arg("-infer"); // automatically infer types of variables
 
     let mut at_least_one_file = false;
     let src_dir = project_directory.join("src");
