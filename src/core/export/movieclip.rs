@@ -44,18 +44,19 @@ pub(super) fn build_movieclip_inner(
         .into());
     };
     define_sprite_tag.tags = inner_tags;
-    // TODO: i think i want to export all movieclips?
-    if movieclip.properties.class_name.len() > 0 {
-        // ffdec gives a warning about export asset tags for assets where not all the symbols inside are defined
-        // that's why we only create the export assets tag in the second iteration, after we've created all the regular tags
 
-        // the movieclip needs to be exported to be able to add a tag to it
-        swf_builder
-            .tags
-            .push(SwfBuilderTag::ExportAssets(SwfBuilderExportedAsset {
-                character_id: swf_builder.symbol_index_to_character_id[&symbol_index],
-                name: movieclip.properties.name.clone(),
-            }));
-    }
+    // ffdec gives a warning about export asset tags for assets where not all the symbols inside are defined
+    // that's why we only create the export assets tag in the second iteration, after we've created all the regular tags
+
+    // export all movieclips, this allows you to create them with attachMovie
+    // this is easier than having to remember to check a box for each one
+    // TODO: is there a reason not to do this?
+    swf_builder
+        .tags
+        .push(SwfBuilderTag::ExportAssets(SwfBuilderExportedAsset {
+            character_id: swf_builder.symbol_index_to_character_id[&symbol_index],
+            name: movieclip.properties.name.clone(),
+        }));
+
     Ok(())
 }
