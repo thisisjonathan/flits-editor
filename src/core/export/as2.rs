@@ -20,20 +20,23 @@ pub(super) fn compile_as2(
     // No need to add .exe on windows, Command does that automatically
     let mtasc_path = dependencies_dir.join("mtasc");
 
+    let src_dir = project_directory.join("src");
+
     let mut command = std::process::Command::new(mtasc_path);
     command.arg("-swf").arg(swf_path.clone());
     command.arg("-version").arg("8"); // use newer as2 standard library
     command.arg("-cp").arg(dependencies_dir.join("std")); // set class path
     command.arg("-cp").arg(dependencies_dir.join("std8")); // set class path for version 8
+    command.arg("-cp").arg(src_dir.clone()); // also look for classes in the src directory, otherwise you can't extend your own classes
     command.arg("-frame").arg(movie.num_frames().to_string()); // put classes in last frame
     command.arg("-infer"); // automatically infer types of variables
 
     let mut at_least_one_file = false;
-    let src_dir = project_directory.join("src");
     std::fs::create_dir_all(src_dir.clone())?;
     // TODO: subdirectories
     for src_file in src_dir.read_dir()? {
-        command.arg(src_file?.path());
+        // this needs to be relative to the class path
+        command.arg(src_file?.file_name());
         at_least_one_file = true;
     }
 
