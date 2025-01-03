@@ -8,7 +8,7 @@ use swf::{
 
 use crate::core::{Bitmap, SymbolIndex};
 
-use super::{SwfBuilder, SwfBuilderBitmap, SwfBuilderTag};
+use super::{SwfBuilder, SwfBuilderBitmap, SwfBuilderExportedAsset, SwfBuilderTag};
 
 pub(super) fn build_bitmap<'a>(
     symbol_index: SymbolIndex,
@@ -246,6 +246,16 @@ pub(super) fn build_bitmap<'a>(
             None => SwfBuilderTag::Tag(Tag::DefineSprite(sprite)),
         };
         swf_builder.tags.push(swf_builder_tag);
+
+        // export all movieclips, this allows you to create them with attachMovie
+        // this is easier than having to remember to check a box for each one
+        // TODO: is there a reason not to do this?
+        swf_builder
+            .tags
+            .push(SwfBuilderTag::ExportAssets(SwfBuilderExportedAsset {
+                character_id: movieclip_id,
+                name: bitmap.properties.name.clone(),
+            }));
     }
 
     Ok(())
