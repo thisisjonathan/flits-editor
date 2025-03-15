@@ -179,7 +179,9 @@ impl SymbolPropertiesPanel {
                 let response = ui.add_sized(
                     Vec2::new(60.0, 20.0),
                     // TODO: if the value is too big the editor crashes because the frame is less than 1px
-                    egui::DragValue::new(&mut animation.frame_count).speed(0.05),
+                    egui::DragValue::new(&mut animation.frame_count)
+                        .speed(0.05)
+                        .range(1..=egui::emath::Numeric::MAX),
                 );
                 if response.lost_focus() || response.drag_stopped() {
                     edited = true;

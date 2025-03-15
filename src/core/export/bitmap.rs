@@ -47,6 +47,13 @@ pub(super) fn build_bitmap<'a>(
     };
     let image_width = img.width();
     let image_height = img.height();
+    if frame_count > image_width {
+        return Err(format!(
+            "Animation has more frames than width, causing frames to be less than 1 pixel: '{}'",
+            bitmap.properties.path.clone()
+        )
+        .into());
+    }
     let frame_width = image_width / frame_count;
     let frame_height = image_height;
     let rgba8 = img.into_rgba8();

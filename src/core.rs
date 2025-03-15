@@ -277,8 +277,19 @@ impl Bitmap {
                         bitmap_handle: None,
                     }),
                     Some(animation) => {
+                        // avoid panic if the frame count is zero
+                        // (this should be handled by the input ui already, this check is just to be safe)
+                        let mut sub_image_width = if animation.frame_count > 0 {
+                            image.width() / animation.frame_count
+                        } else {
+                            1
+                        };
+                        // avoid crash when the amount of frames is stupidly big
+                        if sub_image_width < 1 {
+                            sub_image_width = 1;
+                        }
                         let first_frame = image
-                            .sub_image(0, 0, image.width() / animation.frame_count, image.height())
+                            .sub_image(0, 0, sub_image_width, image.height())
                             .to_image();
                         BitmapCacheStatus::Cached(CachedBitmap {
                             image: first_frame.into(),
