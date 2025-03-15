@@ -80,6 +80,11 @@
                 "name": "tiny_square.png",
                 "path": "assets/tiny_square.png"
             }
+        }},{"Bitmap": {
+            "properties": {
+                "name": "tiny_square_semi_transparent.png",
+                "path": "assets/tiny_square_semi_transparent.png"
+            }
         }}
     ],
     
@@ -126,8 +131,14 @@
             "symbol_index": 8,
             "x": 336,
             "y": 320,
-            "x_scale": 8,
-            "y_scale": 8
+            "x_scale": 32,
+            "y_scale": 32
+        },{
+            "symbol_index": 9,
+            "x": 368,
+            "y": 320,
+            "x_scale": 32,
+            "y_scale": 32
         }
     ]
 }

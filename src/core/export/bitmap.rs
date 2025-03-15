@@ -55,15 +55,21 @@ pub(super) fn build_bitmap<'a>(
     for i in 0..image_width {
         for j in 0..image_height {
             let index: usize = ((i + j * image_width) * 4) as usize;
-            // TODO: premultiply alpha
             let r = image_data[index];
             let g = image_data[index + 1];
             let b = image_data[index + 2];
             let a = image_data[index + 3];
+
+            // Flash player expects premultiplied alpha
+            // see: https://open-flash.github.io/mirrors/swf-spec-19.pdf
+            // Chapter 8 -> DefineBitsLossless2 -> ALPHACOLORMAPDATA
+            // quote: "The RGB data must already be multiplied bythe alpha channel value."
+            // (original includes typo)
+            let a_float = a as f32 / 255.0;
             image_data[index] = a;
-            image_data[index + 1] = r;
-            image_data[index + 2] = g;
-            image_data[index + 3] = b;
+            image_data[index + 1] = (r as f32 * a_float) as u8;
+            image_data[index + 2] = (g as f32 * a_float) as u8;
+            image_data[index + 3] = (b as f32 * a_float) as u8;
         }
     }
 
