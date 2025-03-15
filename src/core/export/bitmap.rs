@@ -55,6 +55,7 @@ pub(super) fn build_bitmap<'a>(
     for i in 0..image_width {
         for j in 0..image_height {
             let index: usize = ((i + j * image_width) * 4) as usize;
+            // TODO: premultiply alpha
             let r = image_data[index];
             let g = image_data[index + 1];
             let b = image_data[index + 2];
@@ -93,7 +94,17 @@ pub(super) fn build_bitmap<'a>(
             }
             encoder.write_all(&frame_data)?;
         }
-        let compressed_image_data = encoder.finish()?;
+        let mut compressed_image_data = encoder.finish()?;
+        // small images disappear in Flash player
+        // swfmill solves it with:
+        // if( compressed_size < 1024 ) compressed_size = 1024;
+        // source: https://github.com/djcsdy/swfmill/blob/53d769029adc9d817972e1ccd648b7b335bf78b7/src/swft/swft_import_png.cpp#L217
+        // from expirimentation it seems the real limit on my pc is 256,
+        // but let's do the same thing as swfmill to be safe
+        if compressed_image_data.len() < 1024 {
+            let mut zeros = vec![0; 1024 - compressed_image_data.len()];
+            compressed_image_data.append(&mut zeros);
+        }
 
         let bitmap_id = swf_builder.next_character_id();
         let shape_id = swf_builder.next_character_id();

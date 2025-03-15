@@ -75,6 +75,11 @@
                     "end_action": "stop"
                 }
             }
+        }},{"Bitmap": {
+            "properties": {
+                "name": "tiny_square.png",
+                "path": "assets/tiny_square.png"
+            }
         }}
     ],
     
@@ -117,6 +122,12 @@
             "symbol_index": 7,
             "x": 272,
             "y": 320
+        },{
+            "symbol_index": 8,
+            "x": 336,
+            "y": 320,
+            "x_scale": 8,
+            "y_scale": 8
         }
     ]
 }
