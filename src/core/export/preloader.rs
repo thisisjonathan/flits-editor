@@ -1,13 +1,14 @@
 use swf::{
     avm1::types::{Action, ConstantPool, DefineFunction2, FunctionFlags, If, Push, StoreRegister},
-    BlendMode, ButtonActionCondition, ButtonRecord, ButtonState, Color, ColorTransform, FillStyle,
-    Matrix, PlaceObject, PlaceObjectAction, Point, PointDelta, Rectangle, RemoveObject, Shape,
-    ShapeFlag, ShapeRecord, ShapeStyles, Sprite, StyleChangeData, SwfStr, Tag, Twips,
+    BlendMode, Button, ButtonAction, ButtonActionCondition, ButtonRecord, ButtonState, Color,
+    ColorTransform, FillStyle, Matrix, PlaceObject, PlaceObjectAction, Point, PointDelta,
+    Rectangle, RemoveObject, Shape, ShapeFlag, ShapeRecord, ShapeStyles, Sprite, StyleChangeData,
+    SwfStr, Tag, Twips,
 };
 
 use crate::core::{PreloaderType, SWF_VERSION};
 
-use super::{Arenas, SwfBuilder, SwfBuilderButton, SwfBuilderButtonAction, SwfBuilderTag};
+use super::{Arenas, SwfBuilder, SwfBuilderTag};
 
 pub(super) fn build_preloader<'a>(
     preloader_type: PreloaderType,
@@ -256,7 +257,7 @@ pub(super) fn build_preloader<'a>(
         swf_builder.tags.extend(vec![
             define_play_button_shape(play_button_shape_id, 32.0, 32.0, Color::WHITE),
             define_play_button_shape(play_button_shape_over_id, 32.0, 32.0, Color::GRAY),
-            SwfBuilderTag::DefineButton2(Box::new(SwfBuilderButton {
+            SwfBuilderTag::Tag(Tag::DefineButton2(Box::new(Button {
                 id: play_button_id,
                 is_track_as_menu: false,
                 records: vec![
@@ -279,11 +280,11 @@ pub(super) fn build_preloader<'a>(
                         blend_mode: BlendMode::Normal,
                     },
                 ],
-                actions: vec![SwfBuilderButtonAction {
+                actions: vec![ButtonAction {
                     conditions: ButtonActionCondition::OVER_DOWN_TO_OVER_UP,
-                    action_data: play_button_action_data,
+                    action_data: arenas.data.alloc(play_button_action_data),
                 }],
-            })),
+            }))),
             SwfBuilderTag::Tag(Tag::PlaceObject(Box::new(PlaceObject {
                 version: 2,
                 action: PlaceObjectAction::Place(play_button_id),
