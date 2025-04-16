@@ -34,10 +34,7 @@ pub(super) fn build_movieclip_inner<'a>(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let inner_tags = get_placed_symbols_tags(&movieclip.place_symbols, swf_builder)?;
     let tag = &mut swf_builder.tags[swf_builder.symbol_index_to_tag_index[&symbol_index]];
-    let SwfBuilderTag::Tag(actual_tag) = tag else {
-        return Err(format!("The tag for symbol {} is not a standard tag", symbol_index).into());
-    };
-    let Tag::DefineSprite(define_sprite_tag) = actual_tag else {
+    let SwfBuilderTag::Tag(Tag::DefineSprite(define_sprite_tag)) = tag else {
         return Err(format!(
             "The tag for the movieclip with symbol index {} is not a DefineSprite tag",
             symbol_index

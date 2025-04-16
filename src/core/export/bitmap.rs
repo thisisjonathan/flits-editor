@@ -2,12 +2,13 @@ use std::{io::Write, path::PathBuf};
 
 use image::{io::Reader as ImageReader, EncodableLayout};
 use swf::{
+    avm1::types::{Action, Push},
     BitmapFormat, DefineBitsLossless, ExportedAsset, FillStyle, Fixed16, Matrix, PlaceObject,
     PlaceObjectAction, Point, PointDelta, Rectangle, Shape, ShapeFlag, ShapeRecord, ShapeStyles,
     Sprite, StyleChangeData, Tag, Twips,
 };
 
-use crate::core::{Bitmap, SymbolIndex};
+use crate::core::{Bitmap, SymbolIndex, SWF_VERSION};
 
 use super::{Arenas, SwfBuilder, SwfBuilderTag};
 
@@ -264,16 +265,35 @@ pub(super) fn build_bitmap<'a>(
             }
             None => None,
         };
+        if let Some(action_str) = end_action {
+            let mut action_data: Vec<u8> = vec![];
+            let mut action_writer = swf::avm1::write::Writer::new(&mut action_data, SWF_VERSION);
+            let action = Action::Push(Push {
+                values: vec![
+                    swf::avm1::types::Value::Double(0.0), // amount of arguments
+                    swf::avm1::types::Value::Str(arenas.alloc_swf_string(action_str)),
+                ],
+            });
+            action_writer.write_action(&action)?;
+            let action = Action::CallFunction;
+            action_writer.write_action(&action)?;
+            let action = Action::Pop;
+            action_writer.write_action(&action)?;
+            let action = Action::End;
+            action_writer.write_action(&action)?;
+
+            tags.pop();
+            tags.push(Tag::DoAction(arenas.data.alloc(action_data)));
+            tags.push(Tag::ShowFrame);
+        }
         let sprite = Sprite {
             id: movieclip_id,
             num_frames: (frame_count * frames_per_animation_frame) as u16,
             tags,
         };
-        let swf_builder_tag = match end_action {
-            Some(action_str) => SwfBuilderTag::DefineSpriteWithEndAction(sprite, action_str),
-            None => SwfBuilderTag::Tag(Tag::DefineSprite(sprite)),
-        };
-        swf_builder.tags.push(swf_builder_tag);
+        swf_builder
+            .tags
+            .push(SwfBuilderTag::Tag(Tag::DefineSprite(sprite)));
 
         // export all movieclips, this allows you to create them with attachMovie
         // this is easier than having to remember to check a box for each one

@@ -1,9 +1,6 @@
 use std::{collections::HashMap, path::PathBuf};
 
-use swf::{
-    avm1::types::{Action, Push},
-    *,
-};
+use swf::*;
 use typed_arena::Arena;
 
 use self::{
@@ -62,65 +59,9 @@ pub fn export_movie_to_swf<'a>(
     )?;
     build_placed_symbols_of_root(&movie.root, &mut swf_builder, &arenas)?;
 
-    // separate lists to make getting the index easier
-    let mut action_data_storage = vec![];
-    let mut action_string_storage: Vec<String> = vec![];
-    let mut action_swf_string_storage: Vec<&SwfStr> = vec![];
-    for i in 0..swf_builder.tags.len() {
-        let builder_tag = &swf_builder.tags[i];
-        match builder_tag {
-            SwfBuilderTag::Tag(_) => (), // normal case, no data stored
-            SwfBuilderTag::DefineSpriteWithEndAction(_, action_str) => {
-                action_string_storage.push(action_str.clone());
-            }
-        }
-    }
-    let mut action_string_index = 0;
-    for i in 0..swf_builder.tags.len() {
-        let builder_tag = &mut swf_builder.tags[i];
-        if let SwfBuilderTag::DefineSpriteWithEndAction(_, _) = builder_tag {
-            {
-                let mut action_data: Vec<u8> = vec![];
-                let mut action_writer =
-                    swf::avm1::write::Writer::new(&mut action_data, SWF_VERSION);
-                action_swf_string_storage.push(SwfStr::from_utf8_str(
-                    &action_string_storage[action_string_index],
-                ));
-                action_string_index += 1;
-                let action = Action::Push(Push {
-                    values: vec![
-                        swf::avm1::types::Value::Double(0.0), // amount of arguments
-                        swf::avm1::types::Value::Str(action_swf_string_storage.last().unwrap()),
-                    ],
-                });
-                action_writer.write_action(&action)?;
-                let action = Action::CallFunction;
-                action_writer.write_action(&action)?;
-                let action = Action::Pop;
-                action_writer.write_action(&action)?;
-                let action = Action::End;
-                action_writer.write_action(&action)?;
-                action_data_storage.push(action_data);
-            }
-        }
-    }
-    let mut action_data_nr = 0;
-    for i in 0..swf_builder.tags.len() {
-        let builder_tag = &mut swf_builder.tags[i];
-        if let SwfBuilderTag::DefineSpriteWithEndAction(sprite, _) = builder_tag {
-            sprite.tags.pop();
-            sprite
-                .tags
-                .push(Tag::DoAction(&action_data_storage[action_data_nr]));
-            action_data_nr += 1;
-            sprite.tags.push(Tag::ShowFrame);
-        }
-    }
-
     for builder_tag in swf_builder.tags {
         let tag: Tag = match builder_tag {
             SwfBuilderTag::Tag(tag) => tag,
-            SwfBuilderTag::DefineSpriteWithEndAction(sprite, _) => Tag::DefineSprite(sprite),
         };
         tags.push(tag);
     }
@@ -216,10 +157,6 @@ impl Arenas {
 
 enum SwfBuilderTag<'a> {
     Tag(Tag<'a>),
-    // adds a DoAction with a call to the method named by the String before the last ShowFrame
-    // a more proper way to do this would be to have a list of SwfBuilderTags
-    // but that got complicated with lifetimes of lists
-    DefineSpriteWithEndAction(Sprite<'a>, String),
 }
 impl<'a> SwfBuilderTag<'a> {
     pub fn stop_action(arenas: &'a Arenas) -> SwfBuilderTag<'a> {
@@ -261,15 +198,13 @@ fn get_placed_symbols_tags<'a>(
         // use the coordinates as the center of bitmaps instead of the top left
         if let Some(tag_index) = tag_index {
             let tag = &swf_builder.tags[*tag_index];
-            if let SwfBuilderTag::Tag(real_tag) = tag {
-                // TODO: this is a hacky to solve this
-                if let Tag::DefineBitsLossless(define_bits) = real_tag {
-                    matrix = matrix
-                        * Matrix::translate(
-                            Twips::from_pixels(define_bits.width as f64 / -2.0),
-                            Twips::from_pixels(define_bits.height as f64 / -2.0),
-                        );
-                }
+            // TODO: this is a hacky to solve this
+            if let SwfBuilderTag::Tag(Tag::DefineBitsLossless(define_bits)) = tag {
+                matrix = matrix
+                    * Matrix::translate(
+                        Twips::from_pixels(define_bits.width as f64 / -2.0),
+                        Twips::from_pixels(define_bits.height as f64 / -2.0),
+                    );
             }
         }
 
