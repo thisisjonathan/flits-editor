@@ -7,11 +7,12 @@ use swf::{
 
 use crate::core::{PreloaderType, SWF_VERSION};
 
-use super::{SwfBuilder, SwfBuilderButton, SwfBuilderButtonAction, SwfBuilderTag};
+use super::{Arenas, SwfBuilder, SwfBuilderButton, SwfBuilderButtonAction, SwfBuilderTag};
 
-pub(super) fn build_preloader(
+pub(super) fn build_preloader<'a>(
     preloader_type: PreloaderType,
-    swf_builder: &mut SwfBuilder,
+    swf_builder: &mut SwfBuilder<'a>,
+    arenas: &'a Arenas,
     stage_width: f64,
     stage_height: f64,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -222,7 +223,7 @@ pub(super) fn build_preloader(
             is_visible: Some(true),
             amf_data: None,
         }))),
-        SwfBuilderTag::DoAction(action_data),
+        SwfBuilderTag::Tag(Tag::DoAction(arenas.data.alloc(action_data))),
         SwfBuilderTag::Tag(Tag::ShowFrame),
     ]);
     let mut play_button_action_data = vec![];

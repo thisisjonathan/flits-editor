@@ -17,6 +17,7 @@ swf = { git = "https://github.com/ruffle-rs/ruffle" }
 image = "0.24.6"
 hound = "3.5.1"
 puremp3 = "0.1.0"
+typed-arena = "2.0.2"
 
 # editor dependencies
 undo = "0.51.0"

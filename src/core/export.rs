@@ -4,6 +4,7 @@ use swf::{
     avm1::types::{Action, Push},
     *,
 };
+use typed_arena::Arena;
 
 use self::{
     as2::compile_as2,
@@ -42,16 +43,13 @@ pub fn export_movie_to_swf<'a>(
         movie.properties.background_color.clone().into(),
     )];
 
-    let mut swf_builder = SwfBuilder {
-        tags: vec![],
-        character_id_counter: 1,
-        symbol_index_to_character_id: HashMap::new(),
-        symbol_index_to_tag_index: HashMap::new(),
-    };
+    let mut swf_builder = SwfBuilder::new();
+    let arenas = Arenas::new();
     if movie.properties.preloader != PreloaderType::None {
         build_preloader(
             movie.properties.preloader.clone(),
             &mut swf_builder,
+            &arenas,
             movie.properties.width,
             movie.properties.height,
         )?;
@@ -252,10 +250,27 @@ struct SwfBuilder<'a> {
 }
 
 impl<'a> SwfBuilder<'a> {
+    fn new() -> SwfBuilder<'a> {
+        SwfBuilder {
+            tags: vec![],
+            character_id_counter: 1,
+            symbol_index_to_character_id: HashMap::new(),
+            symbol_index_to_tag_index: HashMap::new(),
+        }
+    }
     fn next_character_id(&mut self) -> CharacterId {
         let character_id = self.character_id_counter;
         self.character_id_counter += 1;
         character_id
+    }
+}
+
+struct Arenas {
+    data: Arena<Vec<u8>>,
+}
+impl Arenas {
+    fn new() -> Arenas {
+        Arenas { data: Arena::new() }
     }
 }
 
