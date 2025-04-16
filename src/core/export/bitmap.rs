@@ -2,20 +2,20 @@ use std::{io::Write, path::PathBuf};
 
 use image::{io::Reader as ImageReader, EncodableLayout};
 use swf::{
-    BitmapFormat, DefineBitsLossless, FillStyle, Fixed16, Matrix, PlaceObject, PlaceObjectAction,
-    Point, PointDelta, Rectangle, Shape, ShapeFlag, ShapeRecord, ShapeStyles, Sprite,
-    StyleChangeData, Tag, Twips,
+    BitmapFormat, DefineBitsLossless, ExportedAsset, FillStyle, Fixed16, Matrix, PlaceObject,
+    PlaceObjectAction, Point, PointDelta, Rectangle, Shape, ShapeFlag, ShapeRecord, ShapeStyles,
+    Sprite, StyleChangeData, Tag, Twips,
 };
 
 use crate::core::{Bitmap, SymbolIndex};
 
-use super::{Arenas, SwfBuilder, SwfBuilderExportedAsset, SwfBuilderTag};
+use super::{Arenas, SwfBuilder, SwfBuilderTag};
 
 pub(super) fn build_bitmap<'a>(
     symbol_index: SymbolIndex,
     bitmap: &Bitmap,
     swf_builder: &mut SwfBuilder<'a>,
-    _arenas: &'a Arenas,
+    arenas: &'a Arenas,
     directory: PathBuf,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // TODO: the images are probably already loaded when exporting a movie you are editing, maybe reuse that?
@@ -280,10 +280,10 @@ pub(super) fn build_bitmap<'a>(
         // TODO: is there a reason not to do this?
         swf_builder
             .tags
-            .push(SwfBuilderTag::ExportAssets(SwfBuilderExportedAsset {
-                character_id: movieclip_id,
-                name: bitmap.properties.name.clone(),
-            }));
+            .push(SwfBuilderTag::Tag(Tag::ExportAssets(vec![ExportedAsset {
+                id: movieclip_id,
+                name: arenas.alloc_swf_string(bitmap.properties.name.clone()),
+            }])))
     }
 
     Ok(())

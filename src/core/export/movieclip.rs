@@ -1,8 +1,8 @@
-use swf::{Sprite, Tag};
+use swf::{ExportedAsset, Sprite, Tag};
 
 use crate::core::{MovieClip, SymbolIndex};
 
-use super::{get_placed_symbols_tags, SwfBuilder, SwfBuilderExportedAsset, SwfBuilderTag};
+use super::{get_placed_symbols_tags, Arenas, SwfBuilder, SwfBuilderTag};
 
 pub(super) fn build_movieclip_outer(
     symbol_index: SymbolIndex,
@@ -26,10 +26,11 @@ pub(super) fn build_movieclip_outer(
     Ok(())
 }
 
-pub(super) fn build_movieclip_inner(
+pub(super) fn build_movieclip_inner<'a>(
     symbol_index: SymbolIndex,
     movieclip: &MovieClip,
-    swf_builder: &mut SwfBuilder,
+    swf_builder: &mut SwfBuilder<'a>,
+    arenas: &'a Arenas,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let inner_tags = get_placed_symbols_tags(&movieclip.place_symbols, swf_builder)?;
     let tag = &mut swf_builder.tags[swf_builder.symbol_index_to_tag_index[&symbol_index]];
@@ -53,10 +54,10 @@ pub(super) fn build_movieclip_inner(
     // TODO: is there a reason not to do this?
     swf_builder
         .tags
-        .push(SwfBuilderTag::ExportAssets(SwfBuilderExportedAsset {
-            character_id: swf_builder.symbol_index_to_character_id[&symbol_index],
-            name: movieclip.properties.name.clone(),
-        }));
+        .push(SwfBuilderTag::Tag(Tag::ExportAssets(vec![ExportedAsset {
+            id: swf_builder.symbol_index_to_character_id[&symbol_index],
+            name: arenas.alloc_swf_string(movieclip.properties.name.clone()),
+        }])));
 
     Ok(())
 }

@@ -63,8 +63,6 @@ pub fn export_movie_to_swf<'a>(
     build_placed_symbols_of_root(&movie.root, &mut swf_builder, &arenas)?;
 
     let mut data_storage = vec![];
-    let mut string_storage: Vec<String> = vec![];
-    let mut swf_string_storage: Vec<&SwfStr> = vec![];
     // separate lists to make getting the index easier
     let mut action_data_storage = vec![];
     let mut action_string_storage: Vec<String> = vec![];
@@ -73,9 +71,6 @@ pub fn export_movie_to_swf<'a>(
         let builder_tag = &swf_builder.tags[i];
         match builder_tag {
             SwfBuilderTag::Tag(_) => (), // normal case, no data stored
-            SwfBuilderTag::ExportAssets(asset) => {
-                string_storage.push(asset.name.clone());
-            }
             SwfBuilderTag::DefineButton2(button) => {
                 for action in &button.actions {
                     data_storage.push(action.action_data.clone());
@@ -89,11 +84,6 @@ pub fn export_movie_to_swf<'a>(
     let mut action_string_index = 0;
     for i in 0..swf_builder.tags.len() {
         let builder_tag = &mut swf_builder.tags[i];
-        if let SwfBuilderTag::ExportAssets(_asset) = builder_tag {
-            swf_string_storage.push(SwfStr::from_utf8_str(
-                &string_storage[swf_string_storage.len()],
-            ));
-        }
         if let SwfBuilderTag::DefineSpriteWithEndAction(_, _) = builder_tag {
             {
                 let mut action_data: Vec<u8> = vec![];
@@ -134,17 +124,9 @@ pub fn export_movie_to_swf<'a>(
     }
 
     let mut data_nr = 0;
-    let mut swf_string_nr = 0;
     for builder_tag in swf_builder.tags {
         let tag: Tag = match builder_tag {
             SwfBuilderTag::Tag(tag) => tag,
-            SwfBuilderTag::ExportAssets(asset) => {
-                swf_string_nr += 1;
-                Tag::ExportAssets(vec![ExportedAsset {
-                    id: asset.character_id,
-                    name: &swf_string_storage[swf_string_nr - 1],
-                }])
-            }
             SwfBuilderTag::DefineButton2(button) => {
                 let mut actions = vec![];
                 for action in button.actions {
@@ -205,7 +187,7 @@ fn build_library<'a>(
     for symbol in symbols {
         match symbol {
             Symbol::MovieClip(movieclip) => {
-                build_movieclip_inner(symbol_index, movieclip, swf_builder)?
+                build_movieclip_inner(symbol_index, movieclip, swf_builder, arenas)?
             }
             _ => {}
         }
@@ -240,18 +222,23 @@ impl<'a> SwfBuilder<'a> {
 
 struct Arenas {
     data: Arena<Vec<u8>>,
+    strings: Arena<String>,
 }
 impl Arenas {
     fn new() -> Arenas {
-        Arenas { data: Arena::new() }
+        Arenas {
+            data: Arena::new(),
+            strings: Arena::new(),
+        }
+    }
+    fn alloc_swf_string(&self, str: String) -> &SwfStr {
+        let str_ref = self.strings.alloc(str);
+        SwfStr::from_utf8_str(str_ref)
     }
 }
 
 enum SwfBuilderTag<'a> {
     Tag(Tag<'a>),
-    // avoid lifetime issues with &str, own it instead
-    // only export one asset per tag to make the code simpler
-    ExportAssets(SwfBuilderExportedAsset),
     // we need this to avoid lifetime issues because action_data is &[u8] instead of Vec<u8>
     DefineButton2(Box<SwfBuilderButton>),
     // adds a DoAction with a call to the method named by the String before the last ShowFrame
@@ -268,10 +255,6 @@ impl<'a> SwfBuilderTag<'a> {
             0x00, // end action
         ])))
     }
-}
-struct SwfBuilderExportedAsset {
-    character_id: CharacterId,
-    name: String,
 }
 struct SwfBuilderButton {
     pub id: CharacterId,

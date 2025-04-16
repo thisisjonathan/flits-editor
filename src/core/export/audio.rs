@@ -1,8 +1,8 @@
 use std::{io::Read, path::PathBuf};
 
-use swf::{AudioCompression, Sound, SoundFormat, Tag};
+use swf::{AudioCompression, ExportedAsset, Sound, SoundFormat, Tag};
 
-use super::{Arenas, SwfBuilder, SwfBuilderExportedAsset, SwfBuilderTag};
+use super::{Arenas, SwfBuilder, SwfBuilderTag};
 
 pub(super) fn build_audio<'a>(
     swf_builder: &mut SwfBuilder<'a>,
@@ -88,10 +88,10 @@ fn build_wav<'a>(
         }))));
     swf_builder
         .tags
-        .push(SwfBuilderTag::ExportAssets(SwfBuilderExportedAsset {
-            character_id,
-            name: file_name,
-        }));
+        .push(SwfBuilderTag::Tag(Tag::ExportAssets(vec![ExportedAsset {
+            id: character_id,
+            name: arenas.alloc_swf_string(file_name),
+        }])));
     Ok(())
 }
 
@@ -148,9 +148,9 @@ fn build_mp3<'a>(
         }))));
     swf_builder
         .tags
-        .push(SwfBuilderTag::ExportAssets(SwfBuilderExportedAsset {
-            character_id,
-            name: file_name,
-        }));
+        .push(SwfBuilderTag::Tag(Tag::ExportAssets(vec![ExportedAsset {
+            id: character_id,
+            name: arenas.alloc_swf_string(file_name),
+        }])));
     Ok(())
 }
