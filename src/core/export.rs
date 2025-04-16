@@ -54,7 +54,12 @@ pub fn export_movie_to_swf<'a>(
             movie.properties.height,
         )?;
     }
-    build_library(&movie.symbols, &mut swf_builder, project_directory.clone())?;
+    build_library(
+        &movie.symbols,
+        &mut swf_builder,
+        &arenas,
+        project_directory.clone(),
+    )?;
     build_placed_symbols_of_root(&movie.root, &mut swf_builder)?;
 
     let mut data_storage = vec![];
@@ -70,9 +75,6 @@ pub fn export_movie_to_swf<'a>(
             SwfBuilderTag::Tag(_) => (), // normal case, no data stored
             SwfBuilderTag::Bitmap(bitmap) => {
                 data_storage.push(bitmap.data.clone());
-            }
-            SwfBuilderTag::Sound(sound) => {
-                data_storage.push(sound.data.clone());
             }
             SwfBuilderTag::ExportAssets(asset) => {
                 string_storage.push(asset.name.clone());
@@ -153,15 +155,6 @@ pub fn export_movie_to_swf<'a>(
                     data: std::borrow::Cow::from(&data_storage[data_nr - 1]),
                 })
             }
-            SwfBuilderTag::Sound(sound) => {
-                data_nr += 1;
-                Tag::DefineSound(Box::new(Sound {
-                    id: sound.id,
-                    format: sound.format,
-                    num_samples: sound.num_samples,
-                    data: &data_storage[data_nr - 1],
-                }))
-            }
             SwfBuilderTag::ExportAssets(asset) => {
                 swf_string_nr += 1;
                 Tag::ExportAssets(vec![ExportedAsset {
@@ -210,7 +203,8 @@ pub fn export_movie_to_swf<'a>(
 
 fn build_library<'a>(
     symbols: &Vec<Symbol>,
-    swf_builder: &mut SwfBuilder,
+    swf_builder: &mut SwfBuilder<'a>,
+    arenas: &'a Arenas,
     directory: PathBuf,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut symbol_index: SymbolIndex = 0;
@@ -238,7 +232,7 @@ fn build_library<'a>(
         }
         symbol_index += 1;
     }
-    build_audio(swf_builder, directory)?;
+    build_audio(swf_builder, &arenas, directory)?;
     Ok(())
 }
 
@@ -279,8 +273,6 @@ enum SwfBuilderTag<'a> {
     // we need this to avoid lifetime issues with DefineBitsLossless because data is &[u8] instead of Vec<u8>
     // TODO: it uses Cow now, we might not need this anymore
     Bitmap(SwfBuilderBitmap),
-    // we need this to avoid lifetime issues with DefineSound because data is &[u8] instead of Vec<u8>
-    Sound(SwfBuilderSound),
     // avoid lifetime issues with &str, own it instead
     // only export one asset per tag to make the code simpler
     ExportAssets(SwfBuilderExportedAsset),

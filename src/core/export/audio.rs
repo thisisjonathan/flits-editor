@@ -1,11 +1,12 @@
 use std::{io::Read, path::PathBuf};
 
-use swf::{AudioCompression, SoundFormat};
+use swf::{AudioCompression, Sound, SoundFormat, Tag};
 
-use super::{SwfBuilder, SwfBuilderExportedAsset, SwfBuilderSound, SwfBuilderTag};
+use super::{Arenas, SwfBuilder, SwfBuilderExportedAsset, SwfBuilderTag};
 
-pub(super) fn build_audio(
-    swf_builder: &mut SwfBuilder,
+pub(super) fn build_audio<'a>(
+    swf_builder: &mut SwfBuilder<'a>,
+    arenas: &'a Arenas,
     directory: PathBuf,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let asset_dir = directory.join("assets");
@@ -19,18 +20,19 @@ pub(super) fn build_audio(
                 format!("Non utf-8 filename: '{:?}'", original_os_string)
             })?;
         if file_name.ends_with(".mp3") {
-            build_mp3(swf_builder, file, file_name.clone())
+            build_mp3(swf_builder, arenas, file, file_name.clone())
                 .map_err(|err| format!("Error decoding '{}': {}", file_name, err))?;
         } else if file_name.ends_with(".wav") {
-            build_wav(swf_builder, file, file_name.clone())
+            build_wav(swf_builder, arenas, file, file_name.clone())
                 .map_err(|err| format!("Error decoding '{}': {}", file_name, err))?;
         }
     }
     Ok(())
 }
 
-fn build_wav(
-    swf_builder: &mut SwfBuilder,
+fn build_wav<'a>(
+    swf_builder: &mut SwfBuilder<'a>,
+    arenas: &'a Arenas,
     file: std::fs::DirEntry,
     file_name: String,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -71,17 +73,19 @@ fn build_wav(
     // use the underlying reader because we just want the data instead of decoding it ourselves
     reader.into_inner().read_to_end(&mut data)?;
     let character_id = swf_builder.next_character_id();
-    swf_builder.tags.push(SwfBuilderTag::Sound(SwfBuilderSound {
-        id: character_id,
-        format: SoundFormat {
-            compression: AudioCompression::Uncompressed,
-            sample_rate: spec.sample_rate as u16,
-            is_stereo: spec.channels == 2,
-            is_16_bit: spec.bits_per_sample == 16,
-        },
-        num_samples: duration,
-        data,
-    }));
+    swf_builder
+        .tags
+        .push(SwfBuilderTag::Tag(Tag::DefineSound(Box::new(Sound {
+            id: character_id,
+            format: SoundFormat {
+                compression: AudioCompression::Uncompressed,
+                sample_rate: spec.sample_rate as u16,
+                is_stereo: spec.channels == 2,
+                is_16_bit: spec.bits_per_sample == 16,
+            },
+            num_samples: duration,
+            data: arenas.data.alloc(data),
+        }))));
     swf_builder
         .tags
         .push(SwfBuilderTag::ExportAssets(SwfBuilderExportedAsset {
@@ -91,8 +95,9 @@ fn build_wav(
     Ok(())
 }
 
-fn build_mp3(
-    swf_builder: &mut SwfBuilder,
+fn build_mp3<'a>(
+    swf_builder: &mut SwfBuilder<'a>,
+    arenas: &'a Arenas,
     file: std::fs::DirEntry,
     file_name: String,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -127,18 +132,20 @@ fn build_mp3(
     // this is inefficient, it should just read the frame data
     let duration = samples.count();
     let character_id = swf_builder.next_character_id();
-    swf_builder.tags.push(SwfBuilderTag::Sound(SwfBuilderSound {
-        id: character_id,
-        format: SoundFormat {
-            compression: AudioCompression::Mp3,
-            sample_rate: header.sample_rate.hz() as u16,
-            is_stereo: header.channels.num_channels() == 2,
-            // according to the spec, this is ignored for compressed formats like mp3 and always decoded to 16 bits
-            is_16_bit: true,
-        },
-        num_samples: duration as u32,
-        data,
-    }));
+    swf_builder
+        .tags
+        .push(SwfBuilderTag::Tag(Tag::DefineSound(Box::new(Sound {
+            id: character_id,
+            format: SoundFormat {
+                compression: AudioCompression::Mp3,
+                sample_rate: header.sample_rate.hz() as u16,
+                is_stereo: header.channels.num_channels() == 2,
+                // according to the spec, this is ignored for compressed formats like mp3 and always decoded to 16 bits
+                is_16_bit: true,
+            },
+            num_samples: duration as u32,
+            data: arenas.data.alloc(data),
+        }))));
     swf_builder
         .tags
         .push(SwfBuilderTag::ExportAssets(SwfBuilderExportedAsset {
