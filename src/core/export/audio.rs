@@ -2,7 +2,7 @@ use std::{io::Read, path::PathBuf};
 
 use swf::{AudioCompression, ExportedAsset, Sound, SoundFormat, Tag};
 
-use super::{Arenas, SwfBuilder, SwfBuilderTag};
+use super::{Arenas, SwfBuilder};
 
 pub(super) fn build_audio<'a>(
     swf_builder: &mut SwfBuilder<'a>,
@@ -73,25 +73,21 @@ fn build_wav<'a>(
     // use the underlying reader because we just want the data instead of decoding it ourselves
     reader.into_inner().read_to_end(&mut data)?;
     let character_id = swf_builder.next_character_id();
-    swf_builder
-        .tags
-        .push(SwfBuilderTag::Tag(Tag::DefineSound(Box::new(Sound {
-            id: character_id,
-            format: SoundFormat {
-                compression: AudioCompression::Uncompressed,
-                sample_rate: spec.sample_rate as u16,
-                is_stereo: spec.channels == 2,
-                is_16_bit: spec.bits_per_sample == 16,
-            },
-            num_samples: duration,
-            data: arenas.data.alloc(data),
-        }))));
-    swf_builder
-        .tags
-        .push(SwfBuilderTag::Tag(Tag::ExportAssets(vec![ExportedAsset {
-            id: character_id,
-            name: arenas.alloc_swf_string(file_name),
-        }])));
+    swf_builder.tags.push(Tag::DefineSound(Box::new(Sound {
+        id: character_id,
+        format: SoundFormat {
+            compression: AudioCompression::Uncompressed,
+            sample_rate: spec.sample_rate as u16,
+            is_stereo: spec.channels == 2,
+            is_16_bit: spec.bits_per_sample == 16,
+        },
+        num_samples: duration,
+        data: arenas.data.alloc(data),
+    })));
+    swf_builder.tags.push(Tag::ExportAssets(vec![ExportedAsset {
+        id: character_id,
+        name: arenas.alloc_swf_string(file_name),
+    }]));
     Ok(())
 }
 
@@ -132,25 +128,21 @@ fn build_mp3<'a>(
     // this is inefficient, it should just read the frame data
     let duration = samples.count();
     let character_id = swf_builder.next_character_id();
-    swf_builder
-        .tags
-        .push(SwfBuilderTag::Tag(Tag::DefineSound(Box::new(Sound {
-            id: character_id,
-            format: SoundFormat {
-                compression: AudioCompression::Mp3,
-                sample_rate: header.sample_rate.hz() as u16,
-                is_stereo: header.channels.num_channels() == 2,
-                // according to the spec, this is ignored for compressed formats like mp3 and always decoded to 16 bits
-                is_16_bit: true,
-            },
-            num_samples: duration as u32,
-            data: arenas.data.alloc(data),
-        }))));
-    swf_builder
-        .tags
-        .push(SwfBuilderTag::Tag(Tag::ExportAssets(vec![ExportedAsset {
-            id: character_id,
-            name: arenas.alloc_swf_string(file_name),
-        }])));
+    swf_builder.tags.push(Tag::DefineSound(Box::new(Sound {
+        id: character_id,
+        format: SoundFormat {
+            compression: AudioCompression::Mp3,
+            sample_rate: header.sample_rate.hz() as u16,
+            is_stereo: header.channels.num_channels() == 2,
+            // according to the spec, this is ignored for compressed formats like mp3 and always decoded to 16 bits
+            is_16_bit: true,
+        },
+        num_samples: duration as u32,
+        data: arenas.data.alloc(data),
+    })));
+    swf_builder.tags.push(Tag::ExportAssets(vec![ExportedAsset {
+        id: character_id,
+        name: arenas.alloc_swf_string(file_name),
+    }]));
     Ok(())
 }

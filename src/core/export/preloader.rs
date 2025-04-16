@@ -8,7 +8,7 @@ use swf::{
 
 use crate::core::{PreloaderType, SWF_VERSION};
 
-use super::{Arenas, SwfBuilder, SwfBuilderTag};
+use super::{Arenas, SwfBuilder};
 
 pub(super) fn build_preloader<'a>(
     preloader_type: PreloaderType,
@@ -182,7 +182,7 @@ pub(super) fn build_preloader<'a>(
             loading_bar_height,
             Color::WHITE,
         ),
-        SwfBuilderTag::Tag(Tag::DefineSprite(Sprite {
+        Tag::DefineSprite(Sprite {
             id: loading_bar_clip_id,
             num_frames: 1,
             tags: vec![Tag::PlaceObject(Box::new(PlaceObject {
@@ -204,8 +204,8 @@ pub(super) fn build_preloader<'a>(
                 is_visible: Some(true),
                 amf_data: None,
             }))],
-        })),
-        SwfBuilderTag::Tag(Tag::PlaceObject(Box::new(PlaceObject {
+        }),
+        Tag::PlaceObject(Box::new(PlaceObject {
             version: 2,
             action: PlaceObjectAction::Place(loading_bar_clip_id),
             depth: loading_bar_clip_id,
@@ -223,9 +223,9 @@ pub(super) fn build_preloader<'a>(
             is_bitmap_cached: None,
             is_visible: Some(true),
             amf_data: None,
-        }))),
-        SwfBuilderTag::Tag(Tag::DoAction(arenas.data.alloc(action_data))),
-        SwfBuilderTag::Tag(Tag::ShowFrame),
+        })),
+        Tag::DoAction(arenas.data.alloc(action_data)),
+        Tag::ShowFrame,
     ]);
     let mut play_button_action_data = vec![];
     let mut play_button_action_writer =
@@ -257,7 +257,7 @@ pub(super) fn build_preloader<'a>(
         swf_builder.tags.extend(vec![
             define_play_button_shape(play_button_shape_id, 32.0, 32.0, Color::WHITE),
             define_play_button_shape(play_button_shape_over_id, 32.0, 32.0, Color::GRAY),
-            SwfBuilderTag::Tag(Tag::DefineButton2(Box::new(Button {
+            Tag::DefineButton2(Box::new(Button {
                 id: play_button_id,
                 is_track_as_menu: false,
                 records: vec![
@@ -284,8 +284,8 @@ pub(super) fn build_preloader<'a>(
                     conditions: ButtonActionCondition::OVER_DOWN_TO_OVER_UP,
                     action_data: arenas.data.alloc(play_button_action_data),
                 }],
-            }))),
-            SwfBuilderTag::Tag(Tag::PlaceObject(Box::new(PlaceObject {
+            })),
+            Tag::PlaceObject(Box::new(PlaceObject {
                 version: 2,
                 action: PlaceObjectAction::Place(play_button_id),
                 depth: 3,
@@ -306,32 +306,30 @@ pub(super) fn build_preloader<'a>(
                 is_bitmap_cached: None,
                 is_visible: Some(true),
                 amf_data: None,
-            }))),
-            SwfBuilderTag::Tag(Tag::ShowFrame),
+            })),
+            Tag::ShowFrame,
         ]);
     }
     swf_builder.tags.extend(vec![
-        SwfBuilderTag::Tag(Tag::RemoveObject(RemoveObject {
+        Tag::RemoveObject(RemoveObject {
             depth: background_id,
             character_id: Some(background_id),
-        })),
-        SwfBuilderTag::Tag(Tag::RemoveObject(RemoveObject {
+        }),
+        Tag::RemoveObject(RemoveObject {
             depth: loading_bar_background_id,
             character_id: Some(loading_bar_background_id),
-        })),
-        SwfBuilderTag::Tag(Tag::RemoveObject(RemoveObject {
+        }),
+        Tag::RemoveObject(RemoveObject {
             depth: loading_bar_clip_id,
             character_id: Some(loading_bar_clip_id),
-        })),
+        }),
     ]);
     if let PreloaderType::WithPlayButton = preloader_type {
         // remove play button
-        swf_builder
-            .tags
-            .push(SwfBuilderTag::Tag(Tag::RemoveObject(RemoveObject {
-                depth: 3,
-                character_id: Some(3),
-            })));
+        swf_builder.tags.push(Tag::RemoveObject(RemoveObject {
+            depth: 3,
+            character_id: Some(3),
+        }));
     }
     Ok(())
 }
@@ -342,10 +340,10 @@ fn create_rectangle<'a>(
     height: f64,
     color: Color,
     matrix: Matrix,
-) -> Vec<SwfBuilderTag<'a>> {
+) -> Vec<Tag<'a>> {
     vec![
         define_rectangle(shape_id, width, height, color),
-        SwfBuilderTag::Tag(Tag::PlaceObject(Box::new(PlaceObject {
+        Tag::PlaceObject(Box::new(PlaceObject {
             version: 2,
             action: PlaceObjectAction::Place(shape_id),
             depth: shape_id,
@@ -363,11 +361,11 @@ fn create_rectangle<'a>(
             is_bitmap_cached: None,
             is_visible: Some(true),
             amf_data: None,
-        }))),
+        })),
     ]
 }
-fn define_rectangle<'a>(shape_id: u16, width: f64, height: f64, color: Color) -> SwfBuilderTag<'a> {
-    SwfBuilderTag::Tag(Tag::DefineShape(Shape {
+fn define_rectangle<'a>(shape_id: u16, width: f64, height: f64, color: Color) -> Tag<'a> {
+    Tag::DefineShape(Shape {
         version: 1,
         id: shape_id,
         shape_bounds: Rectangle {
@@ -423,15 +421,10 @@ fn define_rectangle<'a>(shape_id: u16, width: f64, height: f64, color: Color) ->
                 },
             },
         ],
-    }))
+    })
 }
-fn define_play_button_shape<'a>(
-    shape_id: u16,
-    width: f64,
-    height: f64,
-    color: Color,
-) -> SwfBuilderTag<'a> {
-    SwfBuilderTag::Tag(Tag::DefineShape(Shape {
+fn define_play_button_shape<'a>(shape_id: u16, width: f64, height: f64, color: Color) -> Tag<'a> {
+    Tag::DefineShape(Shape {
         version: 1,
         id: shape_id,
         shape_bounds: Rectangle {
@@ -481,5 +474,5 @@ fn define_play_button_shape<'a>(
                 },
             },
         ],
-    }))
+    })
 }

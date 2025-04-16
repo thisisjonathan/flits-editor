@@ -10,7 +10,7 @@ use swf::{
 
 use crate::core::{Bitmap, SymbolIndex, SWF_VERSION};
 
-use super::{Arenas, SwfBuilder, SwfBuilderTag};
+use super::{Arenas, SwfBuilder};
 
 pub(super) fn build_bitmap<'a>(
     symbol_index: SymbolIndex,
@@ -133,15 +133,15 @@ pub(super) fn build_bitmap<'a>(
                 .insert(symbol_index, swf_builder.tags.len());
         }
         swf_builder.tags.extend(vec![
-            SwfBuilderTag::Tag(Tag::DefineBitsLossless(DefineBitsLossless {
+            Tag::DefineBitsLossless(DefineBitsLossless {
                 version: 2,
                 id: bitmap_id,
                 format: BitmapFormat::Rgb32,
                 width: frame_width as u16,
                 height: frame_height as u16,
                 data: std::borrow::Cow::from(compressed_image_data),
-            })),
-            SwfBuilderTag::Tag(Tag::DefineShape(Shape {
+            }),
+            Tag::DefineShape(Shape {
                 version: 1,
                 id: shape_id,
                 shape_bounds: Rectangle {
@@ -208,7 +208,7 @@ pub(super) fn build_bitmap<'a>(
                         },
                     },
                 ],
-            })),
+            }),
         ]);
     }
 
@@ -291,19 +291,15 @@ pub(super) fn build_bitmap<'a>(
             num_frames: (frame_count * frames_per_animation_frame) as u16,
             tags,
         };
-        swf_builder
-            .tags
-            .push(SwfBuilderTag::Tag(Tag::DefineSprite(sprite)));
+        swf_builder.tags.push(Tag::DefineSprite(sprite));
 
         // export all movieclips, this allows you to create them with attachMovie
         // this is easier than having to remember to check a box for each one
         // TODO: is there a reason not to do this?
-        swf_builder
-            .tags
-            .push(SwfBuilderTag::Tag(Tag::ExportAssets(vec![ExportedAsset {
-                id: movieclip_id,
-                name: arenas.alloc_swf_string(bitmap.properties.name.clone()),
-            }])))
+        swf_builder.tags.push(Tag::ExportAssets(vec![ExportedAsset {
+            id: movieclip_id,
+            name: arenas.alloc_swf_string(bitmap.properties.name.clone()),
+        }]))
     }
 
     Ok(())

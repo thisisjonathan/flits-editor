@@ -59,10 +59,7 @@ pub fn export_movie_to_swf<'a>(
     )?;
     build_placed_symbols_of_root(&movie.root, &mut swf_builder, &arenas)?;
 
-    for builder_tag in swf_builder.tags {
-        let tag: Tag = match builder_tag {
-            SwfBuilderTag::Tag(tag) => tag,
-        };
+    for tag in swf_builder.tags {
         tags.push(tag);
     }
 
@@ -116,7 +113,7 @@ fn build_library<'a>(
 }
 
 struct SwfBuilder<'a> {
-    tags: Vec<SwfBuilderTag<'a>>,
+    tags: Vec<Tag<'a>>,
     character_id_counter: CharacterId,
     symbol_index_to_character_id: HashMap<SymbolIndex, CharacterId>,
     symbol_index_to_tag_index: HashMap<SymbolIndex, usize>,
@@ -155,18 +152,13 @@ impl Arenas {
     }
 }
 
-enum SwfBuilderTag<'a> {
-    Tag(Tag<'a>),
-}
-impl<'a> SwfBuilderTag<'a> {
-    pub fn stop_action(arenas: &'a Arenas) -> SwfBuilderTag<'a> {
-        // hardcode the bytes because creating a whole writer just to write these two bytes is a lot of work
-        // and it's not like these bytes are ever going to change
-        SwfBuilderTag::Tag(Tag::DoAction(arenas.data.alloc(vec![
-            0x07, // stop
-            0x00, // end action
-        ])))
-    }
+fn stop_action<'a>(arenas: &'a Arenas) -> Tag<'a> {
+    // hardcode the bytes because creating a whole writer just to write these two bytes is a lot of work
+    // and it's not like these bytes are ever going to change
+    Tag::DoAction(arenas.data.alloc(vec![
+        0x07, // stop
+        0x00, // end action
+    ]))
 }
 
 fn build_placed_symbols_of_root<'a>(
@@ -176,11 +168,11 @@ fn build_placed_symbols_of_root<'a>(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut tags = vec![];
     for tag in get_placed_symbols_tags(placed_symbols, swf_builder)? {
-        tags.push(SwfBuilderTag::Tag(tag));
+        tags.push(tag);
     }
     swf_builder.tags.extend(tags);
-    swf_builder.tags.push(SwfBuilderTag::stop_action(arenas));
-    swf_builder.tags.push(SwfBuilderTag::Tag(Tag::ShowFrame));
+    swf_builder.tags.push(stop_action(arenas));
+    swf_builder.tags.push(Tag::ShowFrame);
     Ok(())
 }
 fn get_placed_symbols_tags<'a>(
@@ -199,7 +191,7 @@ fn get_placed_symbols_tags<'a>(
         if let Some(tag_index) = tag_index {
             let tag = &swf_builder.tags[*tag_index];
             // TODO: this is a hacky to solve this
-            if let SwfBuilderTag::Tag(Tag::DefineBitsLossless(define_bits)) = tag {
+            if let Tag::DefineBitsLossless(define_bits) = tag {
                 matrix = matrix
                     * Matrix::translate(
                         Twips::from_pixels(define_bits.width as f64 / -2.0),
