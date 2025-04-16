@@ -2,18 +2,20 @@ use std::{io::Write, path::PathBuf};
 
 use image::{io::Reader as ImageReader, EncodableLayout};
 use swf::{
-    FillStyle, Fixed16, Matrix, PlaceObject, PlaceObjectAction, Point, PointDelta, Rectangle,
-    Shape, ShapeFlag, ShapeRecord, ShapeStyles, Sprite, StyleChangeData, Tag, Twips,
+    BitmapFormat, DefineBitsLossless, FillStyle, Fixed16, Matrix, PlaceObject, PlaceObjectAction,
+    Point, PointDelta, Rectangle, Shape, ShapeFlag, ShapeRecord, ShapeStyles, Sprite,
+    StyleChangeData, Tag, Twips,
 };
 
 use crate::core::{Bitmap, SymbolIndex};
 
-use super::{SwfBuilder, SwfBuilderBitmap, SwfBuilderExportedAsset, SwfBuilderTag};
+use super::{Arenas, SwfBuilder, SwfBuilderExportedAsset, SwfBuilderTag};
 
 pub(super) fn build_bitmap<'a>(
     symbol_index: SymbolIndex,
     bitmap: &Bitmap,
-    swf_builder: &mut SwfBuilder,
+    swf_builder: &mut SwfBuilder<'a>,
+    _arenas: &'a Arenas,
     directory: PathBuf,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // TODO: the images are probably already loaded when exporting a movie you are editing, maybe reuse that?
@@ -130,12 +132,14 @@ pub(super) fn build_bitmap<'a>(
                 .insert(symbol_index, swf_builder.tags.len());
         }
         swf_builder.tags.extend(vec![
-            SwfBuilderTag::Bitmap(SwfBuilderBitmap {
-                character_id: bitmap_id,
-                width: frame_width,
-                height: frame_height,
-                data: compressed_image_data,
-            }),
+            SwfBuilderTag::Tag(Tag::DefineBitsLossless(DefineBitsLossless {
+                version: 2,
+                id: bitmap_id,
+                format: BitmapFormat::Rgb32,
+                width: frame_width as u16,
+                height: frame_height as u16,
+                data: std::borrow::Cow::from(compressed_image_data),
+            })),
             SwfBuilderTag::Tag(Tag::DefineShape(Shape {
                 version: 1,
                 id: shape_id,

@@ -73,9 +73,6 @@ pub fn export_movie_to_swf<'a>(
         let builder_tag = &swf_builder.tags[i];
         match builder_tag {
             SwfBuilderTag::Tag(_) => (), // normal case, no data stored
-            SwfBuilderTag::Bitmap(bitmap) => {
-                data_storage.push(bitmap.data.clone());
-            }
             SwfBuilderTag::ExportAssets(asset) => {
                 string_storage.push(asset.name.clone());
             }
@@ -141,17 +138,6 @@ pub fn export_movie_to_swf<'a>(
     for builder_tag in swf_builder.tags {
         let tag: Tag = match builder_tag {
             SwfBuilderTag::Tag(tag) => tag,
-            SwfBuilderTag::Bitmap(bitmap) => {
-                data_nr += 1;
-                Tag::DefineBitsLossless(DefineBitsLossless {
-                    version: 2,
-                    id: bitmap.character_id,
-                    format: BitmapFormat::Rgb32,
-                    width: bitmap.width as u16,
-                    height: bitmap.height as u16,
-                    data: std::borrow::Cow::from(&data_storage[data_nr - 1]),
-                })
-            }
             SwfBuilderTag::ExportAssets(asset) => {
                 swf_string_nr += 1;
                 Tag::ExportAssets(vec![ExportedAsset {
@@ -204,7 +190,7 @@ fn build_library<'a>(
     for symbol in symbols {
         match symbol {
             Symbol::Bitmap(bitmap) => {
-                build_bitmap(symbol_index, bitmap, swf_builder, directory.clone())?
+                build_bitmap(symbol_index, bitmap, swf_builder, arenas, directory.clone())?
             }
             Symbol::MovieClip(movieclip) => {
                 build_movieclip_outer(symbol_index, movieclip, swf_builder)?
@@ -263,9 +249,6 @@ impl Arenas {
 
 enum SwfBuilderTag<'a> {
     Tag(Tag<'a>),
-    // we need this to avoid lifetime issues with DefineBitsLossless because data is &[u8] instead of Vec<u8>
-    // TODO: it uses Cow now, we might not need this anymore
-    Bitmap(SwfBuilderBitmap),
     // avoid lifetime issues with &str, own it instead
     // only export one asset per tag to make the code simpler
     ExportAssets(SwfBuilderExportedAsset),
@@ -285,12 +268,6 @@ impl<'a> SwfBuilderTag<'a> {
             0x00, // end action
         ])))
     }
-}
-struct SwfBuilderBitmap {
-    character_id: CharacterId,
-    width: u32,
-    height: u32,
-    data: Vec<u8>,
 }
 struct SwfBuilderExportedAsset {
     character_id: CharacterId,
@@ -336,12 +313,15 @@ fn get_placed_symbols_tags<'a>(
         // use the coordinates as the center of bitmaps instead of the top left
         if let Some(tag_index) = tag_index {
             let tag = &swf_builder.tags[*tag_index];
-            if let SwfBuilderTag::Bitmap(bitmap_tag) = tag {
-                matrix = matrix
-                    * Matrix::translate(
-                        Twips::from_pixels(bitmap_tag.width as f64 / -2.0),
-                        Twips::from_pixels(bitmap_tag.height as f64 / -2.0),
-                    );
+            if let SwfBuilderTag::Tag(real_tag) = tag {
+                // TODO: this is a hacky to solve this
+                if let Tag::DefineBitsLossless(define_bits) = real_tag {
+                    matrix = matrix
+                        * Matrix::translate(
+                            Twips::from_pixels(define_bits.width as f64 / -2.0),
+                            Twips::from_pixels(define_bits.height as f64 / -2.0),
+                        );
+                }
             }
         }
 
