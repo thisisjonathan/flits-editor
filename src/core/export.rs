@@ -60,7 +60,7 @@ pub fn export_movie_to_swf<'a>(
         &arenas,
         project_directory.clone(),
     )?;
-    build_placed_symbols_of_root(&movie.root, &mut swf_builder)?;
+    build_placed_symbols_of_root(&movie.root, &mut swf_builder, &arenas)?;
 
     let mut data_storage = vec![];
     let mut string_storage: Vec<String> = vec![];
@@ -78,9 +78,6 @@ pub fn export_movie_to_swf<'a>(
             }
             SwfBuilderTag::ExportAssets(asset) => {
                 string_storage.push(asset.name.clone());
-            }
-            SwfBuilderTag::DoAction(action) => {
-                data_storage.push(action.clone());
             }
             SwfBuilderTag::DefineButton2(button) => {
                 for action in &button.actions {
@@ -161,10 +158,6 @@ pub fn export_movie_to_swf<'a>(
                     id: asset.character_id,
                     name: &swf_string_storage[swf_string_nr - 1],
                 }])
-            }
-            SwfBuilderTag::DoAction(_) => {
-                data_nr += 1;
-                Tag::DoAction(&data_storage[data_nr - 1])
             }
             SwfBuilderTag::DefineButton2(button) => {
                 let mut actions = vec![];
@@ -276,8 +269,6 @@ enum SwfBuilderTag<'a> {
     // avoid lifetime issues with &str, own it instead
     // only export one asset per tag to make the code simpler
     ExportAssets(SwfBuilderExportedAsset),
-    // we need this to avoid lifetime issues because data is &[u8] instead of Vec<u8>
-    DoAction(Vec<u8>),
     // we need this to avoid lifetime issues because action_data is &[u8] instead of Vec<u8>
     DefineButton2(Box<SwfBuilderButton>),
     // adds a DoAction with a call to the method named by the String before the last ShowFrame
@@ -286,25 +277,19 @@ enum SwfBuilderTag<'a> {
     DefineSpriteWithEndAction(Sprite<'a>, String),
 }
 impl<'a> SwfBuilderTag<'a> {
-    pub fn stop_action() -> SwfBuilderTag<'a> {
+    pub fn stop_action(arenas: &'a Arenas) -> SwfBuilderTag<'a> {
         // hardcode the bytes because creating a whole writer just to write these two bytes is a lot of work
         // and it's not like these bytes are ever going to change
-        SwfBuilderTag::DoAction(vec![
+        SwfBuilderTag::Tag(Tag::DoAction(arenas.data.alloc(vec![
             0x07, // stop
             0x00, // end action
-        ])
+        ])))
     }
 }
 struct SwfBuilderBitmap {
     character_id: CharacterId,
     width: u32,
     height: u32,
-    data: Vec<u8>,
-}
-struct SwfBuilderSound {
-    id: CharacterId,
-    format: SoundFormat,
-    num_samples: u32,
     data: Vec<u8>,
 }
 struct SwfBuilderExportedAsset {
@@ -322,16 +307,17 @@ struct SwfBuilderButtonAction {
     pub action_data: Vec<u8>,
 }
 
-fn build_placed_symbols_of_root(
+fn build_placed_symbols_of_root<'a>(
     placed_symbols: &Vec<PlaceSymbol>,
-    swf_builder: &mut SwfBuilder,
+    swf_builder: &mut SwfBuilder<'a>,
+    arenas: &'a Arenas,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut tags = vec![];
     for tag in get_placed_symbols_tags(placed_symbols, swf_builder)? {
         tags.push(SwfBuilderTag::Tag(tag));
     }
     swf_builder.tags.extend(tags);
-    swf_builder.tags.push(SwfBuilderTag::stop_action());
+    swf_builder.tags.push(SwfBuilderTag::stop_action(arenas));
     swf_builder.tags.push(SwfBuilderTag::Tag(Tag::ShowFrame));
     Ok(())
 }
