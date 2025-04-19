@@ -30,7 +30,7 @@ pub(super) fn build_movieclip_inner<'a>(
     swf_builder: &mut SwfBuilder<'a>,
     arenas: &'a Arenas,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let inner_tags = get_placed_symbols_tags(&movieclip.place_symbols, swf_builder)?;
+    let inner_tags = get_placed_symbols_tags(&movieclip.place_symbols, swf_builder, arenas)?;
     let tag = &mut swf_builder.tags[swf_builder.symbol_index_to_tag_index[&symbol_index]];
     let Tag::DefineSprite(define_sprite_tag) = tag else {
         return Err(format!(

@@ -362,6 +362,8 @@ pub struct PlaceSymbol {
     pub symbol_index: SymbolIndex,
     #[serde(flatten)]
     pub transform: EditorTransform,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub instance_name: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

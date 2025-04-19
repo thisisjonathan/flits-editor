@@ -25,7 +25,8 @@
             "place_symbols": [{
                 "symbol_index": 1,
                 "x": -32,
-                "y": 0
+                "y": 0,
+                "instance_name": "first_flower_inside_two_flowers"
             },{
                 "symbol_index": 1,
                 "x": 32,
@@ -92,7 +93,8 @@
         {
             "symbol_index": 0,
             "x": 16,
-            "y": 16
+            "y": 16,
+            "instance_name": "first_flower"
         },{
             "symbol_index": 1,
             "x": 64,
@@ -106,7 +108,8 @@
             "symbol_index": 2,
             "x": 256,
             "y": 32,
-            "x_scale": 2
+            "x_scale": 2,
+            "instance_name": "two_flowers"
         },{
             "symbol_index": 3,
             "x": 64,

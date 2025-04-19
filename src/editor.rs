@@ -758,6 +758,7 @@ impl Editor {
                                             x_scale: 1.0,
                                             y_scale: 1.0,
                                         },
+                                        instance_name: "".into(),
                                     },
                                     placed_symbol_index: None,
                                 }));

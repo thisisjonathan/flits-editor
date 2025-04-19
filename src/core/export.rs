@@ -167,7 +167,7 @@ fn build_placed_symbols_of_root<'a>(
     arenas: &'a Arenas,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut tags = vec![];
-    for tag in get_placed_symbols_tags(placed_symbols, swf_builder)? {
+    for tag in get_placed_symbols_tags(placed_symbols, swf_builder, arenas)? {
         tags.push(tag);
     }
     swf_builder.tags.extend(tags);
@@ -177,7 +177,8 @@ fn build_placed_symbols_of_root<'a>(
 }
 fn get_placed_symbols_tags<'a>(
     placed_symbols: &Vec<PlaceSymbol>,
-    swf_builder: &SwfBuilder,
+    swf_builder: &mut SwfBuilder<'a>,
+    arenas: &'a Arenas,
 ) -> Result<Vec<Tag<'a>>, Box<dyn std::error::Error>> {
     let mut i = 0;
     let mut tags = vec![];
@@ -217,7 +218,11 @@ fn get_placed_symbols_tags<'a>(
             matrix: Some(matrix.into()),
             color_transform: None,
             ratio: None,
-            name: None,
+            name: if place_symbol.instance_name != "" {
+                Some(arenas.alloc_swf_string(place_symbol.instance_name.clone()))
+            } else {
+                None
+            },
             clip_depth: None,
             class_name: None,
             filters: None,
