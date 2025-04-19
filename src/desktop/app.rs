@@ -407,6 +407,20 @@ impl App {
                     self.gui.lock().expect("Gui locked").show_about_screen();
                 }
                 
+                winit::event::Event::UserEvent(RuffleEvent::CommandOutput(line)) => {
+                    if let Some(mut player) = self.player.get() {
+                        player.receive_command_output(line);
+                        self.window.request_redraw();
+                    }
+                }
+                
+                winit::event::Event::UserEvent(RuffleEvent::RuffleClosed) => {
+                    if let Some(mut player) = self.player.get() {
+                        player.on_ruffle_closed();
+                        self.window.request_redraw();
+                    }
+                }
+                
                 winit::event::Event::UserEvent(RuffleEvent::RedrawRequested(delay)) => {
                     redraw_delay = Some(delay);
                 }

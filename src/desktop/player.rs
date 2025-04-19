@@ -171,12 +171,12 @@ impl PlayerController {
     }
 
     pub fn poll(&self) {
-        if let Some(player) = &self.player {
-            /*player
+        /*if let Some(player) = &self.player {
+            player
             .executor
             .lock()
             .expect("Executor lock must be available")
-            .poll_all()*/
-        }
+            .poll_all()
+        }*/
     }
 }

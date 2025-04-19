@@ -6,10 +6,12 @@ use self::edit::{
 };
 use self::menu::MENUS;
 use self::new_symbol_window::NewSymbolWindow;
+use self::output_window::OutputWindow;
 use self::properties_panel::{
     MoviePropertiesPanel, MultiSelectionPropertiesPanel, PlacedSymbolPropertiesPanel,
     PropertiesPanel, SymbolProperties, SymbolPropertiesPanel,
 };
+use crate::core::run::run_movie;
 use crate::core::{
     BitmapCacheStatus, CachedBitmap, EditorTransform, Movie, PlaceSymbol, PlacedSymbolIndex,
     Symbol, SymbolIndex, SymbolIndexOrRoot,
@@ -35,6 +37,7 @@ mod camera;
 mod edit;
 mod menu;
 mod new_symbol_window;
+mod output_window;
 mod properties_panel;
 
 pub const MENU_HEIGHT: u32 = 48; // also defined in desktop/gui.rs
@@ -75,6 +78,8 @@ pub struct Editor {
 
     new_symbol_window: Option<NewSymbolWindow>,
     export_error: Option<String>,
+
+    output_window: Option<OutputWindow>,
 }
 
 impl Editor {
@@ -101,6 +106,8 @@ impl Editor {
 
             new_symbol_window: None,
             export_error: None,
+
+            output_window: None,
         }
     }
 
@@ -117,6 +124,9 @@ impl Editor {
 
     #[instrument(level = "debug", skip_all)]
     pub fn render(&mut self) {
+        if self.output_window.is_some() {
+            return;
+        }
         let symbols = &mut self.movie.symbols;
         let renderer = &mut self.renderer;
 
@@ -445,6 +455,9 @@ impl Editor {
     }
 
     pub fn handle_mouse_move(&mut self, mouse_x: f64, mouse_y: f64) {
+        if self.output_window.is_some() {
+            return;
+        }
         let world_space_mouse_position = self.camera.screen_to_world_matrix(self.stage_size())
             * Matrix::translate(Twips::from_pixels(mouse_x), Twips::from_pixels(mouse_y));
         let placed_symbols = self.movie.get_placed_symbols_mut(self.editing_clip);
@@ -470,6 +483,9 @@ impl Editor {
         button: MouseButton,
         state: ElementState,
     ) {
+        if self.output_window.is_some() {
+            return;
+        }
         let world_space_mouse_position = self.camera.screen_to_world_matrix(self.stage_size())
             * Matrix::translate(Twips::from_pixels(mouse_x), Twips::from_pixels(mouse_y));
         if button == MouseButton::Left && state == ElementState::Pressed {
@@ -666,6 +682,10 @@ impl Editor {
         egui_ctx: &egui::Context,
         event_loop: &EventLoopProxy<RuffleEvent>,
     ) -> bool {
+        if let Some(output_window) = &mut self.output_window {
+            output_window.do_ui(egui_ctx);
+            return false;
+        }
         let mut has_mutated = false;
         egui::TopBottomPanel::top("menu_bar").show(egui_ctx, |ui| {
             for menu in MENUS {
@@ -955,10 +975,29 @@ impl Editor {
         self.movie.reload_assets(&self.directory);
     }
 
-    pub fn export_and_run(&mut self) {
+    pub fn export_and_run(&mut self, event_loop: &EventLoopProxy<RuffleEvent>) {
         // only run the movie if the export is successful
         if self.export_swf().is_ok() {
-            let result = Movie::run(&self.directory.join("output.swf"));
+            self.output_window = Some(OutputWindow::new());
+            let result = run_movie(
+                &self.directory.join("output.swf"),
+                event_loop.clone(),
+                |line, event_loop| {
+                    // TODO: debounce events
+                    event_loop
+                        .send_event(RuffleEvent::CommandOutput(line))
+                        .unwrap_or_else(|err| {
+                            eprintln!("Unable to send command output event: {}", err);
+                        });
+                },
+                |event_loop| {
+                    event_loop
+                        .send_event(RuffleEvent::RuffleClosed)
+                        .unwrap_or_else(|err| {
+                            eprintln!("Unable to send command output event: {}", err);
+                        });
+                },
+            );
             self.export_error = match &result {
                 Ok(_) => None,
                 Err(err) => Some(err.to_string()),
@@ -984,5 +1023,14 @@ impl Editor {
 
     pub fn reset_zoom(&mut self) {
         self.camera.reset_zoom();
+    }
+
+    pub fn receive_command_output(&mut self, line: String) {
+        if let Some(output_window) = &mut self.output_window {
+            output_window.add_line(line);
+        }
+    }
+    pub fn on_ruffle_closed(&mut self) {
+        self.output_window = None;
     }
 }

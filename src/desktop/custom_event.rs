@@ -18,8 +18,12 @@ pub enum RuffleEvent {
     /// The user requested to close the current SWF.
     CloseFile,
 
-    /// THe user requested to open the about screen
+    /// The user requested to open the about screen
     About,
+
+    /// output received from running Ruffle process
+    CommandOutput(String),
+    RuffleClosed,
 
     /// The user requested to exit Ruffle.
     ExitRequested,

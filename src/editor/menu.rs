@@ -169,8 +169,8 @@ fn request_exit(_player: &mut Editor, event_loop: &EventLoopProxy<RuffleEvent>) 
     let _ = event_loop.send_event(RuffleEvent::ExitRequested);
 }
 
-fn run_project(player: &mut Editor, _event_loop: &EventLoopProxy<RuffleEvent>) {
-    player.export_and_run();
+fn run_project(player: &mut Editor, event_loop: &EventLoopProxy<RuffleEvent>) {
+    player.export_and_run(event_loop);
 }
 
 fn show_about_screen(_player: &mut Editor, event_loop: &EventLoopProxy<RuffleEvent>) {

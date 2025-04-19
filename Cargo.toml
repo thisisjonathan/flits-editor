@@ -18,6 +18,7 @@ image = "0.24.6"
 hound = "3.5.1"
 puremp3 = "0.1.0"
 typed-arena = "2.0.2"
+duct = "0.13.7"
 
 # editor dependencies
 undo = "0.51.0"
