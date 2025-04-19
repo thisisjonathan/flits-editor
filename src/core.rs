@@ -365,6 +365,18 @@ pub struct PlaceSymbol {
     #[serde(default, skip_serializing_if = "is_default")]
     pub instance_name: String,
 }
+impl PlaceSymbol {
+    pub fn from_transform(
+        exisiting_place_symbol: &PlaceSymbol,
+        transform: EditorTransform,
+    ) -> PlaceSymbol {
+        PlaceSymbol {
+            symbol_index: exisiting_place_symbol.symbol_index,
+            transform,
+            instance_name: exisiting_place_symbol.instance_name.clone(),
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct EditorTransform {

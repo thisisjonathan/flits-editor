@@ -9,7 +9,7 @@ use crate::core::{
 use super::{
     edit::{
         BitmapPropertiesEdit, MovieClipPropertiesEdit, MovieEdit, MoviePropertiesEdit,
-        RemoveSymbolEdit, TransformPlacedSymbolEdit,
+        PlacedSymbolEdit, RemoveSymbolEdit,
     },
     EDIT_EPSILON,
 };
@@ -300,20 +300,28 @@ impl PlacedSymbolPropertiesPanel {
             "placed_symbol_{placed_symbol_index}_properties_grid"
         ))
         .show(ui, |ui| {
-            let mut dvc = DragValueContext {
-                ui,
-                position_edited: false,
-            };
+            let mut dvc = DragValueContext { ui, edited: false };
+            let mut properties_edited = false;
 
             Self::drag_value(&mut dvc, "x", &mut placed_symbol.transform.x);
             Self::drag_value(&mut dvc, "X scale", &mut placed_symbol.transform.x_scale);
+
+            dvc.ui.label("Instance name:");
+            let response = dvc.ui.add(
+                egui::TextEdit::singleline(&mut placed_symbol.instance_name)
+                    .min_size(Vec2::new(200.0, 0.0)),
+            );
+            if response.lost_focus() {
+                properties_edited = true;
+            }
+
             dvc.ui.end_row();
 
             Self::drag_value(&mut dvc, "y", &mut placed_symbol.transform.y);
             Self::drag_value(&mut dvc, "Y scale", &mut placed_symbol.transform.y_scale);
             dvc.ui.end_row();
 
-            if dvc.position_edited {
+            if dvc.edited {
                 let placed_symbol_before_edit = &self.before_edit;
                 // only add edit when the position actually changed
                 if f64::abs(placed_symbol_before_edit.transform.x - placed_symbol.transform.x)
@@ -329,15 +337,21 @@ impl PlacedSymbolPropertiesPanel {
                             - placed_symbol.transform.y_scale,
                     ) > EDIT_EPSILON
                 {
-                    edit = Some(MovieEdit::TransformPlacedSymbol(
-                        TransformPlacedSymbolEdit {
-                            editing_symbol_index: editing_clip,
-                            placed_symbol_index,
-                            start: placed_symbol_before_edit.transform.clone(),
-                            end: placed_symbol.transform.clone(),
-                        },
-                    ));
+                    edit = Some(MovieEdit::EditPlacedSymbol(PlacedSymbolEdit {
+                        editing_symbol_index: editing_clip,
+                        placed_symbol_index,
+                        start: placed_symbol_before_edit.clone(),
+                        end: placed_symbol.clone(),
+                    }));
                 }
+            }
+            if properties_edited {
+                edit = Some(MovieEdit::EditPlacedSymbol(PlacedSymbolEdit {
+                    editing_symbol_index: editing_clip,
+                    placed_symbol_index,
+                    start: self.before_edit.clone(),
+                    end: placed_symbol.clone(),
+                }));
             }
         });
 
@@ -350,13 +364,13 @@ impl PlacedSymbolPropertiesPanel {
             .ui
             .add_sized(Vec2::new(60.0, 20.0), egui::DragValue::new(value));
         if response.lost_focus() || response.drag_stopped() {
-            dvc.position_edited = true;
+            dvc.edited = true;
         }
     }
 }
 struct DragValueContext<'a> {
     ui: &'a mut egui::Ui,
-    position_edited: bool,
+    edited: bool,
 }
 
 pub struct MultiSelectionPropertiesPanel {}

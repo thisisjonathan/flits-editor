@@ -2,8 +2,7 @@ use std::path::PathBuf;
 
 use self::camera::Camera;
 use self::edit::{
-    AddPlacedSymbolEdit, MovieEdit, MoviePropertiesOutput, RemovePlacedSymbolEdit,
-    TransformPlacedSymbolEdit,
+    AddPlacedSymbolEdit, MovieEdit, MoviePropertiesOutput, PlacedSymbolEdit, RemovePlacedSymbolEdit,
 };
 use self::menu::MENUS;
 use self::new_symbol_window::NewSymbolWindow;
@@ -511,14 +510,20 @@ impl Editor {
                 if f64::abs(drag_data.symbol_start_transform.x - end.x) > EDIT_EPSILON
                     || f64::abs(drag_data.symbol_start_transform.y - end.y) > EDIT_EPSILON
                 {
-                    self.do_edit(MovieEdit::TransformPlacedSymbol(
-                        TransformPlacedSymbolEdit {
-                            editing_symbol_index: self.editing_clip,
-                            placed_symbol_index: drag_data.place_symbol_index,
-                            start: drag_data.symbol_start_transform.clone(),
+                    self.do_edit(MovieEdit::EditPlacedSymbol(PlacedSymbolEdit {
+                        editing_symbol_index: self.editing_clip,
+                        placed_symbol_index: drag_data.place_symbol_index,
+                        start: PlaceSymbol::from_transform(
+                            &self.movie.get_placed_symbols(self.editing_clip)
+                                [drag_data.place_symbol_index],
+                            drag_data.symbol_start_transform.clone(),
+                        ),
+                        end: PlaceSymbol::from_transform(
+                            &self.movie.get_placed_symbols(self.editing_clip)
+                                [drag_data.place_symbol_index],
                             end,
-                        },
-                    ));
+                        ),
+                    }));
                 }
                 self.drag_data = None;
             }
