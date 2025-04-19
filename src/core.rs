@@ -219,6 +219,15 @@ pub enum PreloaderType {
     StartAfterLoading,
     WithPlayButton,
 }
+impl ToString for PreloaderType {
+    fn to_string(&self) -> String {
+        match self {
+            PreloaderType::None => "None".into(),
+            PreloaderType::StartAfterLoading => "Start after loading".into(),
+            PreloaderType::WithPlayButton => "With play button".into(),
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize)]
 pub enum Symbol {

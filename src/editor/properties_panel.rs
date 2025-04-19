@@ -2,8 +2,8 @@ use egui::Vec2;
 
 use crate::core::{
     Animation, Bitmap, BitmapCacheStatus, BitmapProperties, EditorColor, Movie, MovieClip,
-    MovieClipProperties, MovieProperties, PlaceSymbol, PlacedSymbolIndex, Symbol, SymbolIndex,
-    SymbolIndexOrRoot,
+    MovieClipProperties, MovieProperties, PlaceSymbol, PlacedSymbolIndex, PreloaderType, Symbol,
+    SymbolIndex, SymbolIndexOrRoot,
 };
 
 use super::{
@@ -41,6 +41,30 @@ impl MoviePropertiesPanel {
             ui.label("Framerate:");
             let response = ui.add(egui::DragValue::new(&mut movie.properties.frame_rate));
             if response.lost_focus() || response.drag_stopped() {
+                properties_edited = true;
+            }
+
+            ui.label("Preloader:");
+            let response = egui::ComboBox::from_id_salt("preloader")
+                .selected_text(format!("{:}", movie.properties.preloader.to_string()))
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(
+                        &mut movie.properties.preloader,
+                        PreloaderType::None,
+                        PreloaderType::to_string(&PreloaderType::None),
+                    );
+                    ui.selectable_value(
+                        &mut movie.properties.preloader,
+                        PreloaderType::StartAfterLoading,
+                        PreloaderType::to_string(&PreloaderType::StartAfterLoading),
+                    );
+                    ui.selectable_value(
+                        &mut movie.properties.preloader,
+                        PreloaderType::WithPlayButton,
+                        PreloaderType::to_string(&PreloaderType::WithPlayButton),
+                    );
+                });
+            if response.response.changed() {
                 properties_edited = true;
             }
             ui.end_row();
