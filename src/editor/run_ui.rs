@@ -1,14 +1,48 @@
 use ansi_parser::{AnsiParser, AnsiSequence};
 use egui::{Color32, FontFamily, RichText};
 
-pub(crate) struct OutputWindow {
+#[derive(PartialEq, Eq)]
+enum RunTab {
+    Editor,
+    Output,
+}
+pub(crate) struct RunUi {
+    tab: RunTab,
     lines: Vec<String>,
 }
-impl OutputWindow {
+impl RunUi {
     pub fn new() -> Self {
-        OutputWindow { lines: vec![] }
+        RunUi {
+            tab: RunTab::Editor,
+            lines: vec![],
+        }
     }
     pub fn do_ui(&mut self, egui_ctx: &egui::Context) {
+        egui::TopBottomPanel::top("run_ui_bar").show(egui_ctx, |ui| {
+            ui.horizontal(|ui| {
+                ui.heading("Running...");
+                if ui
+                    .selectable_label(self.tab == RunTab::Editor, "Editor")
+                    .clicked()
+                {
+                    self.tab = RunTab::Editor;
+                }
+                if ui
+                    .selectable_label(self.tab == RunTab::Output, "Output")
+                    .clicked()
+                {
+                    self.tab = RunTab::Output;
+                }
+            });
+        });
+        if self.tab == RunTab::Output {
+            self.show_ouput_tab(egui_ctx);
+        }
+    }
+    pub fn is_editor_visible(&self) -> bool {
+        self.tab == RunTab::Editor
+    }
+    fn show_ouput_tab(&mut self, egui_ctx: &egui::Context) {
         egui::CentralPanel::default().show(egui_ctx, |ui| {
             let text_style = egui::TextStyle::Body;
             let row_height = ui.text_style_height(&text_style);
@@ -72,5 +106,8 @@ impl OutputWindow {
     pub fn add_line(&mut self, line: String) {
         // TODO: use circular buffer?
         self.lines.push(line);
+    }
+    pub fn needs_redraw_after_new_line(&self) -> bool {
+        self.tab == RunTab::Output
     }
 }

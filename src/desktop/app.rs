@@ -154,12 +154,13 @@ impl App {
                                 .renderer_mut()
                                 .downcast_mut::<WgpuRenderBackend<MovieView>>()
                                 .expect("Renderer must be correct type");*/
-                            let has_mutated = self.gui
+                            let needs_redraw = self.gui
                                 .lock()
                                 .expect("Gui lock")
                                 .render(Some(player));
-                            if has_mutated {
-                                self.window.request_redraw();
+                            match needs_redraw {
+                                crate::editor::NeedsRedraw::Yes => self.window.request_redraw(),
+                                crate::editor::NeedsRedraw::No => (),
                             }
                         } else {
                             self.gui.lock().expect("Gui lock").render(None);
@@ -409,8 +410,10 @@ impl App {
                 
                 winit::event::Event::UserEvent(RuffleEvent::CommandOutput(line)) => {
                     if let Some(mut player) = self.player.get() {
-                        player.receive_command_output(line);
-                        self.window.request_redraw();
+                        match player.receive_command_output(line) {
+                            crate::editor::NeedsRedraw::Yes =>  self.window.request_redraw(),
+                            _  => ()
+                        }
                     }
                 }
                 

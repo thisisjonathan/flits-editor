@@ -8,7 +8,7 @@ use std::path::PathBuf;
 
 use crate::core::Movie;
 use crate::desktop::custom_event::{NewProjectData, RuffleEvent};
-use crate::editor::Editor;
+use crate::editor::{Editor, NeedsRedraw};
 use chrono::DateTime;
 use egui::*;
 use fluent_templates::fluent_bundle::FluentValue;
@@ -90,10 +90,10 @@ impl RuffleGui {
         egui_ctx: &egui::Context,
         _show_menu: bool,
         player: Option<&mut Editor>,
-    ) -> bool {
-        let mut has_mutated = false;
+    ) -> NeedsRedraw {
+        let mut needs_redraw = NeedsRedraw::No;
         if let Some(player) = player {
-            has_mutated = player.do_ui(egui_ctx, &self.event_loop);
+            needs_redraw = player.do_ui(egui_ctx, &self.event_loop);
         } else {
             self.show_welcome_screen(egui_ctx);
         }
@@ -102,7 +102,7 @@ impl RuffleGui {
         self.new_project_window(egui_ctx);
         self.about_window(egui_ctx);
 
-        has_mutated
+        needs_redraw
     }
 
     fn show_welcome_screen(&mut self, egui_ctx: &egui::Context) {

@@ -1,7 +1,7 @@
 use super::movie::{MovieView, MovieViewRenderer};
 use super::RuffleGui;
 use crate::desktop::custom_event::RuffleEvent;
-use crate::editor::Editor;
+use crate::editor::{Editor, NeedsRedraw};
 use anyhow::anyhow;
 use egui::{Context, ViewportId};
 use ruffle_render_wgpu::backend::{request_adapter_and_device, WgpuRenderBackend};
@@ -179,18 +179,18 @@ impl GuiController {
         )
     }
 
-    pub fn render(&mut self, mut player: Option<MutexGuard<Editor>>) -> bool {
+    pub fn render(&mut self, mut player: Option<MutexGuard<Editor>>) -> NeedsRedraw {
         let surface_texture = self
             .surface
             .get_current_texture()
             .expect("Surface became unavailable");
         // TODO: copy recreating surface code
 
-        let mut has_mutated = false;
+        let mut needs_redraw = NeedsRedraw::No;
 
         let raw_input = self.egui_winit.take_egui_input(&self.window);
         let full_output = self.egui_winit.egui_ctx().run(raw_input, |context| {
-            has_mutated = self.gui.update(
+            needs_redraw = self.gui.update(
                 context,
                 self.window.fullscreen().is_none(),
                 player.as_deref_mut(),
@@ -283,7 +283,7 @@ impl GuiController {
         self.descriptors.queue.submit(command_buffers);
         surface_texture.present();
 
-        has_mutated
+        needs_redraw
     }
 
     pub fn show_about_screen(&mut self) {

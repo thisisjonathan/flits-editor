@@ -6,11 +6,11 @@ use self::edit::{
 };
 use self::menu::MENUS;
 use self::new_symbol_window::NewSymbolWindow;
-use self::output_window::OutputWindow;
 use self::properties_panel::{
     MoviePropertiesPanel, MultiSelectionPropertiesPanel, PlacedSymbolPropertiesPanel,
     PropertiesPanel, SymbolProperties, SymbolPropertiesPanel,
 };
+use self::run_ui::RunUi;
 use crate::core::run::run_movie;
 use crate::core::{
     BitmapCacheStatus, CachedBitmap, EditorTransform, Movie, PlaceSymbol, PlacedSymbolIndex,
@@ -37,8 +37,8 @@ mod camera;
 mod edit;
 mod menu;
 mod new_symbol_window;
-mod output_window;
 mod properties_panel;
+mod run_ui;
 
 pub const MENU_HEIGHT: u32 = 48; // also defined in desktop/gui.rs
 const LIBRARY_WIDTH: u32 = 150;
@@ -47,6 +47,11 @@ const EMPTY_CLIP_WIDTH: f64 = 16.0;
 const EMPTY_CLIP_HEIGHT: f64 = 16.0;
 
 type Renderer = Box<dyn RenderBackend>;
+
+pub enum NeedsRedraw {
+    Yes,
+    No,
+}
 
 struct DragData {
     symbol_start_transform: EditorTransform,
@@ -79,7 +84,7 @@ pub struct Editor {
     new_symbol_window: Option<NewSymbolWindow>,
     export_error: Option<String>,
 
-    output_window: Option<OutputWindow>,
+    run_ui: Option<RunUi>,
 }
 
 impl Editor {
@@ -107,7 +112,7 @@ impl Editor {
             new_symbol_window: None,
             export_error: None,
 
-            output_window: None,
+            run_ui: None,
         }
     }
 
@@ -124,7 +129,7 @@ impl Editor {
 
     #[instrument(level = "debug", skip_all)]
     pub fn render(&mut self) {
-        if self.output_window.is_some() {
+        if !self.is_editor_visible() {
             return;
         }
         let symbols = &mut self.movie.symbols;
@@ -455,7 +460,7 @@ impl Editor {
     }
 
     pub fn handle_mouse_move(&mut self, mouse_x: f64, mouse_y: f64) {
-        if self.output_window.is_some() {
+        if !self.is_editor_visible() {
             return;
         }
         let world_space_mouse_position = self.camera.screen_to_world_matrix(self.stage_size())
@@ -483,7 +488,7 @@ impl Editor {
         button: MouseButton,
         state: ElementState,
     ) {
-        if self.output_window.is_some() {
+        if !self.is_editor_visible() {
             return;
         }
         let world_space_mouse_position = self.camera.screen_to_world_matrix(self.stage_size())
@@ -681,12 +686,15 @@ impl Editor {
         &mut self,
         egui_ctx: &egui::Context,
         event_loop: &EventLoopProxy<RuffleEvent>,
-    ) -> bool {
-        if let Some(output_window) = &mut self.output_window {
-            output_window.do_ui(egui_ctx);
-            return false;
+    ) -> NeedsRedraw {
+        if let Some(run_ui) = &mut self.run_ui {
+            run_ui.do_ui(egui_ctx);
         }
-        let mut has_mutated = false;
+        // don't show the editor ui when you have selected a different tab in the run ui
+        if !self.is_editor_visible() {
+            return NeedsRedraw::No;
+        }
+        let mut needs_redraw = NeedsRedraw::No;
         egui::TopBottomPanel::top("menu_bar").show(egui_ctx, |ui| {
             for menu in MENUS {
                 for item in menu.items {
@@ -697,7 +705,7 @@ impl Editor {
                         {
                             (item.action)(self, event_loop);
                             ui.close_menu();
-                            has_mutated = true;
+                            needs_redraw = NeedsRedraw::Yes;
                         }
                     }
                 }
@@ -755,7 +763,7 @@ impl Editor {
                                     }
                                 }
 
-                                has_mutated = true;
+                                needs_redraw = NeedsRedraw::Yes;
                             } else if response.drag_stopped() {
                                 // TODO: handle drag that doesn't end on stage
                                 let mouse_pos = response.interact_pointer_pos().unwrap();
@@ -787,7 +795,7 @@ impl Editor {
                                     },
                                     placed_symbol_index: None,
                                 }));
-                                has_mutated = true;
+                                needs_redraw = NeedsRedraw::Yes;
                             }
                         }
                     });
@@ -797,7 +805,7 @@ impl Editor {
                 if let Some(editing_clip) = self.editing_clip {
                     if ui.selectable_label(false, "Scene").clicked() {
                         self.change_editing_clip(None);
-                        has_mutated = true;
+                        needs_redraw = NeedsRedraw::Yes;
                     }
                     let _ = ui.selectable_label(true, self.movie.symbols[editing_clip].name());
                 } else {
@@ -828,7 +836,7 @@ impl Editor {
             };
             if let Some(edit) = edit {
                 self.do_edit(edit);
-                has_mutated = true; // some edits cause cascading effects (for example changing the path of a bitmap)
+                needs_redraw = NeedsRedraw::Yes; // some edits cause cascading effects (for example changing the path of a bitmap)
             }
         });
 
@@ -851,7 +859,14 @@ impl Editor {
             });
         }
 
-        has_mutated
+        needs_redraw
+    }
+
+    fn is_editor_visible(&self) -> bool {
+        if let Some(run_ui) = &self.run_ui {
+            return run_ui.is_editor_visible();
+        }
+        true
     }
 
     fn create_symbol_propeties_panel(
@@ -978,7 +993,7 @@ impl Editor {
     pub fn export_and_run(&mut self, event_loop: &EventLoopProxy<RuffleEvent>) {
         // only run the movie if the export is successful
         if self.export_swf().is_ok() {
-            self.output_window = Some(OutputWindow::new());
+            self.run_ui = Some(RunUi::new());
             let result = run_movie(
                 &self.directory.join("output.swf"),
                 event_loop.clone(),
@@ -1025,12 +1040,16 @@ impl Editor {
         self.camera.reset_zoom();
     }
 
-    pub fn receive_command_output(&mut self, line: String) {
-        if let Some(output_window) = &mut self.output_window {
-            output_window.add_line(line);
+    pub fn receive_command_output(&mut self, line: String) -> NeedsRedraw {
+        if let Some(run_ui) = &mut self.run_ui {
+            run_ui.add_line(line);
+            if run_ui.needs_redraw_after_new_line() {
+                return NeedsRedraw::Yes;
+            }
         }
+        NeedsRedraw::No
     }
     pub fn on_ruffle_closed(&mut self) {
-        self.output_window = None;
+        self.run_ui = None;
     }
 }
