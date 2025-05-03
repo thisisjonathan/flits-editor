@@ -22,6 +22,7 @@ duct = "0.13.7"
 
 # editor dependencies
 undo = "0.51.0"
+ansi-parser = "0.9.1"
 
 # gui dependencies
 clap = { version = "4.5.18", features = ["derive"] }
