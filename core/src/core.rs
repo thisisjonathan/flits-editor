@@ -3,7 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use image::{io::Reader as ImageReader, DynamicImage, GenericImage};
+use image::{DynamicImage, GenericImage, ImageReader};
 use serde::{Deserialize, Serialize};
 use swf::{Color, Fixed16, Matrix, Twips};
 

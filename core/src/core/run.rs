@@ -1,7 +1,7 @@
 use std::{
     io::{BufRead, BufReader},
     path::PathBuf,
-    thread,
+    thread::{self, JoinHandle},
 };
 
 use duct::cmd;
@@ -11,7 +11,7 @@ pub fn run_movie<T: Send + Clone + 'static>(
     output_arg: T,
     output_callback: fn(line: String, T) -> (),
     end_callback: fn(T) -> (),
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<JoinHandle<()>, Box<dyn std::error::Error>> {
     // No need to add .exe on windows, Command does that automatically
     let ruffle_path = std::env::current_exe()?
         .parent()
@@ -20,7 +20,7 @@ pub fn run_movie<T: Send + Clone + 'static>(
     let ruffle = cmd!(ruffle_path, swf_path);
 
     let reader = BufReader::new(ruffle.stderr_to_stdout().reader()?);
-    thread::spawn(move || {
+    let join_handle = thread::spawn(move || {
         reader
             .lines()
             .filter_map(|line| line.ok())
@@ -29,5 +29,5 @@ pub fn run_movie<T: Send + Clone + 'static>(
             });
         end_callback(output_arg);
     });
-    Ok(())
+    Ok(join_handle)
 }

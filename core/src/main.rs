@@ -10,7 +10,7 @@ fn main() {
     movie.export("example".into(), swf_path.into()).unwrap();
 
     println!("Running...");
-    flits_core::run::run_movie(
+    let join_handle = flits_core::run::run_movie(
         &swf_path.into(),
         (),
         |line, _| {
@@ -19,4 +19,5 @@ fn main() {
         |_| {},
     )
     .unwrap();
+    join_handle.join().unwrap();
 }

@@ -1,6 +1,6 @@
 use std::{io::Write, path::PathBuf};
 
-use image::{io::Reader as ImageReader, EncodableLayout};
+use image::{EncodableLayout, ImageReader};
 use swf::{
     avm1::types::{Action, Push},
     BitmapFormat, DefineBitsLossless, ExportedAsset, FillStyle, Fixed16, Matrix, PlaceObject,
