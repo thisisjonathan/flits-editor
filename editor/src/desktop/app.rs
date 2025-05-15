@@ -1,4 +1,4 @@
-use crate::core::Movie;
+use flits_core::Movie;
 
 use super::cli::Opt;
 use super::custom_event::RuffleEvent;

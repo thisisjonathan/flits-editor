@@ -1,6 +1,6 @@
 use undo::Edit;
 
-use crate::core::{
+use flits_core::{
     BitmapProperties, Movie, MovieClip, MovieClipProperties, MovieProperties, PlaceSymbol,
     PlacedSymbolIndex, Symbol, SymbolIndex, SymbolIndexOrRoot,
 };
@@ -172,7 +172,7 @@ pub struct BitmapPropertiesEdit {
 impl BitmapPropertiesEdit {
     fn edit(&mut self, target: &mut Movie) -> MoviePropertiesOutput {
         let bitmap = match &mut target.symbols[self.editing_symbol_index] {
-            crate::core::Symbol::Bitmap(bitmap) => bitmap,
+            flits_core::Symbol::Bitmap(bitmap) => bitmap,
             _ => panic!("Editing symbol that isn't a bitmap"),
         };
         bitmap.invalidate_cache();
@@ -182,7 +182,7 @@ impl BitmapPropertiesEdit {
     }
     fn undo(&mut self, target: &mut Movie) -> MoviePropertiesOutput {
         let bitmap = match &mut target.symbols[self.editing_symbol_index] {
-            crate::core::Symbol::Bitmap(bitmap) => bitmap,
+            flits_core::Symbol::Bitmap(bitmap) => bitmap,
             _ => panic!("Editing symbol that isn't a bitmap"),
         };
         bitmap.invalidate_cache();
@@ -201,7 +201,7 @@ pub struct MovieClipPropertiesEdit {
 impl MovieClipPropertiesEdit {
     fn edit(&mut self, target: &mut Movie) -> MoviePropertiesOutput {
         let movieclip = match &mut target.symbols[self.editing_symbol_index] {
-            crate::core::Symbol::MovieClip(movieclip) => movieclip,
+            flits_core::Symbol::MovieClip(movieclip) => movieclip,
             _ => panic!("Editing symbol that isn't a movieclip"),
         };
         movieclip.properties = self.after.clone();
@@ -210,7 +210,7 @@ impl MovieClipPropertiesEdit {
     }
     fn undo(&mut self, target: &mut Movie) -> MoviePropertiesOutput {
         let movieclip = match &mut target.symbols[self.editing_symbol_index] {
-            crate::core::Symbol::MovieClip(movieclip) => movieclip,
+            flits_core::Symbol::MovieClip(movieclip) => movieclip,
             _ => panic!("Editing symbol that isn't a movieclip"),
         };
         movieclip.properties = self.before.clone();

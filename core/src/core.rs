@@ -1,9 +1,11 @@
-use std::{path::Path, path::PathBuf};
+use std::{
+    any::Any,
+    path::{Path, PathBuf},
+};
 
 use image::{io::Reader as ImageReader, DynamicImage, GenericImage};
-use ruffle_render::bitmap::BitmapHandle;
 use serde::{Deserialize, Serialize};
-use swf::{Color, Matrix, Twips};
+use swf::{Color, Fixed16, Matrix, Twips};
 
 use self::export::export_movie_to_swf;
 
@@ -333,7 +335,10 @@ pub enum BitmapCacheStatus {
 }
 pub struct CachedBitmap {
     pub image: DynamicImage,
-    pub bitmap_handle: Option<BitmapHandle>,
+    pub bitmap_handle: Option<Box<dyn BitmapHandle>>,
+}
+pub trait BitmapHandle {
+    fn as_any(&self) -> &dyn Any;
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -383,17 +388,28 @@ pub struct EditorTransform {
 
 impl Into<Matrix> for EditorTransform {
     fn into(self) -> Matrix {
-        <EditorTransform as Into<ruffle_render::matrix::Matrix>>::into(self).into()
-    }
-}
-impl Into<ruffle_render::matrix::Matrix> for EditorTransform {
-    fn into(self) -> ruffle_render::matrix::Matrix {
-        ruffle_render::matrix::Matrix::create_box(
-            self.x_scale as f32,
-            self.y_scale as f32,
+        create_box(
+            Fixed16::from_f64(self.x_scale),
+            Fixed16::from_f64(self.y_scale),
             Twips::from_pixels(self.x),
             Twips::from_pixels(self.y),
         )
+    }
+}
+// copied from ruffle_render src/matrix.rs because swf::Matrix doesn't implement it
+fn create_box(
+    scale_x: Fixed16,
+    scale_y: Fixed16,
+    translate_x: Twips,
+    translate_y: Twips,
+) -> Matrix {
+    Matrix {
+        a: scale_x,
+        c: Fixed16::ZERO,
+        tx: translate_x,
+        b: Fixed16::ZERO,
+        d: scale_y,
+        ty: translate_y,
     }
 }
 

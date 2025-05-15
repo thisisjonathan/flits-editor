@@ -2,7 +2,7 @@
 
 use std::{path::PathBuf, time::Duration};
 
-use crate::core::MovieProperties;
+use flits_core::MovieProperties;
 
 /// User-defined events.
 #[derive(Debug)]

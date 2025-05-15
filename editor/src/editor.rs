@@ -1,3 +1,4 @@
+use std::any::Any;
 use std::path::PathBuf;
 
 use self::camera::Camera;
@@ -11,13 +12,14 @@ use self::properties_panel::{
     PropertiesPanel, SymbolProperties, SymbolPropertiesPanel,
 };
 use self::run_ui::RunUi;
-use crate::core::run::run_movie;
-use crate::core::{
+use crate::desktop::custom_event::RuffleEvent;
+use egui::Widget;
+use flits_core::run::run_movie;
+use flits_core::{
     BitmapCacheStatus, CachedBitmap, EditorTransform, Movie, PlaceSymbol, PlacedSymbolIndex,
     Symbol, SymbolIndex, SymbolIndexOrRoot,
 };
-use crate::desktop::custom_event::RuffleEvent;
-use egui::Widget;
+use ruffle_render::bitmap::BitmapHandle;
 use ruffle_render::{
     backend::{RenderBackend, ViewportDimensions},
     bitmap::{Bitmap, BitmapFormat, PixelSnapping},
@@ -47,6 +49,12 @@ const EMPTY_CLIP_WIDTH: f64 = 16.0;
 const EMPTY_CLIP_HEIGHT: f64 = 16.0;
 
 type Renderer = Box<dyn RenderBackend>;
+struct BitmapHandleWrapper(ruffle_render::bitmap::BitmapHandle);
+impl flits_core::BitmapHandle for BitmapHandleWrapper {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
 
 pub enum NeedsRedraw {
     Yes,
@@ -369,7 +377,7 @@ impl Editor {
     }
 
     fn cache_bitmap_handle(renderer: &mut Renderer, cached_bitmap: &mut CachedBitmap) {
-        cached_bitmap.bitmap_handle = Some(
+        cached_bitmap.bitmap_handle = Some(Box::new(BitmapHandleWrapper(
             renderer
                 .register_bitmap(Bitmap::new(
                     cached_bitmap.image.width(),
@@ -382,7 +390,7 @@ impl Editor {
                         .to_vec(),
                 ))
                 .expect("Unable to register bitmap"),
-        );
+        )));
     }
 
     fn render_placed_symbols(
@@ -407,17 +415,31 @@ impl Editor {
                     let Some(bitmap_handle) = &cached_bitmap.bitmap_handle else {
                         break;
                     };
+                    let bitmap_handle: &BitmapHandle =
+                        match bitmap_handle.as_any().downcast_ref::<BitmapHandleWrapper>() {
+                            Some(b) => &b.0,
+                            None => panic!("BitmapHandle is not of the right type"),
+                        };
+                    let place_symbol_matrix =
+                        <swf::Matrix as Into<Matrix>>::into(<EditorTransform as Into<
+                            swf::Matrix,
+                        >>::into(
+                            place_symbol.transform.clone()
+                        ));
                     commands.push(Command::RenderBitmap {
                         bitmap: bitmap_handle.clone(),
                         transform: Transform {
                             // bitmap coordinates are centered in order to make scaling and rotation easier
                             matrix: transform.matrix
-                                * (<EditorTransform as Into<Matrix>>::into(
-                                    place_symbol.transform.clone(),
-                                ) * Matrix::translate(
-                                    Twips::from_pixels(cached_bitmap.image.width() as f64 / -2.0),
-                                    Twips::from_pixels(cached_bitmap.image.height() as f64 / -2.0),
-                                )),
+                                * (place_symbol_matrix
+                                    * Matrix::translate(
+                                        Twips::from_pixels(
+                                            cached_bitmap.image.width() as f64 / -2.0,
+                                        ),
+                                        Twips::from_pixels(
+                                            cached_bitmap.image.height() as f64 / -2.0,
+                                        ),
+                                    )),
                             color_transform: transform.color_transform,
                         },
                         smoothing: false,
@@ -425,14 +447,18 @@ impl Editor {
                     });
                 }
                 Symbol::MovieClip(clip) => {
+                    let place_symbol_matrix =
+                        <swf::Matrix as Into<Matrix>>::into(<EditorTransform as Into<
+                            swf::Matrix,
+                        >>::into(
+                            place_symbol.transform.clone()
+                        ));
                     // draw empty clip as purple square
                     if clip.place_symbols.len() == 0 {
                         commands.push(Command::DrawRect {
                             color: Color::MAGENTA,
                             matrix: transform.matrix
-                                * <EditorTransform as Into<Matrix>>::into(
-                                    place_symbol.transform.clone(),
-                                )
+                                * place_symbol_matrix
                                 * Matrix::create_box(
                                     EMPTY_CLIP_WIDTH as f32,
                                     EMPTY_CLIP_HEIGHT as f32,
@@ -441,15 +467,13 @@ impl Editor {
                                 ),
                         })
                     }
+
                     commands.extend(Editor::render_placed_symbols(
                         renderer,
                         movie,
                         Some(place_symbol.symbol_index as usize),
                         Transform {
-                            matrix: transform.matrix
-                                * <EditorTransform as Into<Matrix>>::into(
-                                    place_symbol.transform.clone(),
-                                ),
+                            matrix: transform.matrix * place_symbol_matrix,
                             color_transform: transform.color_transform,
                         },
                     ));

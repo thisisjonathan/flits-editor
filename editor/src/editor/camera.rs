@@ -1,7 +1,7 @@
 use ruffle_render::matrix::Matrix;
 use swf::Twips;
 
-use crate::core::MovieProperties;
+use flits_core::MovieProperties;
 
 use super::StageSize;
 

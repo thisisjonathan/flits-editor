@@ -6,7 +6,6 @@
 // See https://docs.microsoft.com/en-us/cpp/build/reference/subsystem?view=msvc-160 for details.
 #![windows_subsystem = "windows"]
 
-mod core;
 mod desktop;
 mod editor;
 

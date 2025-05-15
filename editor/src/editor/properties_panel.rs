@@ -1,6 +1,6 @@
 use egui::Vec2;
 
-use crate::core::{
+use flits_core::{
     Animation, Bitmap, BitmapCacheStatus, BitmapProperties, EditorColor, Movie, MovieClip,
     MovieClipProperties, MovieProperties, PlaceSymbol, PlacedSymbolIndex, PreloaderType, Symbol,
     SymbolIndex, SymbolIndexOrRoot,

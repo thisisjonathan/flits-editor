@@ -1000,6 +1000,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "flits-core"
+version = "0.1.0"
+dependencies = [
+ "duct",
+ "flate2",
+ "hound",
+ "image 0.24.9",
+ "puremp3",
+ "serde",
+ "serde_json",
+ "swf",
+ "typed-arena",
+]
+
+[[package]]
 name = "flits-editor"
 version = "0.1.0"
 dependencies = [
@@ -1009,30 +1024,23 @@ dependencies = [
  "chrono",
  "clap",
  "dirs",
- "duct",
  "egui",
  "egui-wgpu",
  "egui-winit",
  "embed-resource",
- "flate2",
+ "flits-core",
  "fluent-templates",
  "futures",
  "generational-arena",
- "hound",
- "image 0.24.9",
  "os_info",
- "puremp3",
  "rfd",
  "ruffle_render",
  "ruffle_render_wgpu",
- "serde",
- "serde_json",
  "swf",
  "sys-locale",
  "tracing",
  "tracing-subscriber",
  "tracing-tracy",
- "typed-arena",
  "undo",
  "unic-langid",
  "url",

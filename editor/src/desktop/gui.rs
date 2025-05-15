@@ -6,11 +6,11 @@ pub use movie::MovieView;
 use std::borrow::Cow;
 use std::path::PathBuf;
 
-use crate::core::Movie;
 use crate::desktop::custom_event::{NewProjectData, RuffleEvent};
 use crate::editor::{Editor, NeedsRedraw};
 use chrono::DateTime;
 use egui::*;
+use flits_core::Movie;
 use fluent_templates::fluent_bundle::FluentValue;
 use fluent_templates::loader::langid;
 use fluent_templates::{static_loader, Loader};

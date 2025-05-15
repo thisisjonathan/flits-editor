@@ -4,4 +4,7 @@ class Mp3Button extends MovieClip {
         sound.attachSound("test_audio.mp3");
         sound.start();
     }
+    function onEnterFrame() {
+        trace(Math.random());
+    }
 }
