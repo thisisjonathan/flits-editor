@@ -2,7 +2,8 @@
 members = [
   "core",
   # in the middle of a refactor, editor doesn't work for now
-  #"editor"
+  #"editor",
+  "windowing",
 ]
 #default-members = ["editor"]
 resolver = "2"

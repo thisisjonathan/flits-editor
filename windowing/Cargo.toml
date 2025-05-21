@@ -1,0 +1,19 @@
+[package]
+name = "windowing"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+winit = "0.30.10"
+anyhow = "1.0"
+wgpu = "24.0.3"
+egui = "0.31.1"
+egui-winit = "0.31.1"
+egui-wgpu = { version = "0.31.1", features = ["winit"] }
+ruffle_render = { git = "https://github.com/ruffle-rs/ruffle", features = ["clap"] }
+ruffle_render_wgpu = { git = "https://github.com/ruffle-rs/ruffle", features = ["clap"] }
+futures = "0.3.31"
+tracing = "0.1.41"
+bytemuck = "1.23.0"
