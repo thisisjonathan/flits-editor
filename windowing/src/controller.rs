@@ -1,8 +1,7 @@
 use crate::movie::{MovieView, MovieViewRenderer};
 use crate::{Config, Player, PlayerController, RuffleGui};
 use anyhow::anyhow;
-use egui::{Context, FontData, FontDefinitions, ViewportId};
-use ruffle_render::backend::RenderBackend;
+use egui::{Context, ViewportId};
 use ruffle_render_wgpu::backend::{request_adapter_and_device, WgpuRenderBackend};
 use ruffle_render_wgpu::descriptors::Descriptors;
 use ruffle_render_wgpu::utils::{format_list, get_backend_names};
@@ -14,7 +13,7 @@ use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event::WindowEvent;
 use winit::event_loop::EventLoopProxy;
 use winit::keyboard::{Key, NamedKey};
-use winit::window::{ImePurpose as WinitImePurpose, Theme, Window};
+use winit::window::{Theme, Window};
 
 /// Integration layer connecting wgpu+winit to egui.
 pub struct GuiController<G: RuffleGui> {
@@ -142,6 +141,14 @@ impl<G: RuffleGui> GuiController<G> {
         })
     }
 
+    pub fn gui(&self) -> &G {
+        &self.gui
+    }
+
+    pub fn gui_mut(&mut self) -> &mut G {
+        &mut self.gui
+    }
+
     pub fn set_theme(&self, theme: Theme) {
         //self.theme_controller.set_theme(theme);
     }
@@ -149,10 +156,6 @@ impl<G: RuffleGui> GuiController<G> {
     pub fn descriptors(&self) -> &Arc<Descriptors> {
         &self.descriptors
     }
-
-    /*pub fn file_picker(&self) -> FilePicker {
-        self.gui.dialogs.file_picker()
-    }*/
 
     pub fn window(&self) -> &Arc<Window> {
         &self.window
@@ -415,14 +418,6 @@ impl<G: RuffleGui> GuiController<G> {
         surface_texture.present();
     }
 
-    /*pub fn show_context_menu(
-        &mut self,
-        menu: Vec<ruffle_core::ContextMenuItem>,
-        close_event: PlayerEvent,
-    ) {
-        self.gui.show_context_menu(menu, close_event);
-    }*/
-
     pub fn is_context_menu_visible(&self) -> bool {
         self.gui.is_context_menu_visible()
     }
@@ -431,31 +426,9 @@ impl<G: RuffleGui> GuiController<G> {
         Instant::now().duration_since(self.last_update) >= self.repaint_after
     }
 
-    /*pub fn show_open_dialog(&mut self) {
-        self.gui.dialogs.open_file_advanced()
-    }
-
-    pub fn open_dialog(&mut self, dialog_event: DialogDescriptor) {
-        self.gui.dialogs.open_dialog(dialog_event);
-    }*/
-
     pub fn set_ime_allowed(&self, allowed: bool) {
         self.window.set_ime_allowed(allowed);
     }
-
-    /*pub fn set_ime_purpose(&self, purpose: ImePurpose) {
-        self.window.set_ime_purpose(match purpose {
-            ImePurpose::Standard => WinitImePurpose::Normal,
-            ImePurpose::Password => WinitImePurpose::Password,
-        });
-    }
-
-    pub fn set_ime_cursor_area(&self, cursor_area: ImeCursorArea) {
-        self.window.set_ime_cursor_area(
-            self.movie_to_window_position(cursor_area.x, cursor_area.y),
-            PhysicalSize::new(cursor_area.width, cursor_area.height),
-        );
-    }*/
 }
 
 fn create_wgpu_instance(
