@@ -35,13 +35,7 @@ pub struct GuiController<G: RuffleGui> {
 }
 
 impl<G: RuffleGui> GuiController<G> {
-    pub fn new<T>(
-        window: Arc<Window>,
-        event_loop: EventLoopProxy<T>,
-        config: Config,
-        gui: G,
-        no_gui: bool,
-    ) -> anyhow::Result<Self> {
+    pub fn new(window: Arc<Window>, config: Config, gui: G, no_gui: bool) -> anyhow::Result<Self> {
         let (instance, backend) = create_wgpu_instance(config.preferred_backends)?;
         let surface = unsafe {
             instance.create_surface_unsafe(wgpu::SurfaceTargetUnsafe::from_window(window.as_ref())?)
@@ -112,13 +106,6 @@ impl<G: RuffleGui> GuiController<G> {
         let egui_renderer =
             egui_wgpu::Renderer::new(&descriptors.device, surface_format, None, 1, true);
         let descriptors = Arc::new(descriptors);
-        /*let gui = RuffleGui::new(
-            Arc::downgrade(&window),
-            event_loop,
-            initial_movie_url.clone(),
-            LaunchOptions::from(&preferences),
-            preferences.clone(),
-        );*/
         //let system_fonts = load_system_fonts(font_database, preferences.language().to_owned());
         //egui_winit.egui_ctx().set_fonts(system_fonts);
 

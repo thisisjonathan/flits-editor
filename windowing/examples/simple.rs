@@ -12,7 +12,7 @@ use windowing::{Config, GuiController, MovieView, Player, PlayerController, Ruff
 use winit::{
     application::ApplicationHandler,
     event::{StartCause, WindowEvent},
-    event_loop::{ActiveEventLoop, ControlFlow, EventLoop, EventLoopProxy},
+    event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
     window::WindowAttributes,
 };
 
@@ -337,7 +337,6 @@ impl MainWindow {
 }
 struct App {
     main_window: Option<MainWindow>,
-    event_loop_proxy: EventLoopProxy<MyCustomEvent>,
 }
 
 impl ApplicationHandler<MyCustomEvent> for App {
@@ -352,7 +351,6 @@ impl ApplicationHandler<MyCustomEvent> for App {
             let window = Arc::new(window);
             let gui = GuiController::new(
                 window,
-                self.event_loop_proxy.clone(),
                 Config {
                     preferred_backends: Backends::all(),
                     power_preference: PowerPreference::None,
@@ -407,10 +405,7 @@ impl ApplicationHandler<MyCustomEvent> for App {
 
 fn main() -> Result<(), Error> {
     let event_loop: EventLoop<()> = EventLoop::with_user_event().build()?;
-    let mut app = App {
-        main_window: None,
-        event_loop_proxy: event_loop.create_proxy(),
-    };
+    let mut app = App { main_window: None };
     event_loop.run_app(&mut app)?;
     Ok(())
 }
