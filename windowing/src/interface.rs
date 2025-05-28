@@ -26,10 +26,11 @@ pub trait RuffleGui {
     fn cursor_icon(&self) -> Option<CursorIcon>;
 }
 pub trait Player {
+    fn render(&mut self);
     fn renderer_mut(&mut self) -> &mut dyn RenderBackend;
 }
 pub trait PlayerController {
-    type Player;
+    type Player: Player;
     type Arguments;
 
     fn create(&mut self, arguments: &Self::Arguments, movie_view: MovieView);
