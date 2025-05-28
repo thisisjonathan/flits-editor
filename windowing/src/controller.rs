@@ -1,4 +1,5 @@
 use crate::movie::{MovieView, MovieViewRenderer};
+use crate::{Config, Player, PlayerController, RuffleGui};
 use anyhow::anyhow;
 use egui::{Context, FontData, FontDefinitions, ViewportId};
 use ruffle_render::backend::RenderBackend;
@@ -17,46 +18,6 @@ use winit::window::{ImePurpose as WinitImePurpose, Theme, Window};
 
 // TODO: one central place for this
 pub const MENU_HEIGHT: u32 = 48;
-
-pub trait RuffleGui {
-    type Player: Player;
-    type Arguments;
-
-    fn on_player_created(
-        &self,
-        arguments: &Self::Arguments,
-        player: MutexGuard<Self::Player>,
-    ) -> () {
-    }
-    fn update(
-        &self,
-        context: &Context,
-        show_menu: bool,
-        player: Option<&mut Self::Player>,
-        menu_height_offset: f64,
-    ) -> ();
-    fn on_player_destroyed(&self) {}
-    fn is_context_menu_visible(&self) -> bool;
-}
-pub trait Player {
-    fn renderer_mut(&mut self) -> &mut dyn RenderBackend;
-}
-pub trait PlayerController {
-    type Player;
-    type Arguments;
-
-    fn create(&mut self, arguments: &Self::Arguments, movie_view: MovieView);
-    fn destroy(&mut self);
-
-    fn get(&self) -> Option<MutexGuard<Self::Player>>;
-}
-
-pub struct LaunchOptions {}
-pub struct Config<'a> {
-    pub preferred_backends: wgpu::Backends,
-    pub power_preference: wgpu::PowerPreference,
-    pub trace_path: Option<&'a std::path::Path>,
-}
 
 /// Integration layer connecting wgpu+winit to egui.
 pub struct GuiController<G: RuffleGui> {

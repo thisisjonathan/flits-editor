@@ -21,6 +21,13 @@ impl RuffleGui for MyGui {
     type Player = MyPlayer;
     type Arguments = ();
 
+    fn on_player_created(
+        &self,
+        _arguments: &Self::Arguments,
+        _player: MutexGuard<Self::Player>,
+    ) -> () {
+    }
+
     fn update(
         &self,
         egui_ctx: &egui::Context,
@@ -37,6 +44,8 @@ impl RuffleGui for MyGui {
     fn is_context_menu_visible(&self) -> bool {
         false
     }
+
+    fn on_player_destroyed(&self) {}
 }
 struct MyPlayer {
     renderer: Box<dyn RenderBackend>,
