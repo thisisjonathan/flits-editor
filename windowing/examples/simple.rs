@@ -1,8 +1,14 @@
-use std::{sync::Arc, time::Instant};
+use std::{
+    sync::{Arc, Mutex, MutexGuard},
+    time::Instant,
+};
 
+use anyhow::anyhow;
 use anyhow::Error;
+use ruffle_render::backend::RenderBackend;
+use ruffle_render_wgpu::{backend::WgpuRenderBackend, descriptors::Descriptors};
 use wgpu::{Backends, PowerPreference};
-use windowing::{Config, GuiController};
+use windowing::{Config, GuiController, MovieView, Player, PlayerController, RuffleGui};
 use winit::{
     application::ApplicationHandler,
     event::{StartCause, WindowEvent},
@@ -10,26 +16,97 @@ use winit::{
     window::WindowAttributes,
 };
 
+struct MyGui {}
+impl RuffleGui for MyGui {
+    type Player = MyPlayer;
+    type Arguments = ();
+
+    fn update(
+        &self,
+        egui_ctx: &egui::Context,
+        _show_menu: bool,
+        _player: Option<&mut Self::Player>,
+        _menu_height_offset: f64,
+    ) -> () {
+        egui::Window::new("Test Window").show(egui_ctx, |ui| {
+            ui.label("Hello, world!");
+            // TODO: inputs to check if tab works
+        });
+    }
+
+    fn is_context_menu_visible(&self) -> bool {
+        false
+    }
+}
+struct MyPlayer {
+    renderer: Box<dyn RenderBackend>,
+}
+impl Player for MyPlayer {
+    fn renderer_mut(&mut self) -> &mut dyn RenderBackend {
+        &mut *self.renderer
+    }
+}
+impl MyPlayer {
+    fn render(&mut self) {
+        self.renderer.submit_frame(
+            swf::Color::GREEN,
+            ruffle_render::commands::CommandList::new(),
+            vec![],
+        );
+    }
+}
+struct MyPlayerController {
+    descriptors: Arc<Descriptors>,
+    player: Option<Mutex<MyPlayer>>,
+}
+impl PlayerController for MyPlayerController {
+    type Player = MyPlayer;
+    type Arguments = ();
+
+    fn create(&mut self, _arguments: &Self::Arguments, movie_view: MovieView) {
+        let renderer = WgpuRenderBackend::new(self.descriptors.clone(), movie_view)
+            .map_err(|e| anyhow!(e.to_string()))
+            .expect("Couldn't create wgpu rendering backend");
+        self.player = Some(Mutex::new(MyPlayer {
+            renderer: Box::new(renderer),
+        }));
+    }
+
+    fn destroy(&mut self) {}
+
+    fn get(&self) -> Option<MutexGuard<MyPlayer>> {
+        match &self.player {
+            None => None,
+            Some(player) => Some(player.try_lock().expect("Player lock must be available")),
+        }
+    }
+}
+
 type MyCustomEvent = ();
 
 struct MainWindow {
     minimized: bool,
     time: Instant,
     next_frame_time: Option<Instant>,
-    gui: GuiController,
+    gui: GuiController<MyGui>,
+    player: MyPlayerController,
 }
 impl MainWindow {
+    pub fn create_movie(&mut self) {
+        let nothing = ();
+        self.gui.create_movie(&mut self.player, &nothing);
+    }
     pub fn window_event(&mut self, event_loop: &ActiveEventLoop, event: WindowEvent) {
         if matches!(event, WindowEvent::RedrawRequested) {
             // Don't render when minimized to avoid potential swap chain errors in `wgpu`.
             if !self.minimized {
-                /*if let Some(mut player) = self.player.get() {
+                if let Some(mut player) = self.player.get() {
                     // Even if the movie is paused, user interaction with debug tools can change the render output
                     player.render();
                     self.gui.render(Some(player));
-                } else {*/
-                self.gui.render(None);
-                //}
+                } else {
+                    self.gui.render(None);
+                }
                 //plot_stats_in_tracy(&self.gui.descriptors().wgpu_instance);
             }
 
@@ -260,22 +337,29 @@ impl ApplicationHandler<MyCustomEvent> for App {
                 .create_window(window_attributes)
                 .expect("Window should be created");
             let window = Arc::new(window);
+            let gui = GuiController::new(
+                window,
+                self.event_loop_proxy.clone(),
+                Config {
+                    preferred_backends: Backends::all(),
+                    power_preference: PowerPreference::None,
+                    trace_path: None,
+                },
+                MyGui {},
+                false,
+            )
+            .unwrap();
             self.main_window = Some(MainWindow {
                 time: Instant::now(),
                 next_frame_time: None,
                 minimized: false,
-                gui: GuiController::new(
-                    window,
-                    self.event_loop_proxy.clone(),
-                    Config {
-                        preferred_backends: Backends::all(),
-                        power_preference: PowerPreference::None,
-                        trace_path: None,
-                    },
-                    false,
-                )
-                .unwrap(),
+                player: MyPlayerController {
+                    player: None,
+                    descriptors: gui.descriptors().clone(),
+                },
+                gui,
             });
+            self.main_window.as_mut().unwrap().create_movie();
         }
     }
     fn resumed(&mut self, _event_loop: &winit::event_loop::ActiveEventLoop) {}

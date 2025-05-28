@@ -3674,6 +3674,7 @@ dependencies = [
  "futures",
  "ruffle_render",
  "ruffle_render_wgpu",
+ "swf",
  "tracing",
  "wgpu",
  "winit",

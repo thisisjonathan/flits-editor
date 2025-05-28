@@ -1,6 +1,7 @@
 use crate::movie::{MovieView, MovieViewRenderer};
 use anyhow::anyhow;
 use egui::{Context, FontData, FontDefinitions, ViewportId};
+use ruffle_render::backend::RenderBackend;
 use ruffle_render_wgpu::backend::{request_adapter_and_device, WgpuRenderBackend};
 use ruffle_render_wgpu::descriptors::Descriptors;
 use ruffle_render_wgpu::utils::{format_list, get_backend_names};
@@ -17,49 +18,40 @@ use winit::window::{ImePurpose as WinitImePurpose, Theme, Window};
 // TODO: one central place for this
 pub const MENU_HEIGHT: u32 = 48;
 
-#[derive(Copy, Clone)]
-struct RuffleGui {}
-impl RuffleGui {
-    fn on_player_destroyed(self) {}
+pub trait RuffleGui {
+    type Player: Player;
+    type Arguments;
 
-    fn on_player_created(&self, opt: LaunchOptions, movie_url: Url, player: Player) -> () {
-        todo!()
+    fn on_player_created(
+        &self,
+        arguments: &Self::Arguments,
+        player: MutexGuard<Self::Player>,
+    ) -> () {
     }
-
     fn update(
         &self,
         context: &Context,
         show_menu: bool,
-        as_deref_mut: Option<&mut Player>,
-        scale_factor: f64,
-    ) -> () {
-        println!("GUI update");
-        egui::Window::new("Test Window").show(context, |ui| {
-            ui.label("Hello, world!");
-        });
-    }
+        player: Option<&mut Self::Player>,
+        menu_height_offset: f64,
+    ) -> ();
+    fn on_player_destroyed(&self) {}
+    fn is_context_menu_visible(&self) -> bool;
+}
+pub trait Player {
+    fn renderer_mut(&mut self) -> &mut dyn RenderBackend;
+}
+pub trait PlayerController {
+    type Player;
+    type Arguments;
 
-    fn is_context_menu_visible(&self) -> bool {
-        todo!()
-    }
-}
-pub struct Player {}
-impl Player {
-    fn renderer_mut(&self) -> &dyn Any {
-        todo!()
-    }
-}
-struct PlayerController {}
-impl PlayerController {
-    fn create(&mut self, opt: &LaunchOptions, movie_url: &Url, movie_view: MovieView) {}
-    fn destroy(&mut self) {}
+    fn create(&mut self, arguments: &Self::Arguments, movie_view: MovieView);
+    fn destroy(&mut self);
 
-    fn get(&self) -> Option<Player> {
-        todo!()
-    }
+    fn get(&self) -> Option<MutexGuard<Self::Player>>;
 }
-struct LaunchOptions {}
-struct Url {}
+
+pub struct LaunchOptions {}
 pub struct Config<'a> {
     pub preferred_backends: wgpu::Backends,
     pub power_preference: wgpu::PowerPreference,
@@ -67,11 +59,11 @@ pub struct Config<'a> {
 }
 
 /// Integration layer connecting wgpu+winit to egui.
-pub struct GuiController {
+pub struct GuiController<G: RuffleGui> {
     descriptors: Arc<Descriptors>,
     egui_winit: egui_winit::State,
     egui_renderer: egui_wgpu::Renderer,
-    gui: RuffleGui,
+    gui: G,
     window: Arc<Window>,
     last_update: Instant,
     repaint_after: Duration,
@@ -85,11 +77,12 @@ pub struct GuiController {
     no_gui: bool,
 }
 
-impl GuiController {
+impl<G: RuffleGui> GuiController<G> {
     pub fn new<T>(
         window: Arc<Window>,
         event_loop: EventLoopProxy<T>,
         config: Config,
+        gui: G,
         no_gui: bool,
     ) -> anyhow::Result<Self> {
         let (instance, backend) = create_wgpu_instance(config.preferred_backends)?;
@@ -170,8 +163,6 @@ impl GuiController {
         //egui_winit.egui_ctx().set_fonts(system_fonts);
 
         //egui_extras::install_image_loaders(egui_winit.egui_ctx());
-
-        let gui = RuffleGui {};
 
         Ok(Self {
             descriptors,
@@ -266,17 +257,15 @@ impl GuiController {
         response.consumed
     }
 
-    pub fn close_movie(&mut self, player: &mut PlayerController) {
+    pub fn close_movie<T: PlayerController>(&mut self, player: &mut T) {
         player.destroy();
         self.gui.on_player_destroyed();
     }
 
-    pub fn create_movie(
-        &mut self,
-        player: &mut PlayerController,
-        opt: LaunchOptions,
-        movie_url: Url,
-    ) {
+    pub fn create_movie<T: PlayerController>(&mut self, player: &mut T, arguments: &G::Arguments)
+    where
+        T: PlayerController<Arguments = G::Arguments, Player = G::Player>,
+    {
         self.close_movie(player);
         let movie_view = MovieView::new(
             self.movie_view_renderer.clone(),
@@ -284,10 +273,9 @@ impl GuiController {
             self.size.width,
             self.size.height,
         );
-        player.create(&opt, &movie_url, movie_view);
+        player.create(arguments, movie_view);
         self.gui.on_player_created(
-            opt,
-            movie_url,
+            arguments,
             player
                 .get()
                 .expect("Player must exist after being created."),
@@ -313,7 +301,7 @@ impl GuiController {
         PhysicalPosition::new(x, y)
     }
 
-    pub fn render(&mut self, mut player: Option<MutexGuard<Player>>) {
+    pub fn render(&mut self, mut player: Option<MutexGuard<G::Player>>) {
         let surface_texture = match self.surface.get_current_texture() {
             Ok(surface_texture) => surface_texture,
             Err(e @ (SurfaceError::Lost | SurfaceError::Outdated)) => {
