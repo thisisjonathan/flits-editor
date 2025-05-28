@@ -50,6 +50,10 @@ impl RuffleGui for MyGui {
     fn height_offset_unscaled(&self) -> u32 {
         48
     }
+
+    fn cursor_icon(&self) -> Option<egui::CursorIcon> {
+        None
+    }
 }
 struct MyPlayer {
     renderer: Box<dyn RenderBackend>,
@@ -357,6 +361,7 @@ impl ApplicationHandler<MyCustomEvent> for App {
                     trace_path: None,
                 },
                 MyGui {},
+                |_window, _egui_ctx| {},
                 false,
             )
             .unwrap();

@@ -11,9 +11,8 @@ use std::time::{Duration, Instant};
 use wgpu::SurfaceError;
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event::WindowEvent;
-use winit::event_loop::EventLoopProxy;
 use winit::keyboard::{Key, NamedKey};
-use winit::window::{Theme, Window};
+use winit::window::Window;
 
 /// Integration layer connecting wgpu+winit to egui.
 pub struct GuiController<G: RuffleGui> {
@@ -35,7 +34,13 @@ pub struct GuiController<G: RuffleGui> {
 }
 
 impl<G: RuffleGui> GuiController<G> {
-    pub fn new(window: Arc<Window>, config: Config, gui: G, no_gui: bool) -> anyhow::Result<Self> {
+    pub fn new(
+        window: Arc<Window>,
+        config: Config,
+        gui: G,
+        post_window_init: fn(window: Arc<Window>, egui_ctx: &egui::Context) -> (),
+        no_gui: bool,
+    ) -> anyhow::Result<Self> {
         let (instance, backend) = create_wgpu_instance(config.preferred_backends)?;
         let surface = unsafe {
             instance.create_surface_unsafe(wgpu::SurfaceTargetUnsafe::from_window(window.as_ref())?)
@@ -78,11 +83,6 @@ impl<G: RuffleGui> GuiController<G> {
         let descriptors = Descriptors::new(instance, adapter, device, queue);
         let egui_ctx = Context::default();
 
-        /*let theme_controller = futures::executor::block_on(ThemeController::new(
-            window.clone(),
-            preferences.clone(),
-            egui_ctx.clone(),
-        ));*/
         let mut egui_winit = egui_winit::State::new(
             egui_ctx,
             ViewportId::ROOT,
@@ -106,10 +106,8 @@ impl<G: RuffleGui> GuiController<G> {
         let egui_renderer =
             egui_wgpu::Renderer::new(&descriptors.device, surface_format, None, 1, true);
         let descriptors = Arc::new(descriptors);
-        //let system_fonts = load_system_fonts(font_database, preferences.language().to_owned());
-        //egui_winit.egui_ctx().set_fonts(system_fonts);
 
-        //egui_extras::install_image_loaders(egui_winit.egui_ctx());
+        post_window_init(window.clone(), egui_winit.egui_ctx());
 
         Ok(Self {
             descriptors,
@@ -134,10 +132,6 @@ impl<G: RuffleGui> GuiController<G> {
 
     pub fn gui_mut(&mut self) -> &mut G {
         &mut self.gui
-    }
-
-    pub fn set_theme(&self, theme: Theme) {
-        //self.theme_controller.set_theme(theme);
     }
 
     pub fn descriptors(&self) -> &Arc<Descriptors> {
@@ -179,10 +173,6 @@ impl<G: RuffleGui> GuiController<G> {
     pub fn handle_event(&mut self, event: &WindowEvent) -> bool {
         if let WindowEvent::Resized(size) = &event {
             self.resize(*size);
-        }
-
-        if let WindowEvent::ThemeChanged(theme) = &event {
-            self.set_theme(*theme);
         }
 
         if matches!(
@@ -314,14 +304,11 @@ impl<G: RuffleGui> GuiController<G> {
             .repaint_delay;
 
         // If we're not in a UI, tell egui which cursor we prefer to use instead
-        /*if !self.egui_winit.egui_ctx().wants_pointer_input() {
-            if let Some(player) = player.as_deref() {
-                full_output.platform_output.cursor_icon =
-                    <dyn Any>::downcast_ref::<DesktopUiBackend>(player.ui())
-                        .unwrap_or_else(|| panic!("UI Backend should be DesktopUiBackend"))
-                        .cursor();
+        if !self.egui_winit.egui_ctx().wants_pointer_input() {
+            if let Some(icon) = self.gui.cursor_icon() {
+                full_output.platform_output.cursor_icon = icon;
             }
-        }*/
+        }
         self.egui_winit
             .handle_platform_output(&self.window, full_output.platform_output);
 

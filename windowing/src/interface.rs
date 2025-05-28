@@ -1,3 +1,4 @@
+use egui::CursorIcon;
 use ruffle_render::backend::RenderBackend;
 use std::sync::MutexGuard;
 
@@ -22,6 +23,7 @@ pub trait RuffleGui {
     fn on_player_destroyed(&self);
     fn is_context_menu_visible(&self) -> bool;
     fn height_offset_unscaled(&self) -> u32;
+    fn cursor_icon(&self) -> Option<CursorIcon>;
 }
 pub trait Player {
     fn renderer_mut(&mut self) -> &mut dyn RenderBackend;
