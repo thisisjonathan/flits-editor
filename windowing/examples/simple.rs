@@ -359,6 +359,10 @@ impl ApplicationHandler<MyCustomEvent> for App {
                     preferred_backends: Backends::all(),
                     power_preference: PowerPreference::None,
                     trace_path: None,
+                    // without this, dragged things lag behind the cursor
+                    present_mode: wgpu::PresentMode::AutoNoVsync,
+                    // changing this from the default 2 doesn't seem to have an effect but change it anyway ot be sure
+                    desired_maximum_frame_latency: 1,
                 },
                 MyGui {},
                 |_window, _egui_ctx| {},

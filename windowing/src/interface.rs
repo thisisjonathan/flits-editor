@@ -42,4 +42,6 @@ pub struct Config<'a> {
     pub preferred_backends: wgpu::Backends,
     pub power_preference: wgpu::PowerPreference,
     pub trace_path: Option<&'a std::path::Path>,
+    pub present_mode: wgpu::PresentMode,
+    pub desired_maximum_frame_latency: u32,
 }

@@ -25,6 +25,8 @@ pub struct GuiController<G: RuffleGui> {
     repaint_after: Duration,
     surface: wgpu::Surface<'static>,
     surface_format: wgpu::TextureFormat,
+    present_mode: wgpu::PresentMode,
+    desired_maximum_frame_latency: u32,
     movie_view_renderer: Arc<MovieViewRenderer>,
     // Note that `window.get_inner_size` can change at any point on x11, even between two lines of code.
     // Use this instead.
@@ -74,8 +76,8 @@ impl<G: RuffleGui> GuiController<G> {
                 format: surface_format,
                 width: size.width,
                 height: size.height,
-                present_mode: Default::default(),
-                desired_maximum_frame_latency: 2,
+                present_mode: config.present_mode,
+                desired_maximum_frame_latency: config.desired_maximum_frame_latency,
                 alpha_mode: Default::default(),
                 view_formats: Default::default(),
             },
@@ -119,10 +121,11 @@ impl<G: RuffleGui> GuiController<G> {
             repaint_after: Duration::ZERO,
             surface,
             surface_format,
+            present_mode: config.present_mode,
+            desired_maximum_frame_latency: config.desired_maximum_frame_latency,
             movie_view_renderer,
             size,
             no_gui,
-            //theme_controller,
         })
     }
 
@@ -157,8 +160,8 @@ impl<G: RuffleGui> GuiController<G> {
                 format: self.surface_format,
                 width: self.size.width,
                 height: self.size.height,
-                present_mode: Default::default(),
-                desired_maximum_frame_latency: 2,
+                present_mode: self.present_mode,
+                desired_maximum_frame_latency: self.desired_maximum_frame_latency,
                 alpha_mode: Default::default(),
                 view_formats: Default::default(),
             },
