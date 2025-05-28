@@ -4,9 +4,6 @@ use std::borrow::Cow;
 use std::sync::Arc;
 use wgpu::util::DeviceExt;
 
-// TODO: one central place for this
-pub const MENU_HEIGHT: u32 = 48;
-
 #[derive(Debug)]
 pub struct MovieViewRenderer {
     bind_group_layout: wgpu::BindGroupLayout,
@@ -15,13 +12,8 @@ pub struct MovieViewRenderer {
     vertices: wgpu::Buffer,
 }
 
-fn get_vertices(has_menu: bool, height: u32, scale_factor: f64) -> [[f32; 4]; 6] {
-    let top = if has_menu {
-        let menu_height = MENU_HEIGHT as f64 * scale_factor;
-        1.0 - ((menu_height / height as f64) * 2.0) as f32
-    } else {
-        1.0
-    };
+fn get_vertices(height_offset_fraction: f64) -> [[f32; 4]; 6] {
+    let top = 1.0 - height_offset_fraction as f32;
     // x y u v
     [
         [-1.0, top, 0.0, 0.0],  // tl
@@ -37,9 +29,7 @@ impl MovieViewRenderer {
     pub fn new(
         device: &wgpu::Device,
         surface_format: wgpu::TextureFormat,
-        has_menu: bool,
-        height: u32,
-        scale_factor: f64,
+        height_offset_fraction: f64,
     ) -> Self {
         let module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,
@@ -126,7 +116,7 @@ impl MovieViewRenderer {
         });
         let vertices = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: None,
-            contents: bytemuck::cast_slice(&get_vertices(has_menu, height, scale_factor)),
+            contents: bytemuck::cast_slice(&get_vertices(height_offset_fraction)),
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         });
 
@@ -138,17 +128,11 @@ impl MovieViewRenderer {
         }
     }
 
-    pub fn update_resolution(
-        &self,
-        descriptors: &Descriptors,
-        has_menu: bool,
-        height: u32,
-        scale_factor: f64,
-    ) {
+    pub fn update_resolution(&self, descriptors: &Descriptors, height_offset_fraction: f64) {
         descriptors.queue.write_buffer(
             &self.vertices,
             0,
-            bytemuck::cast_slice(&get_vertices(has_menu, height, scale_factor)),
+            bytemuck::cast_slice(&get_vertices(height_offset_fraction)),
         );
     }
 }

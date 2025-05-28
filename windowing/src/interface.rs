@@ -21,6 +21,7 @@ pub trait RuffleGui {
     ) -> ();
     fn on_player_destroyed(&self);
     fn is_context_menu_visible(&self) -> bool;
+    fn height_offset_unscaled(&self) -> u32;
 }
 pub trait Player {
     fn renderer_mut(&mut self) -> &mut dyn RenderBackend;
@@ -35,7 +36,6 @@ pub trait PlayerController {
     fn get(&self) -> Option<MutexGuard<Self::Player>>;
 }
 
-pub struct LaunchOptions {}
 pub struct Config<'a> {
     pub preferred_backends: wgpu::Backends,
     pub power_preference: wgpu::PowerPreference,

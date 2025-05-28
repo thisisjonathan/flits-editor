@@ -46,6 +46,10 @@ impl RuffleGui for MyGui {
     }
 
     fn on_player_destroyed(&self) {}
+
+    fn height_offset_unscaled(&self) -> u32 {
+        48
+    }
 }
 struct MyPlayer {
     renderer: Box<dyn RenderBackend>,

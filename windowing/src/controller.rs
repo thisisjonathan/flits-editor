@@ -16,9 +16,6 @@ use winit::event_loop::EventLoopProxy;
 use winit::keyboard::{Key, NamedKey};
 use winit::window::{ImePurpose as WinitImePurpose, Theme, Window};
 
-// TODO: one central place for this
-pub const MENU_HEIGHT: u32 = 48;
-
 /// Integration layer connecting wgpu+winit to egui.
 pub struct GuiController<G: RuffleGui> {
     descriptors: Arc<Descriptors>,
@@ -106,9 +103,12 @@ impl<G: RuffleGui> GuiController<G> {
         let movie_view_renderer = Arc::new(MovieViewRenderer::new(
             &descriptors.device,
             surface_format,
-            window.fullscreen().is_none() && !no_gui,
-            size.height,
-            window.scale_factor(),
+            Self::height_offset_scaled_without_self(
+                window.fullscreen().is_some(),
+                window.scale_factor(),
+                gui.height_offset_unscaled(),
+                no_gui,
+            ) / size.height as f64,
         ));
         let egui_renderer =
             egui_wgpu::Renderer::new(&descriptors.device, surface_format, None, 1, true);
@@ -181,9 +181,7 @@ impl<G: RuffleGui> GuiController<G> {
         );
         self.movie_view_renderer.update_resolution(
             &self.descriptors,
-            self.window.fullscreen().is_none() && !self.no_gui,
-            self.size.height,
-            self.window.scale_factor(),
+            self.height_offset_scaled() / self.size.height as f64,
         );
     }
 
@@ -243,22 +241,36 @@ impl<G: RuffleGui> GuiController<G> {
         );
     }
 
-    pub fn height_offset(&self) -> f64 {
-        if self.window.fullscreen().is_some() || self.no_gui {
+    pub fn height_offset_scaled(&self) -> f64 {
+        Self::height_offset_scaled_without_self(
+            self.window.fullscreen().is_some(),
+            self.window.scale_factor(),
+            self.gui.height_offset_unscaled(),
+            self.no_gui,
+        )
+    }
+
+    fn height_offset_scaled_without_self(
+        is_fullscreen: bool,
+        scale_factor: f64,
+        height_offset_unscaled: u32,
+        no_gui: bool,
+    ) -> f64 {
+        if is_fullscreen || no_gui {
             0.0
         } else {
-            MENU_HEIGHT as f64 * self.window.scale_factor()
+            height_offset_unscaled as f64 * scale_factor
         }
     }
 
     pub fn window_to_movie_position(&self, position: PhysicalPosition<f64>) -> (f64, f64) {
         let x = position.x;
-        let y = position.y - self.height_offset();
+        let y = position.y - self.height_offset_scaled();
         (x, y)
     }
 
     pub fn movie_to_window_position(&self, x: f64, y: f64) -> PhysicalPosition<f64> {
-        let y = y + self.height_offset();
+        let y = y + self.height_offset_scaled();
         PhysicalPosition::new(x, y)
     }
 
@@ -302,11 +314,7 @@ impl<G: RuffleGui> GuiController<G> {
                 context,
                 show_menu,
                 player.as_deref_mut(),
-                if show_menu {
-                    MENU_HEIGHT as f64 * self.window.scale_factor()
-                } else {
-                    0.0
-                },
+                self.height_offset_scaled(),
             );
         });
         self.repaint_after = full_output
