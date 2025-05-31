@@ -96,6 +96,12 @@ impl Player for MyPlayer {
     ) {
         self.renderer.set_viewport_dimensions(viewport_dimensions);
     }
+
+    fn tick(&mut self, _dt: f64) {}
+
+    fn time_til_next_frame(&self) -> Option<std::time::Duration> {
+        None
+    }
 }
 struct MyPlayerController {
     descriptors: Arc<Descriptors>,

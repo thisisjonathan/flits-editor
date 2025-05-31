@@ -92,12 +92,15 @@ where
         let dt = new_time.duration_since(self.time).as_nanos();
         if dt > 0 {
             self.time = new_time;
-            /*if let Some(mut player) = self.player.get() {
+            if let Some(mut player) = self.player.get() {
                 player.tick(dt as f64 / 1_000_000.0);
-                self.next_frame_time = Some(new_time + player.time_til_next_frame());
-            } else {*/
-            self.next_frame_time = None;
-            //}
+                self.next_frame_time = match player.time_til_next_frame() {
+                    Some(time_til_next_frame) => Some(new_time + time_til_next_frame),
+                    None => None,
+                }
+            } else {
+                self.next_frame_time = None;
+            }
             self.check_redraw();
         }
 

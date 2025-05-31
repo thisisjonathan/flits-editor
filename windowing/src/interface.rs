@@ -29,6 +29,9 @@ pub trait Player {
     fn render(&mut self);
     fn renderer_mut(&mut self) -> &mut dyn RenderBackend;
     fn set_viewport_dimensions(&mut self, viewport_dimensions: ViewportDimensions);
+
+    fn tick(&mut self, dt: f64);
+    fn time_til_next_frame(&self) -> Option<std::time::Duration>;
 }
 pub trait PlayerController {
     type Player: Player;
