@@ -34,7 +34,7 @@ where
     pub fn create_movie(&mut self, arguments: &G::Arguments) {
         self.gui.create_movie(&mut self.player, arguments);
     }
-    pub fn window_event(&mut self, event_loop: &ActiveEventLoop, event: WindowEvent) {
+    pub fn window_event(&mut self, event_loop: &ActiveEventLoop, event: WindowEvent) -> bool {
         if matches!(event, WindowEvent::RedrawRequested) {
             // Don't render when minimized to avoid potential swap chain errors in `wgpu`.
             if !self.minimized {
@@ -50,12 +50,12 @@ where
 
             // Important that we return here, or we'll get a feedback loop with egui
             // (winit says redraw, egui hears redraw and says redraw, we hear redraw and tell winit to redraw...)
-            return;
+            return true;
         }
 
         if self.gui.handle_event(&event) {
             // Event consumed by GUI.
-            return;
+            return true;
         }
         match event {
             WindowEvent::CloseRequested => {
@@ -82,6 +82,8 @@ where
             }
             _ => (),
         }
+
+        false
     }
 
     pub fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
