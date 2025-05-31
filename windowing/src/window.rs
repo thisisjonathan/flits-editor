@@ -45,7 +45,9 @@ where
                 } else {
                     self.gui.render(None);
                 }
-                //plot_stats_in_tracy(&self.gui.descriptors().wgpu_instance);
+                self.gui
+                    .gui()
+                    .after_render(&self.gui.descriptors().wgpu_instance);
             }
 
             // Important that we return here, or we'll get a feedback loop with egui

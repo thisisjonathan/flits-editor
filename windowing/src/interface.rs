@@ -26,6 +26,7 @@ pub trait RuffleGui {
     fn cursor_icon(&self) -> Option<CursorIcon>;
 
     fn after_window_init(&self, window: Arc<Window>, egui_ctx: &egui::Context);
+    fn after_render(&self, instance: &wgpu::Instance);
 }
 pub trait Player {
     fn render(&mut self);

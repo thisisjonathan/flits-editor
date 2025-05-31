@@ -53,6 +53,7 @@ impl RuffleGui for MyGui {
     }
 
     fn after_window_init(&self, _window: Arc<winit::window::Window>, _egui_ctx: &egui::Context) {}
+    fn after_render(&self, _instance: &wgpu::Instance) {}
 }
 struct MyPlayer {
     renderer: Box<dyn RenderBackend>,
