@@ -1,6 +1,7 @@
 use egui::CursorIcon;
 use ruffle_render::backend::{RenderBackend, ViewportDimensions};
-use std::sync::MutexGuard;
+use std::sync::{Arc, MutexGuard};
+use winit::window::Window;
 
 use crate::MovieView;
 
@@ -23,6 +24,8 @@ pub trait RuffleGui {
     fn on_player_destroyed(&self);
     fn height_offset_unscaled(&self) -> u32;
     fn cursor_icon(&self) -> Option<CursorIcon>;
+
+    fn after_window_init(&self, window: Arc<Window>, egui_ctx: &egui::Context);
 }
 pub trait Player {
     fn render(&mut self);

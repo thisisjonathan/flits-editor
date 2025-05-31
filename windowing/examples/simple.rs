@@ -51,6 +51,8 @@ impl RuffleGui for MyGui {
     fn cursor_icon(&self) -> Option<egui::CursorIcon> {
         None
     }
+
+    fn after_window_init(&self, _window: Arc<winit::window::Window>, _egui_ctx: &egui::Context) {}
 }
 struct MyPlayer {
     renderer: Box<dyn RenderBackend>,
@@ -154,7 +156,6 @@ impl ApplicationHandler<MyCustomEvent> for App {
                     desired_maximum_frame_latency: 1,
                 },
                 MyGui {},
-                |_window, _egui_ctx| {},
                 false,
             )
             .unwrap();

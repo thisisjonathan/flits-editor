@@ -36,13 +36,7 @@ pub struct GuiController<G: RuffleGui> {
 }
 
 impl<G: RuffleGui> GuiController<G> {
-    pub fn new(
-        window: Arc<Window>,
-        config: Config,
-        gui: G,
-        post_window_init: fn(window: Arc<Window>, egui_ctx: &egui::Context) -> (),
-        no_gui: bool,
-    ) -> anyhow::Result<Self> {
+    pub fn new(window: Arc<Window>, config: Config, gui: G, no_gui: bool) -> anyhow::Result<Self> {
         let (instance, backend) = create_wgpu_instance(config.preferred_backends)?;
         let surface = unsafe {
             instance.create_surface_unsafe(wgpu::SurfaceTargetUnsafe::from_window(window.as_ref())?)
@@ -109,7 +103,7 @@ impl<G: RuffleGui> GuiController<G> {
             egui_wgpu::Renderer::new(&descriptors.device, surface_format, None, 1, true);
         let descriptors = Arc::new(descriptors);
 
-        post_window_init(window.clone(), egui_winit.egui_ctx());
+        gui.after_window_init(window.clone(), egui_winit.egui_ctx());
 
         Ok(Self {
             descriptors,
