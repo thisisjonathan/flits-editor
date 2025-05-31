@@ -1,5 +1,5 @@
 use egui::CursorIcon;
-use ruffle_render::backend::RenderBackend;
+use ruffle_render::backend::{RenderBackend, ViewportDimensions};
 use std::sync::MutexGuard;
 
 use crate::MovieView;
@@ -28,6 +28,7 @@ pub trait RuffleGui {
 pub trait Player {
     fn render(&mut self);
     fn renderer_mut(&mut self) -> &mut dyn RenderBackend;
+    fn set_viewport_dimensions(&mut self, viewport_dimensions: ViewportDimensions);
 }
 pub trait PlayerController {
     type Player: Player;

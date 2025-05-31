@@ -3,7 +3,9 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use anyhow::anyhow;
 use anyhow::Error;
 use ruffle_render::backend::RenderBackend;
+use ruffle_render::commands::CommandHandler;
 use ruffle_render_wgpu::{backend::WgpuRenderBackend, descriptors::Descriptors};
+use swf::Twips;
 use wgpu::{Backends, PowerPreference};
 use windowing::{
     Config, GuiController, MovieView, Player, PlayerController, RuffleGui, RuffleWindow,
@@ -62,11 +64,37 @@ impl Player for MyPlayer {
         &mut *self.renderer
     }
     fn render(&mut self) {
-        self.renderer.submit_frame(
-            swf::Color::GREEN,
-            ruffle_render::commands::CommandList::new(),
-            vec![],
+        let dimensions = self.renderer.viewport_dimensions();
+        let mut commands = ruffle_render::commands::CommandList::new();
+        // draw 1px lines in the right and bottom to check if viewport resizing works
+        let size = 1.0;
+        commands.draw_rect(
+            swf::Color::RED,
+            ruffle_render::matrix::Matrix::create_box(
+                size,
+                dimensions.height as f32,
+                Twips::from_pixels(dimensions.width as f64 - size as f64),
+                Twips::from_pixels(0.0),
+            ),
         );
+        commands.draw_rect(
+            swf::Color::RED,
+            ruffle_render::matrix::Matrix::create_box(
+                dimensions.width as f32,
+                size,
+                Twips::from_pixels(0.0),
+                Twips::from_pixels(dimensions.height as f64 - size as f64),
+            ),
+        );
+        self.renderer
+            .submit_frame(swf::Color::GREEN, commands, vec![]);
+    }
+
+    fn set_viewport_dimensions(
+        &mut self,
+        viewport_dimensions: ruffle_render::backend::ViewportDimensions,
+    ) {
+        self.renderer.set_viewport_dimensions(viewport_dimensions);
     }
 }
 struct MyPlayerController {

@@ -1,4 +1,5 @@
 use crate::{GuiController, Player, PlayerController, RuffleGui};
+use ruffle_render::backend::ViewportDimensions;
 use std::time::Instant;
 use winit::{
     event::WindowEvent,
@@ -64,14 +65,16 @@ where
                 // TODO: Change this when winit adds a `Window::minimized` or `WindowEvent::Minimize`.
                 self.minimized = size.width == 0 && size.height == 0;
 
-                /*if let Some(mut player) = self.player.get() {
+                if let Some(mut player) = self.player.get() {
                     let viewport_scale_factor = self.gui.window().scale_factor();
                     player.set_viewport_dimensions(ViewportDimensions {
                         width: size.width,
-                        height: size.height.saturating_sub(self.gui.height_offset() as u32),
+                        height: size
+                            .height
+                            .saturating_sub(self.gui.height_offset_scaled() as u32),
                         scale_factor: viewport_scale_factor,
                     });
-                }*/
+                }
                 self.gui.window().request_redraw();
                 /*if matches!(self.loaded, LoadingState::WaitingForResize) {
                     self.loaded = LoadingState::Loaded;
