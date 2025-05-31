@@ -42,10 +42,6 @@ impl RuffleGui for MyGui {
         });
     }
 
-    fn is_context_menu_visible(&self) -> bool {
-        false
-    }
-
     fn on_player_destroyed(&self) {}
 
     fn height_offset_unscaled(&self) -> u32 {

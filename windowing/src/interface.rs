@@ -21,7 +21,6 @@ pub trait RuffleGui {
         menu_height_offset: f64,
     ) -> ();
     fn on_player_destroyed(&self);
-    fn is_context_menu_visible(&self) -> bool;
     fn height_offset_unscaled(&self) -> u32;
     fn cursor_icon(&self) -> Option<CursorIcon>;
 }

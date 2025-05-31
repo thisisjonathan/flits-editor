@@ -395,10 +395,6 @@ impl<G: RuffleGui> GuiController<G> {
         surface_texture.present();
     }
 
-    pub fn is_context_menu_visible(&self) -> bool {
-        self.gui.is_context_menu_visible()
-    }
-
     pub fn needs_render(&self) -> bool {
         Instant::now().duration_since(self.last_update) >= self.repaint_after
     }
