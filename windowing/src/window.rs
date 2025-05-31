@@ -78,9 +78,6 @@ where
                     });
                 }
                 self.gui.window().request_redraw();
-                /*if matches!(self.loaded, LoadingState::WaitingForResize) {
-                    self.loaded = LoadingState::Loaded;
-                }*/
             }
             _ => (),
         }
