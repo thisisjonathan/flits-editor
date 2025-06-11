@@ -120,4 +120,8 @@ where
             self.gui.window().request_redraw();
         }
     }
+
+    pub fn player_mut(&mut self) -> &mut P {
+        &mut self.player
+    }
 }

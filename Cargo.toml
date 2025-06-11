@@ -1,11 +1,10 @@
 [workspace]
 members = [
   "core",
-  # in the middle of a refactor, editor doesn't work for now
-  #"editor",
+  "desktop",
   "windowing",
 ]
-#default-members = ["editor"]
+default-members = ["desktop"]
 resolver = "2"
 
 [workspace.package]
@@ -19,6 +18,13 @@ publish = false
 
 [workspace.dependencies]
 swf = { git = "https://github.com/ruffle-rs/ruffle" }
+
+anyhow = "1.0"
+winit = "0.30.10"
+wgpu = "24.0.3"
+egui = "0.31.1"
+ruffle_render = { git = "https://github.com/ruffle-rs/ruffle", features = ["clap"] }
+ruffle_render_wgpu = { git = "https://github.com/ruffle-rs/ruffle", features = ["clap"] }
 
 [profile.release]
 panic = "abort"

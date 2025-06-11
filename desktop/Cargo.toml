@@ -1,0 +1,19 @@
+[package]
+name = "flits-editor"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+publish.workspace = true
+
+[dependencies]
+flits-core = { path = "../core" }
+windowing = { path = "../windowing" }
+anyhow = { workspace = true }
+winit = { workspace = true }
+wgpu = { workspace = true }
+egui = { workspace = true }
+ruffle_render = { workspace = true }
+ruffle_render_wgpu = { workspace = true }
+
+# we can't use the xdg-portal version because it doesn't support message boxes
+rfd = { version = "0.15.0",  default-features = false, features = ["gtk3"] }
