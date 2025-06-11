@@ -2,7 +2,12 @@ use ruffle_render::backend::{RenderBackend, ViewportDimensions};
 use windowing::Player;
 use winit::event_loop::{ActiveEventLoop, EventLoopProxy};
 
-use crate::{custom_event::FlitsEvent, state::FlitsState, welcome::WelcomeScreen};
+use crate::{custom_event::FlitsEvent, welcome::WelcomeScreen};
+
+enum FlitsState {
+    Welcome(WelcomeScreen),
+    Editor,
+}
 
 pub struct FlitsPlayer {
     renderer: Box<dyn RenderBackend>,
@@ -20,7 +25,12 @@ impl FlitsPlayer {
         }
     }
     pub fn do_ui(&mut self, egui_ctx: &egui::Context) {
-        self.state.do_ui(egui_ctx, self.event_loop.clone());
+        match &mut self.state {
+            FlitsState::Welcome(welcome_screen) => {
+                welcome_screen.do_ui(egui_ctx, self.event_loop.clone())
+            }
+            FlitsState::Editor => todo!(),
+        }
 
         if self.is_about_visible {
             self.about_window(egui_ctx);
@@ -41,9 +51,9 @@ impl FlitsPlayer {
             });
     }
 
-    pub fn user_event(&mut self, event_loop: &ActiveEventLoop, event: FlitsEvent) {
+    pub fn user_event(&mut self, _event_loop: &ActiveEventLoop, event: FlitsEvent) {
         match event {
-            FlitsEvent::NewFile(new_project_data) => todo!(),
+            FlitsEvent::NewFile(_new_project_data) => todo!(),
             FlitsEvent::OpenFile => todo!(),
             FlitsEvent::CloseFile => self.state = FlitsState::Welcome(WelcomeScreen::new()),
             FlitsEvent::About => self.is_about_visible = true,
@@ -53,9 +63,7 @@ impl FlitsPlayer {
     }
 }
 impl Player for FlitsPlayer {
-    fn render(&mut self) {
-        self.state.render();
-    }
+    fn render(&mut self) {}
 
     fn renderer_mut(&mut self) -> &mut dyn RenderBackend {
         &mut *self.renderer

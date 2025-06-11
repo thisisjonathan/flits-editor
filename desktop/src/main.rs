@@ -10,7 +10,6 @@
 mod app;
 mod custom_event;
 mod player;
-mod state;
 mod welcome;
 
 use std::panic::PanicHookInfo;
