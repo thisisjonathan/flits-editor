@@ -78,7 +78,7 @@ impl FlitsPlayer {
                 }
                 if !new_project_data.path.read_dir().unwrap().next().is_none() {
                     if rfd::MessageDialog::new()
-                                    .set_buttons(rfd::MessageButtons::OkCancel)
+                                    .set_buttons(rfd::MessageButtons::YesNo)
                                     .set_description("The directory is not empty, are you sure you want to create a project in this directory?")
                                     .show() != MessageDialogResult::Yes {
                                     return NeedsRedraw::Yes;
