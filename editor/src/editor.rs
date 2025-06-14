@@ -602,6 +602,12 @@ impl Editor {
         self.update_title();
     }
 
+    pub(crate) fn save(&mut self) {
+        self.movie.save(&self.project_file_path);
+        self.history.set_saved(true);
+        self.update_title();
+    }
+
     fn update_title(&self) {
         self.event_loop
             .send_event(FlitsEvent::UpdateTitle)

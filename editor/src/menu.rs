@@ -10,7 +10,7 @@ pub struct Menu<'a> {
 pub struct MenuItem<'a> {
     pub name: &'a str,
     pub keyboard_shortcut: Option<egui::KeyboardShortcut>,
-    pub action: fn(player: &mut Editor, event_loop: &EventLoopProxy<FlitsEvent>),
+    pub action: fn(editor: &mut Editor, event_loop: &EventLoopProxy<FlitsEvent>),
 }
 
 pub const MENUS: &[Menu] = &[
@@ -146,59 +146,58 @@ pub const MENUS: &[Menu] = &[
     },
 ];
 
-fn open_project(_player: &mut Editor, event_loop: &EventLoopProxy<FlitsEvent>) {
+fn open_project(_editor: &mut Editor, event_loop: &EventLoopProxy<FlitsEvent>) {
     let _ = event_loop.send_event(FlitsEvent::OpenFile);
 }
 
-fn save_project(player: &mut Editor, event_loop: &EventLoopProxy<FlitsEvent>) {
-    player.movie.save(&player.project_file_path);
-    let _ = event_loop.send_event(FlitsEvent::UpdateTitle);
+fn save_project(editor: &mut Editor, _event_loop: &EventLoopProxy<FlitsEvent>) {
+    editor.save();
 }
 
-fn export_swf(player: &mut Editor, _event_loop: &EventLoopProxy<FlitsEvent>) {
+fn export_swf(editor: &mut Editor, _event_loop: &EventLoopProxy<FlitsEvent>) {
     // we don't care about the result here, export_swf sets the error message on the editor
-    _ = player.export_swf();
+    _ = editor.export_swf();
 }
 
-fn close_project(_player: &mut Editor, event_loop: &EventLoopProxy<FlitsEvent>) {
+fn close_project(_editor: &mut Editor, event_loop: &EventLoopProxy<FlitsEvent>) {
     let _ = event_loop.send_event(FlitsEvent::CloseFile);
 }
 
-fn request_exit(_player: &mut Editor, event_loop: &EventLoopProxy<FlitsEvent>) {
+fn request_exit(_editor: &mut Editor, event_loop: &EventLoopProxy<FlitsEvent>) {
     let _ = event_loop.send_event(FlitsEvent::ExitRequested);
 }
 
-fn run_project(player: &mut Editor, event_loop: &EventLoopProxy<FlitsEvent>) {
-    player.export_and_run(event_loop);
+fn run_project(editor: &mut Editor, event_loop: &EventLoopProxy<FlitsEvent>) {
+    editor.export_and_run(event_loop);
 }
 
-fn show_about_screen(_player: &mut Editor, event_loop: &EventLoopProxy<FlitsEvent>) {
+fn show_about_screen(_editor: &mut Editor, event_loop: &EventLoopProxy<FlitsEvent>) {
     let _ = event_loop.send_event(FlitsEvent::About);
 }
 
-fn undo(player: &mut Editor, _event_loop: &EventLoopProxy<FlitsEvent>) {
-    player.do_undo();
+fn undo(editor: &mut Editor, _event_loop: &EventLoopProxy<FlitsEvent>) {
+    editor.do_undo();
 }
-fn redo(player: &mut Editor, _event_loop: &EventLoopProxy<FlitsEvent>) {
-    player.do_redo();
-}
-
-fn delete_selection(player: &mut Editor, _event_loop: &EventLoopProxy<FlitsEvent>) {
-    player.delete_selection();
+fn redo(editor: &mut Editor, _event_loop: &EventLoopProxy<FlitsEvent>) {
+    editor.do_redo();
 }
 
-fn reload_assets(player: &mut Editor, _event_loop: &EventLoopProxy<FlitsEvent>) {
-    player.reload_assets();
+fn delete_selection(editor: &mut Editor, _event_loop: &EventLoopProxy<FlitsEvent>) {
+    editor.delete_selection();
 }
 
-fn zoom_in(player: &mut Editor, _event_loop: &EventLoopProxy<FlitsEvent>) {
-    player.zoom(0.1);
+fn reload_assets(editor: &mut Editor, _event_loop: &EventLoopProxy<FlitsEvent>) {
+    editor.reload_assets();
 }
 
-fn zoom_out(player: &mut Editor, _event_loop: &EventLoopProxy<FlitsEvent>) {
-    player.zoom(-0.1);
+fn zoom_in(editor: &mut Editor, _event_loop: &EventLoopProxy<FlitsEvent>) {
+    editor.zoom(0.1);
 }
 
-fn reset_zoom(player: &mut Editor, _event_loop: &EventLoopProxy<FlitsEvent>) {
-    player.reset_zoom();
+fn zoom_out(editor: &mut Editor, _event_loop: &EventLoopProxy<FlitsEvent>) {
+    editor.zoom(-0.1);
+}
+
+fn reset_zoom(editor: &mut Editor, _event_loop: &EventLoopProxy<FlitsEvent>) {
+    editor.reset_zoom();
 }
