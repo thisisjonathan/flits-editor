@@ -150,8 +150,9 @@ fn open_project(_player: &mut Editor, event_loop: &EventLoopProxy<FlitsEvent>) {
     let _ = event_loop.send_event(FlitsEvent::OpenFile);
 }
 
-fn save_project(player: &mut Editor, _event_loop: &EventLoopProxy<FlitsEvent>) {
+fn save_project(player: &mut Editor, event_loop: &EventLoopProxy<FlitsEvent>) {
     player.movie.save(&player.project_file_path);
+    let _ = event_loop.send_event(FlitsEvent::UpdateTitle);
 }
 
 fn export_swf(player: &mut Editor, _event_loop: &EventLoopProxy<FlitsEvent>) {

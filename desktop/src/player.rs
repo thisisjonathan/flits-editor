@@ -87,6 +87,7 @@ impl FlitsPlayer {
                 self.set_state(FlitsState::Editor(Editor::new(
                     json_path,
                     self.renderer.viewport_dimensions(),
+                    self.event_loop.clone(),
                 )));
                 NeedsRedraw::Yes
             }
@@ -100,6 +101,7 @@ impl FlitsPlayer {
                     self.set_state(FlitsState::Editor(Editor::new(
                         path,
                         self.renderer.viewport_dimensions(),
+                        self.event_loop.clone(),
                     )));
                 }
                 NeedsRedraw::Yes
@@ -149,7 +151,11 @@ impl FlitsPlayer {
         match &self.state {
             FlitsState::Welcome(_) => "Flits Editor".into(),
             FlitsState::Editor(editor) => {
-                format!("{} - Flits Editor", editor.project_name())
+                format!(
+                    "{}{} - Flits Editor",
+                    editor.project_name(),
+                    if editor.unsaved_changes() { "*" } else { "" },
+                )
             }
         }
     }

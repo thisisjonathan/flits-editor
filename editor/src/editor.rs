@@ -86,10 +86,15 @@ pub struct Editor {
     export_error: Option<String>,
 
     run_ui: Option<RunUi>,
+    event_loop: EventLoopProxy<FlitsEvent>,
 }
 
 impl Editor {
-    pub fn new(path: PathBuf, viewport_dimensions: ViewportDimensions) -> Editor {
+    pub fn new(
+        path: PathBuf,
+        viewport_dimensions: ViewportDimensions,
+        event_loop: EventLoopProxy<FlitsEvent>,
+    ) -> Editor {
         let movie = Movie::load(path.clone());
         let movie_properties = movie.properties.clone();
         Editor {
@@ -114,6 +119,7 @@ impl Editor {
             export_error: None,
 
             run_ui: None,
+            event_loop,
         }
     }
 
@@ -577,6 +583,7 @@ impl Editor {
     fn do_edit(&mut self, edit: MovieEdit) {
         let result = self.history.edit(&mut self.movie, edit);
         self.change_view_after_edit(result);
+        self.update_title();
     }
 
     pub(crate) fn do_undo(&mut self) {
@@ -584,6 +591,7 @@ impl Editor {
         if let Some(editing_clip) = result {
             self.change_view_after_edit(editing_clip);
         }
+        self.update_title();
     }
 
     pub(crate) fn do_redo(&mut self) {
@@ -591,6 +599,15 @@ impl Editor {
         if let Some(editing_clip) = result {
             self.change_view_after_edit(editing_clip);
         }
+        self.update_title();
+    }
+
+    fn update_title(&self) {
+        self.event_loop
+            .send_event(FlitsEvent::UpdateTitle)
+            .unwrap_or_else(|err| {
+                eprintln!("Unable to send command output event: {}", err);
+            });
     }
 
     fn change_view_after_edit(&mut self, output: MoviePropertiesOutput) {
@@ -1069,5 +1086,8 @@ impl Editor {
             .unwrap()
             .to_str()
             .unwrap_or("INVALID DIRECTORY NAME")
+    }
+    pub fn unsaved_changes(&self) -> bool {
+        !self.history.is_saved()
     }
 }
