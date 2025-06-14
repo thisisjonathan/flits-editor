@@ -1,18 +1,18 @@
 use std::any::Any;
 use std::path::PathBuf;
 
-use self::camera::Camera;
-use self::edit::{
+use crate::camera::Camera;
+use crate::custom_event::FlitsEvent;
+use crate::edit::{
     AddPlacedSymbolEdit, MovieEdit, MoviePropertiesOutput, PlacedSymbolEdit, RemovePlacedSymbolEdit,
 };
-use self::menu::MENUS;
-use self::new_symbol_window::NewSymbolWindow;
-use self::properties_panel::{
+use crate::menu::MENUS;
+use crate::new_symbol_window::NewSymbolWindow;
+use crate::properties_panel::{
     MoviePropertiesPanel, MultiSelectionPropertiesPanel, PlacedSymbolPropertiesPanel,
     PropertiesPanel, SymbolProperties, SymbolPropertiesPanel,
 };
-use self::run_ui::RunUi;
-use crate::desktop::custom_event::RuffleEvent;
+use crate::run_ui::RunUi;
 use egui::Widget;
 use flits_core::run::run_movie;
 use flits_core::{
@@ -35,14 +35,7 @@ use winit::{
     event_loop::EventLoopProxy,
 };
 
-mod camera;
-mod edit;
-mod menu;
-mod new_symbol_window;
-mod properties_panel;
-mod run_ui;
-
-pub const MENU_HEIGHT: u32 = 48; // also defined in desktop/gui.rs
+pub const MENU_HEIGHT: u32 = 48;
 const LIBRARY_WIDTH: u32 = 150;
 pub const EDIT_EPSILON: f64 = 0.00001;
 const EMPTY_CLIP_WIDTH: f64 = 16.0;
@@ -69,17 +62,17 @@ struct DragData {
 }
 
 pub struct StageSize {
-    width: u32,
-    height: u32,
+    pub width: u32,
+    pub height: u32,
 }
 
 pub struct Editor {
-    movie: Movie,
-    project_file_path: PathBuf,
+    pub(crate) movie: Movie,
+    pub(crate) project_file_path: PathBuf,
     directory: PathBuf,
-    renderer: Renderer,
 
     camera: Camera,
+    viewport_dimensions: ViewportDimensions,
 
     history: Record<MovieEdit>,
 
@@ -96,16 +89,16 @@ pub struct Editor {
 }
 
 impl Editor {
-    pub fn new(renderer: Renderer, path: PathBuf) -> Editor {
+    pub fn new(path: PathBuf, viewport_dimensions: ViewportDimensions) -> Editor {
         let movie = Movie::load(path.clone());
         let movie_properties = movie.properties.clone();
         Editor {
             movie,
             project_file_path: path.clone(),
             directory: PathBuf::from(path.parent().unwrap()),
-            renderer,
 
             camera: Camera::new_center_stage(&movie_properties),
+            viewport_dimensions,
 
             history: Record::new(),
 
@@ -125,8 +118,9 @@ impl Editor {
     }
 
     fn stage_size(&self) -> StageSize {
-        Self::stage_size_from_viewport_dimensions(self.renderer.viewport_dimensions())
+        Self::stage_size_from_viewport_dimensions(self.viewport_dimensions)
     }
+
     fn stage_size_from_viewport_dimensions(viewport_dimensions: ViewportDimensions) -> StageSize {
         StageSize {
             width: viewport_dimensions.width - LIBRARY_WIDTH,
@@ -136,14 +130,14 @@ impl Editor {
     }
 
     #[instrument(level = "debug", skip_all)]
-    pub fn render(&mut self) {
+    pub fn render(&mut self, renderer: &mut Renderer) {
         if !self.is_editor_visible() {
             return;
         }
         let symbols = &mut self.movie.symbols;
-        let renderer = &mut self.renderer;
 
         let viewport_dimensions = renderer.viewport_dimensions();
+        self.viewport_dimensions = viewport_dimensions;
 
         let mut commands = CommandList::new();
 
@@ -235,8 +229,7 @@ impl Editor {
             .commands
             .extend(self.render_selection(world_to_screen_matrix));
 
-        self.renderer
-            .submit_frame(Color::from_rgb(0x222222, 255), commands, vec![]);
+        renderer.submit_frame(Color::from_rgb(0x222222, 255), commands, vec![]);
     }
 
     fn render_selection(&self, world_to_screen_matrix: Matrix) -> Vec<Command> {
@@ -586,14 +579,14 @@ impl Editor {
         self.change_view_after_edit(result);
     }
 
-    fn do_undo(&mut self) {
+    pub(crate) fn do_undo(&mut self) {
         let result = self.history.undo(&mut self.movie);
         if let Some(editing_clip) = result {
             self.change_view_after_edit(editing_clip);
         }
     }
 
-    fn do_redo(&mut self) {
+    pub(crate) fn do_redo(&mut self) {
         let result = self.history.redo(&mut self.movie);
         if let Some(editing_clip) = result {
             self.change_view_after_edit(editing_clip);
@@ -709,7 +702,7 @@ impl Editor {
     pub fn do_ui(
         &mut self,
         egui_ctx: &egui::Context,
-        event_loop: &EventLoopProxy<RuffleEvent>,
+        event_loop: &EventLoopProxy<FlitsEvent>,
     ) -> NeedsRedraw {
         if let Some(run_ui) = &mut self.run_ui {
             run_ui.do_ui(egui_ctx);
@@ -866,11 +859,11 @@ impl Editor {
 
         if let Some(new_symbol_window) = &mut self.new_symbol_window {
             match new_symbol_window.do_ui(egui_ctx) {
-                new_symbol_window::NewSymbolWindowResult::NoAction => {}
-                new_symbol_window::NewSymbolWindowResult::Cancel => {
+                crate::new_symbol_window::NewSymbolWindowResult::NoAction => {}
+                crate::new_symbol_window::NewSymbolWindowResult::Cancel => {
                     self.new_symbol_window = None;
                 }
-                new_symbol_window::NewSymbolWindowResult::Confirm(edit) => {
+                crate::new_symbol_window::NewSymbolWindowResult::Confirm(edit) => {
                     self.do_edit(edit);
                     self.new_symbol_window = None;
                 }
@@ -981,7 +974,7 @@ impl Editor {
         }
     }
 
-    fn delete_selection(&mut self) {
+    pub(crate) fn delete_selection(&mut self) {
         let mut selection = self.selection.clone();
 
         // because the list is sorted and we are traversing from the end to the beginning
@@ -1002,19 +995,11 @@ impl Editor {
         }
     }
 
-    pub fn renderer_mut(&mut self) -> &mut Renderer {
-        &mut self.renderer
-    }
-
-    pub fn set_viewport_dimensions(&mut self, dimensions: ViewportDimensions) {
-        self.renderer.set_viewport_dimensions(dimensions);
-    }
-
     pub fn reload_assets(&mut self) {
         self.movie.reload_assets(&self.directory);
     }
 
-    pub fn export_and_run(&mut self, event_loop: &EventLoopProxy<RuffleEvent>) {
+    pub fn export_and_run(&mut self, event_loop: &EventLoopProxy<FlitsEvent>) {
         // only run the movie if the export is successful
         if self.export_swf().is_ok() {
             self.run_ui = Some(RunUi::new());
@@ -1024,14 +1009,14 @@ impl Editor {
                 |line, event_loop| {
                     // TODO: debounce events
                     event_loop
-                        .send_event(RuffleEvent::CommandOutput(line))
+                        .send_event(FlitsEvent::CommandOutput(line))
                         .unwrap_or_else(|err| {
                             eprintln!("Unable to send command output event: {}", err);
                         });
                 },
                 |event_loop| {
                     event_loop
-                        .send_event(RuffleEvent::RuffleClosed)
+                        .send_event(FlitsEvent::RuffleClosed)
                         .unwrap_or_else(|err| {
                             eprintln!("Unable to send command output event: {}", err);
                         });

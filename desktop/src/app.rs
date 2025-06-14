@@ -1,6 +1,7 @@
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use anyhow::anyhow;
+use flits_editor_lib::FlitsEvent;
 use ruffle_render_wgpu::{backend::WgpuRenderBackend, descriptors::Descriptors};
 use wgpu::{Backends, PowerPreference};
 use windowing::{Config, GuiController, MovieView, PlayerController, RuffleGui, RuffleWindow};
@@ -11,7 +12,7 @@ use winit::{
     window::WindowAttributes,
 };
 
-use crate::{custom_event::FlitsEvent, player::FlitsPlayer};
+use crate::player::FlitsPlayer;
 
 struct FlitsArguments {
     event_loop: EventLoopProxy<FlitsEvent>,
@@ -142,17 +143,29 @@ impl ApplicationHandler<FlitsEvent> for App {
         event: winit::event::WindowEvent,
     ) {
         if let Some(main_window) = &mut self.main_window {
-            main_window.window_event(event_loop, event);
+            if main_window.window_event(event_loop, event.clone()) {
+                return;
+            }
+            if let Some(player) = &mut main_window.player_mut().player {
+                player
+                    .try_lock()
+                    .expect("Player lock must be available")
+                    .window_event(event_loop, event);
+            }
         }
     }
 
     fn user_event(&mut self, event_loop: &ActiveEventLoop, event: FlitsEvent) {
         if let Some(main_window) = &mut self.main_window {
-            main_window
+            let needs_redraw = main_window
                 .player_mut()
                 .get()
                 .unwrap()
                 .user_event(event_loop, event);
+            match needs_redraw {
+                flits_editor_lib::NeedsRedraw::Yes => main_window.request_redraw(),
+                flits_editor_lib::NeedsRedraw::No => (),
+            }
         }
     }
 

@@ -86,6 +86,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ansi-parser"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c43e7fd8284f025d0bd143c2855618ecdf697db55bde39211e5c9faec7669173"
+dependencies = [
+ "heapless",
+ "nom",
+]
+
+[[package]]
 name = "anstream"
 version = "0.6.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -977,11 +987,26 @@ dependencies = [
  "anyhow",
  "egui",
  "flits-core",
+ "flits-editor-lib",
  "rfd",
  "ruffle_render",
  "ruffle_render_wgpu",
  "wgpu",
  "windowing",
+ "winit",
+]
+
+[[package]]
+name = "flits-editor-lib"
+version = "0.1.0"
+dependencies = [
+ "ansi-parser",
+ "egui",
+ "flits-core",
+ "ruffle_render",
+ "swf",
+ "tracing",
+ "undo",
  "winit",
 ]
 
@@ -1356,6 +1381,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "hash32"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "47d60b12902ba28e2730cd37e95b8c9223af2808df9e902d4df49588d1470606"
+dependencies = [
+ "byteorder",
+]
+
+[[package]]
 name = "hashbrown"
 version = "0.15.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1364,6 +1398,16 @@ dependencies = [
  "allocator-api2",
  "equivalent",
  "foldhash",
+]
+
+[[package]]
+name = "heapless"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0bfb9eb618601c89945a70e254898da93b13be0388091d42117462b265bb3fad"
+dependencies = [
+ "hash32",
+ "stable_deref_trait",
 ]
 
 [[package]]
@@ -3392,6 +3436,15 @@ name = "typed-arena"
 version = "2.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6af6ae20167a9ece4bcb41af5b80f8a1f1df981f6391189ce00fd257af04126a"
+
+[[package]]
+name = "undo"
+version = "0.51.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cd8be0a8a8e33d55025c36fc461beafffcaebe2ef104eca0287334310cb685b6"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "unicode-ident"

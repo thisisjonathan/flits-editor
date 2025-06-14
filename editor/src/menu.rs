@@ -1,8 +1,6 @@
 use winit::event_loop::EventLoopProxy;
 
-use crate::desktop::custom_event::RuffleEvent;
-
-use super::Editor;
+use crate::{custom_event::FlitsEvent, editor::Editor};
 
 pub struct Menu<'a> {
     pub name: &'a str,
@@ -12,7 +10,7 @@ pub struct Menu<'a> {
 pub struct MenuItem<'a> {
     pub name: &'a str,
     pub keyboard_shortcut: Option<egui::KeyboardShortcut>,
-    pub action: fn(player: &mut Editor, event_loop: &EventLoopProxy<RuffleEvent>),
+    pub action: fn(player: &mut Editor, event_loop: &EventLoopProxy<FlitsEvent>),
 }
 
 pub const MENUS: &[Menu] = &[
@@ -148,58 +146,58 @@ pub const MENUS: &[Menu] = &[
     },
 ];
 
-fn open_project(_player: &mut Editor, event_loop: &EventLoopProxy<RuffleEvent>) {
-    let _ = event_loop.send_event(RuffleEvent::OpenFile);
+fn open_project(_player: &mut Editor, event_loop: &EventLoopProxy<FlitsEvent>) {
+    let _ = event_loop.send_event(FlitsEvent::OpenFile);
 }
 
-fn save_project(player: &mut Editor, _event_loop: &EventLoopProxy<RuffleEvent>) {
+fn save_project(player: &mut Editor, _event_loop: &EventLoopProxy<FlitsEvent>) {
     player.movie.save(&player.project_file_path);
 }
 
-fn export_swf(player: &mut Editor, _event_loop: &EventLoopProxy<RuffleEvent>) {
+fn export_swf(player: &mut Editor, _event_loop: &EventLoopProxy<FlitsEvent>) {
     // we don't care about the result here, export_swf sets the error message on the editor
     _ = player.export_swf();
 }
 
-fn close_project(_player: &mut Editor, event_loop: &EventLoopProxy<RuffleEvent>) {
-    let _ = event_loop.send_event(RuffleEvent::CloseFile);
+fn close_project(_player: &mut Editor, event_loop: &EventLoopProxy<FlitsEvent>) {
+    let _ = event_loop.send_event(FlitsEvent::CloseFile);
 }
 
-fn request_exit(_player: &mut Editor, event_loop: &EventLoopProxy<RuffleEvent>) {
-    let _ = event_loop.send_event(RuffleEvent::ExitRequested);
+fn request_exit(_player: &mut Editor, event_loop: &EventLoopProxy<FlitsEvent>) {
+    let _ = event_loop.send_event(FlitsEvent::ExitRequested);
 }
 
-fn run_project(player: &mut Editor, event_loop: &EventLoopProxy<RuffleEvent>) {
+fn run_project(player: &mut Editor, event_loop: &EventLoopProxy<FlitsEvent>) {
     player.export_and_run(event_loop);
 }
 
-fn show_about_screen(_player: &mut Editor, event_loop: &EventLoopProxy<RuffleEvent>) {
-    let _ = event_loop.send_event(RuffleEvent::About);
+fn show_about_screen(_player: &mut Editor, event_loop: &EventLoopProxy<FlitsEvent>) {
+    let _ = event_loop.send_event(FlitsEvent::About);
 }
 
-fn undo(player: &mut Editor, _event_loop: &EventLoopProxy<RuffleEvent>) {
+fn undo(player: &mut Editor, _event_loop: &EventLoopProxy<FlitsEvent>) {
     player.do_undo();
 }
-fn redo(player: &mut Editor, _event_loop: &EventLoopProxy<RuffleEvent>) {
+fn redo(player: &mut Editor, _event_loop: &EventLoopProxy<FlitsEvent>) {
     player.do_redo();
 }
 
-fn delete_selection(player: &mut Editor, _event_loop: &EventLoopProxy<RuffleEvent>) {
+fn delete_selection(player: &mut Editor, _event_loop: &EventLoopProxy<FlitsEvent>) {
     player.delete_selection();
 }
 
-fn reload_assets(player: &mut Editor, _event_loop: &EventLoopProxy<RuffleEvent>) {
+fn reload_assets(player: &mut Editor, _event_loop: &EventLoopProxy<FlitsEvent>) {
     player.reload_assets();
 }
 
-fn zoom_in(player: &mut Editor, _event_loop: &EventLoopProxy<RuffleEvent>) {
+fn zoom_in(player: &mut Editor, _event_loop: &EventLoopProxy<FlitsEvent>) {
     player.zoom(0.1);
 }
 
-fn zoom_out(player: &mut Editor, _event_loop: &EventLoopProxy<RuffleEvent>) {
+fn zoom_out(player: &mut Editor, _event_loop: &EventLoopProxy<FlitsEvent>) {
     player.zoom(-0.1);
 }
 
-fn reset_zoom(player: &mut Editor, _event_loop: &EventLoopProxy<RuffleEvent>) {
+fn reset_zoom(player: &mut Editor, _event_loop: &EventLoopProxy<FlitsEvent>) {
     player.reset_zoom();
 }

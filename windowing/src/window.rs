@@ -2,6 +2,7 @@ use crate::{GuiController, Player, PlayerController, RuffleGui};
 use ruffle_render::backend::ViewportDimensions;
 use std::time::Instant;
 use winit::{
+    dpi::PhysicalPosition,
     event::WindowEvent,
     event_loop::{ActiveEventLoop, ControlFlow},
 };
@@ -16,6 +17,7 @@ where
     next_frame_time: Option<Instant>,
     gui: GuiController<G>,
     player: P,
+    mouse_pos: PhysicalPosition<f64>,
 }
 impl<G, P> RuffleWindow<G, P>
 where
@@ -29,6 +31,7 @@ where
             minimized: false,
             player,
             gui,
+            mouse_pos: PhysicalPosition::new(0.0, 0.0),
         }
     }
     pub fn create_movie(&mut self, arguments: &G::Arguments) {
@@ -79,6 +82,21 @@ where
                 }
                 self.gui.window().request_redraw();
             }
+            WindowEvent::CursorMoved { position, .. } => {
+                self.mouse_pos = position;
+                let (mouse_x, mouse_y) = self.gui.window_to_movie_position(position);
+                self.player
+                    .get()
+                    .unwrap()
+                    .handle_mouse_move(mouse_x, mouse_y);
+            }
+            WindowEvent::MouseInput { state, button, .. } => {
+                let (mouse_x, mouse_y) = self.gui.window_to_movie_position(self.mouse_pos);
+                self.player
+                    .get()
+                    .unwrap()
+                    .handle_mouse_input(mouse_x, mouse_y, button, state);
+            }
             _ => (),
         }
 
@@ -119,6 +137,10 @@ where
         if self.gui.needs_render() {
             self.gui.window().request_redraw();
         }
+    }
+
+    pub fn request_redraw(&self) {
+        self.gui.window().request_redraw();
     }
 
     pub fn player_mut(&mut self) -> &mut P {

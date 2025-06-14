@@ -57,6 +57,8 @@ impl RuffleGui for MyGui {
 }
 struct MyPlayer {
     renderer: Box<dyn RenderBackend>,
+    mouse_x: f64,
+    mouse_y: f64,
 }
 impl Player for MyPlayer {
     fn renderer_mut(&mut self) -> &mut dyn RenderBackend {
@@ -85,6 +87,16 @@ impl Player for MyPlayer {
                 Twips::from_pixels(dimensions.height as f64 - size as f64),
             ),
         );
+        // draw rect to see if the mouse coordinates are correct
+        commands.draw_rect(
+            swf::Color::BLUE,
+            ruffle_render::matrix::Matrix::create_box(
+                32.0,
+                32.0,
+                Twips::from_pixels(self.mouse_x),
+                Twips::from_pixels(self.mouse_y),
+            ),
+        );
         self.renderer
             .submit_frame(swf::Color::GREEN, commands, vec![]);
     }
@@ -101,6 +113,22 @@ impl Player for MyPlayer {
     fn time_til_next_frame(&self) -> Option<std::time::Duration> {
         None
     }
+
+    fn handle_mouse_move(&mut self, mouse_x: f64, mouse_y: f64) {
+        self.mouse_x = mouse_x;
+        self.mouse_y = mouse_y;
+    }
+
+    fn handle_mouse_input(
+        &mut self,
+        mouse_x: f64,
+        mouse_y: f64,
+        _button: winit::event::MouseButton,
+        _state: winit::event::ElementState,
+    ) {
+        self.mouse_x = mouse_x;
+        self.mouse_y = mouse_y;
+    }
 }
 struct MyPlayerController {
     descriptors: Arc<Descriptors>,
@@ -116,6 +144,8 @@ impl PlayerController for MyPlayerController {
             .expect("Couldn't create wgpu rendering backend");
         self.player = Some(Mutex::new(MyPlayer {
             renderer: Box::new(renderer),
+            mouse_x: 0.0,
+            mouse_y: 0.0,
         }));
     }
 

@@ -1,6 +1,7 @@
 [workspace]
 members = [
   "core",
+  "editor",
   "desktop",
   "windowing",
 ]
@@ -25,6 +26,7 @@ wgpu = "24.0.3"
 egui = "0.31.1"
 ruffle_render = { git = "https://github.com/ruffle-rs/ruffle", features = ["clap"] }
 ruffle_render_wgpu = { git = "https://github.com/ruffle-rs/ruffle", features = ["clap"] }
+tracing = "0.1.41"
 
 [profile.release]
 panic = "abort"

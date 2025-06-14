@@ -15,7 +15,7 @@ egui-wgpu = { version = "0.31.1", features = ["winit"] }
 ruffle_render = { workspace = true }
 ruffle_render_wgpu = { workspace = true }
 futures = "0.3.31"
-tracing = "0.1.41"
+tracing = { workspace = true }
 bytemuck = "1.23.0"
 
 [dev-dependencies]

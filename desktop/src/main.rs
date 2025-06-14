@@ -8,7 +8,6 @@
 #![windows_subsystem = "windows"]
 
 mod app;
-mod custom_event;
 mod player;
 mod welcome;
 
@@ -16,7 +15,7 @@ use std::panic::PanicHookInfo;
 
 use anyhow::{Context, Error};
 use app::App;
-use custom_event::FlitsEvent;
+use flits_editor_lib::FlitsEvent;
 use winit::event_loop::EventLoop;
 
 fn init() {

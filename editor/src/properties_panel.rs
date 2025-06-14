@@ -11,7 +11,7 @@ use super::{
         BitmapPropertiesEdit, MovieClipPropertiesEdit, MovieEdit, MoviePropertiesEdit,
         PlacedSymbolEdit, RemoveSymbolEdit,
     },
-    EDIT_EPSILON,
+    editor::EDIT_EPSILON,
 };
 
 pub enum PropertiesPanel {

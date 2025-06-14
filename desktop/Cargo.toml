@@ -7,6 +7,7 @@ publish.workspace = true
 
 [dependencies]
 flits-core = { path = "../core" }
+flits-editor-lib = { path = "../editor" }
 windowing = { path = "../windowing" }
 anyhow = { workspace = true }
 winit = { workspace = true }

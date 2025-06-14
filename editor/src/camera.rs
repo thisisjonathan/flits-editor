@@ -3,7 +3,7 @@ use swf::Twips;
 
 use flits_core::MovieProperties;
 
-use super::StageSize;
+use crate::editor::StageSize;
 
 pub struct Camera {
     // x and y are the world coordinates at the center of the screen

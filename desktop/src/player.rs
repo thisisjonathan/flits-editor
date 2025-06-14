@@ -1,12 +1,16 @@
+use flits_editor_lib::{Editor, FlitsEvent, NeedsRedraw};
 use ruffle_render::backend::{RenderBackend, ViewportDimensions};
 use windowing::Player;
-use winit::event_loop::{ActiveEventLoop, EventLoopProxy};
+use winit::{
+    event::WindowEvent,
+    event_loop::{ActiveEventLoop, EventLoopProxy},
+};
 
-use crate::{custom_event::FlitsEvent, welcome::WelcomeScreen};
+use crate::welcome::WelcomeScreen;
 
 enum FlitsState {
     Welcome(WelcomeScreen),
-    Editor,
+    Editor(Editor),
 }
 
 pub struct FlitsPlayer {
@@ -29,7 +33,9 @@ impl FlitsPlayer {
             FlitsState::Welcome(welcome_screen) => {
                 welcome_screen.do_ui(egui_ctx, self.event_loop.clone())
             }
-            FlitsState::Editor => todo!(),
+            FlitsState::Editor(editor) => {
+                editor.do_ui(egui_ctx, &self.event_loop);
+            }
         }
 
         if self.is_about_visible {
@@ -51,19 +57,57 @@ impl FlitsPlayer {
             });
     }
 
-    pub fn user_event(&mut self, _event_loop: &ActiveEventLoop, event: FlitsEvent) {
+    pub fn window_event(&mut self, _event_loop: &ActiveEventLoop, _event: WindowEvent) {}
+
+    pub fn user_event(&mut self, event_loop: &ActiveEventLoop, event: FlitsEvent) -> NeedsRedraw {
         match event {
             FlitsEvent::NewFile(_new_project_data) => todo!(),
-            FlitsEvent::OpenFile => todo!(),
-            FlitsEvent::CloseFile => self.state = FlitsState::Welcome(WelcomeScreen::new()),
-            FlitsEvent::About => self.is_about_visible = true,
-            FlitsEvent::CommandOutput(_) => todo!(),
-            FlitsEvent::RuffleClosed => todo!(),
+            FlitsEvent::OpenFile => {
+                self.state = FlitsState::Editor(Editor::new(
+                    std::path::PathBuf::from("example/movie.json"),
+                    self.renderer.viewport_dimensions(),
+                ));
+                NeedsRedraw::Yes
+            }
+            FlitsEvent::CloseFile => {
+                self.state = FlitsState::Welcome(WelcomeScreen::new());
+                NeedsRedraw::Yes
+            }
+            FlitsEvent::ExitRequested => {
+                // TODO: the old code calls shutdown()
+                event_loop.exit();
+                NeedsRedraw::No
+            }
+            FlitsEvent::About => {
+                self.is_about_visible = true;
+                NeedsRedraw::Yes
+            }
+
+            FlitsEvent::CommandOutput(line) => {
+                if let FlitsState::Editor(editor) = &mut self.state {
+                    editor.receive_command_output(line)
+                } else {
+                    NeedsRedraw::No
+                }
+            }
+            FlitsEvent::RuffleClosed => {
+                if let FlitsState::Editor(editor) = &mut self.state {
+                    editor.on_ruffle_closed();
+                    NeedsRedraw::Yes
+                } else {
+                    NeedsRedraw::No
+                }
+            }
         }
     }
 }
 impl Player for FlitsPlayer {
-    fn render(&mut self) {}
+    fn render(&mut self) {
+        match &mut self.state {
+            FlitsState::Welcome(welcome_screen) => welcome_screen.render(&mut self.renderer),
+            FlitsState::Editor(editor) => editor.render(&mut self.renderer),
+        }
+    }
 
     fn renderer_mut(&mut self) -> &mut dyn RenderBackend {
         &mut *self.renderer
@@ -77,5 +121,25 @@ impl Player for FlitsPlayer {
 
     fn time_til_next_frame(&self) -> Option<std::time::Duration> {
         None
+    }
+
+    fn handle_mouse_move(&mut self, mouse_x: f64, mouse_y: f64) {
+        let FlitsState::Editor(editor) = &mut self.state else {
+            return;
+        };
+        editor.handle_mouse_move(mouse_x, mouse_y);
+    }
+
+    fn handle_mouse_input(
+        &mut self,
+        mouse_x: f64,
+        mouse_y: f64,
+        button: winit::event::MouseButton,
+        state: winit::event::ElementState,
+    ) {
+        let FlitsState::Editor(editor) = &mut self.state else {
+            return;
+        };
+        editor.handle_mouse_input(mouse_x, mouse_y, button, state);
     }
 }

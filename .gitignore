@@ -1,3 +1,5 @@
 /target
 # used by release script
 /release
+
+/editor-old

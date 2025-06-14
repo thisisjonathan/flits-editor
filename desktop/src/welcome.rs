@@ -1,6 +1,6 @@
+use flits_editor_lib::{FlitsEvent, NewProjectData};
+use ruffle_render::backend::RenderBackend;
 use winit::event_loop::EventLoopProxy;
-
-use crate::custom_event::{FlitsEvent, NewProjectData};
 
 pub struct WelcomeScreen {
     new_project: Option<NewProjectData>,
@@ -36,6 +36,8 @@ impl WelcomeScreen {
 
         self.new_project_window(egui_ctx, event_loop);
     }
+
+    pub fn render(&mut self, _renderer: &mut Box<dyn RenderBackend>) {}
 
     fn open_new_project_window(&mut self) {
         self.new_project = Some(NewProjectData::default());

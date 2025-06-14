@@ -7,6 +7,7 @@ pub enum FlitsEvent {
     OpenFile,
     CloseFile,
     About,
+    ExitRequested,
 
     /// output received from running Ruffle process
     CommandOutput(String),

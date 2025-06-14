@@ -13,7 +13,7 @@ pub struct MovieViewRenderer {
 }
 
 fn get_vertices(height_offset_fraction: f64) -> [[f32; 4]; 6] {
-    let top = 1.0 - height_offset_fraction as f32;
+    let top = 1.0 - (height_offset_fraction * 2.0) as f32;
     // x y u v
     [
         [-1.0, top, 0.0, 0.0],  // tl

@@ -1,7 +1,10 @@
 use egui::CursorIcon;
 use ruffle_render::backend::{RenderBackend, ViewportDimensions};
 use std::sync::{Arc, MutexGuard};
-use winit::window::Window;
+use winit::{
+    event::{ElementState, MouseButton},
+    window::Window,
+};
 
 use crate::MovieView;
 
@@ -35,6 +38,15 @@ pub trait Player {
 
     fn tick(&mut self, dt: f64);
     fn time_til_next_frame(&self) -> Option<std::time::Duration>;
+
+    fn handle_mouse_move(&mut self, mouse_x: f64, mouse_y: f64);
+    fn handle_mouse_input(
+        &mut self,
+        mouse_x: f64,
+        mouse_y: f64,
+        button: MouseButton,
+        state: ElementState,
+    );
 }
 pub trait PlayerController {
     type Player: Player;
