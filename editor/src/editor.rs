@@ -94,7 +94,7 @@ impl Editor {
         path: PathBuf,
         viewport_dimensions: ViewportDimensions,
         event_loop: EventLoopProxy<FlitsEvent>,
-    ) -> Editor {
+    ) -> Result<Editor, Box<dyn std::error::Error>> {
         let path_is_directory = path.is_dir();
         let project_file_path = if path_is_directory {
             path.join("movie.json")
@@ -107,9 +107,9 @@ impl Editor {
             PathBuf::from(project_file_path.parent().unwrap())
         };
 
-        let movie = Movie::load(project_file_path.clone());
+        let movie = Movie::load(project_file_path.clone())?;
         let movie_properties = movie.properties.clone();
-        Editor {
+        Ok(Editor {
             movie,
             project_file_path,
             directory,
@@ -132,7 +132,7 @@ impl Editor {
 
             run_ui: None,
             event_loop,
-        }
+        })
     }
 
     fn stage_size(&self) -> StageSize {

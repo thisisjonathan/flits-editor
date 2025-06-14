@@ -41,14 +41,13 @@ impl Movie {
             root: vec![],
         }
     }
-    pub fn load(path: PathBuf) -> Movie {
-        // TODO: error handling
+    pub fn load(path: PathBuf) -> Result<Movie, Box<dyn std::error::Error>> {
         let directory = path.parent().unwrap();
-        let file = std::fs::File::open(path.clone()).expect("Unable to load file");
-        let mut movie: Movie = serde_json::from_reader(file).expect("Unable to load file");
+        let file = std::fs::File::open(path.clone())?;
+        let mut movie: Movie = serde_json::from_reader(file)?;
         movie.reload_assets(directory);
 
-        movie
+        Ok(movie)
     }
 
     pub fn reload_assets(&mut self, directory: &Path) {

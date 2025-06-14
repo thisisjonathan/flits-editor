@@ -3,7 +3,7 @@
 // TODO: don't hardcode project path
 fn main() {
     println!("Loading...");
-    let movie = flits_core::Movie::load("example/movie.json".into());
+    let movie = flits_core::Movie::load("example/movie.json".into()).unwrap();
 
     println!("Exporting...");
     let swf_path = "example/output.swf";

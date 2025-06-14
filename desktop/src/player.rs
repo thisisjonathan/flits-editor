@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use flits_core::Movie;
 use flits_editor_lib::{Editor, FlitsEvent, NeedsRedraw, MENU_HEIGHT};
 use rfd::{FileDialog, MessageDialogResult};
@@ -27,20 +29,19 @@ impl FlitsPlayer {
         event_loop: EventLoopProxy<FlitsEvent>,
         cli_params: CliParams,
     ) -> Self {
-        let viewport_dimensions = renderer.viewport_dimensions();
         let mut player = FlitsPlayer {
             renderer,
-            event_loop: event_loop.clone(),
+            event_loop: event_loop,
             state: FlitsState::Welcome(WelcomeScreen::new()),
             is_about_visible: false,
         };
-        // call set_state  to force title update
-        player.set_state(match cli_params {
-            CliParams::NoProject => FlitsState::Welcome(WelcomeScreen::new()),
-            CliParams::OpenProject(path) => {
-                FlitsState::Editor(Editor::new(path, viewport_dimensions, event_loop.clone()))
+        match cli_params {
+            CliParams::NoProject => {
+                // call set_state  to force title update
+                player.set_state(FlitsState::Welcome(WelcomeScreen::new()));
             }
-        });
+            CliParams::OpenProject(path) => player.open_editor(path),
+        };
         player
     }
     pub fn do_ui(&mut self, egui_ctx: &egui::Context) -> NeedsRedraw {
@@ -97,11 +98,7 @@ impl FlitsPlayer {
                 let json_path = new_project_data.path.join("movie.json");
                 let movie = Movie::from_properties(new_project_data.movie_properties);
                 movie.save(&json_path);
-                self.set_state(FlitsState::Editor(Editor::new(
-                    json_path,
-                    self.renderer.viewport_dimensions(),
-                    self.event_loop.clone(),
-                )));
+                self.open_editor(json_path);
                 NeedsRedraw::Yes
             }
             FlitsEvent::OpenFile => {
@@ -111,11 +108,7 @@ impl FlitsPlayer {
                     .set_title("Load a project")
                     .pick_file()
                 {
-                    self.set_state(FlitsState::Editor(Editor::new(
-                        path,
-                        self.renderer.viewport_dimensions(),
-                        self.event_loop.clone(),
-                    )));
+                    self.open_editor(path);
                 }
                 NeedsRedraw::Yes
             }
@@ -148,6 +141,24 @@ impl FlitsPlayer {
                 }
             }
             _ => NeedsRedraw::No,
+        }
+    }
+
+    fn open_editor(&mut self, path: PathBuf) {
+        let result = Editor::new(
+            path,
+            self.renderer.viewport_dimensions(),
+            self.event_loop.clone(),
+        );
+        match result {
+            Ok(editor) => self.set_state(FlitsState::Editor(editor)),
+            Err(error) => {
+                rfd::MessageDialog::new()
+                    .set_level(rfd::MessageLevel::Error)
+                    .set_title("Flits Editor")
+                    .set_description(&format!("Unable to load file:\n{error}\n"))
+                    .show();
+            }
         }
     }
 
