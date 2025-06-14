@@ -33,6 +33,7 @@ pub struct GuiController<G: RuffleGui> {
     size: PhysicalSize<u32>,
     /// If this is set, we should not render the main menu.
     no_gui: bool,
+    height_offset_unscaled: u32,
 }
 
 impl<G: RuffleGui> GuiController<G> {
@@ -95,7 +96,7 @@ impl<G: RuffleGui> GuiController<G> {
             Self::height_offset_scaled_without_self(
                 window.fullscreen().is_some(),
                 window.scale_factor(),
-                gui.height_offset_unscaled(),
+                config.height_offset_unscaled,
                 no_gui,
             ) / size.height as f64,
         ));
@@ -120,6 +121,7 @@ impl<G: RuffleGui> GuiController<G> {
             movie_view_renderer,
             size,
             no_gui,
+            height_offset_unscaled: config.height_offset_unscaled,
         })
     }
 
@@ -222,7 +224,7 @@ impl<G: RuffleGui> GuiController<G> {
         Self::height_offset_scaled_without_self(
             self.window.fullscreen().is_some(),
             self.window.scale_factor(),
-            self.gui.height_offset_unscaled(),
+            self.height_offset_unscaled,
             self.no_gui,
         )
     }
@@ -238,6 +240,11 @@ impl<G: RuffleGui> GuiController<G> {
         } else {
             height_offset_unscaled as f64 * scale_factor
         }
+    }
+
+    pub fn set_height_offset_unscaled(&mut self, height_offset_unscaled: u32) {
+        self.height_offset_unscaled = height_offset_unscaled;
+        self.reconfigure_surface();
     }
 
     pub fn window_to_movie_position(&self, position: PhysicalPosition<f64>) -> (f64, f64) {

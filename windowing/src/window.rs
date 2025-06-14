@@ -154,4 +154,8 @@ where
     pub fn window(&self) -> &Arc<Window> {
         self.gui.window()
     }
+
+    pub fn set_height_offset_unscaled(&mut self, height_offset_unscaled: u32) {
+        self.gui.set_height_offset_unscaled(height_offset_unscaled);
+    }
 }

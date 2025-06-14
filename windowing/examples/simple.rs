@@ -46,10 +46,6 @@ impl RuffleGui for MyGui {
 
     fn on_player_destroyed(&self) {}
 
-    fn height_offset_unscaled(&self) -> u32 {
-        48
-    }
-
     fn cursor_icon(&self) -> Option<egui::CursorIcon> {
         None
     }
@@ -187,6 +183,7 @@ impl ApplicationHandler<MyCustomEvent> for App {
                     present_mode: wgpu::PresentMode::AutoNoVsync,
                     // changing this from the default 2 doesn't seem to have an effect but change it anyway to be sure
                     desired_maximum_frame_latency: 1,
+                    height_offset_unscaled: 48,
                 },
                 MyGui {},
                 false,

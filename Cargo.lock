@@ -991,6 +991,7 @@ dependencies = [
  "rfd",
  "ruffle_render",
  "ruffle_render_wgpu",
+ "swf",
  "wgpu",
  "windowing",
  "winit",

@@ -51,10 +51,6 @@ impl RuffleGui for FlitsGui {
 
     fn on_player_destroyed(&self) {}
 
-    fn height_offset_unscaled(&self) -> u32 {
-        48
-    }
-
     fn cursor_icon(&self) -> Option<egui::CursorIcon> {
         None
     }
@@ -124,6 +120,7 @@ impl ApplicationHandler<FlitsEvent> for App {
                     present_mode: wgpu::PresentMode::AutoNoVsync,
                     // changing this from the default 2 doesn't seem to have an effect but change it anyway to be sure
                     desired_maximum_frame_latency: 1,
+                    height_offset_unscaled: 0,
                 },
                 FlitsGui {},
                 false,
@@ -169,6 +166,14 @@ impl ApplicationHandler<FlitsEvent> for App {
             if matches!(event, FlitsEvent::UpdateTitle) {
                 self.title = main_window.player_mut().get().unwrap().title();
                 main_window.window().set_title(&self.title);
+            }
+            if matches!(event, FlitsEvent::UpdateHeightOffset) {
+                let height_offset_unscaled = main_window
+                    .player_mut()
+                    .get()
+                    .unwrap()
+                    .height_offset_unscaled();
+                main_window.set_height_offset_unscaled(height_offset_unscaled);
             }
             let needs_redraw = main_window
                 .player_mut()

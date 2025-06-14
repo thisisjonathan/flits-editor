@@ -1,5 +1,6 @@
 use flits_editor_lib::{FlitsEvent, NewProjectData};
-use ruffle_render::backend::RenderBackend;
+use ruffle_render::{backend::RenderBackend, commands::CommandList};
+use swf::Color;
 use winit::event_loop::EventLoopProxy;
 
 pub struct WelcomeScreen {
@@ -37,7 +38,9 @@ impl WelcomeScreen {
         self.new_project_window(egui_ctx, event_loop);
     }
 
-    pub fn render(&mut self, _renderer: &mut Box<dyn RenderBackend>) {}
+    pub fn render(&mut self, renderer: &mut Box<dyn RenderBackend>) {
+        renderer.submit_frame(Color::BLUE, CommandList::new(), Vec::new());
+    }
 
     fn open_new_project_window(&mut self) {
         self.new_project = Some(NewProjectData::default());

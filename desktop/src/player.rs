@@ -1,5 +1,5 @@
 use flits_core::Movie;
-use flits_editor_lib::{Editor, FlitsEvent, NeedsRedraw};
+use flits_editor_lib::{Editor, FlitsEvent, NeedsRedraw, MENU_HEIGHT};
 use rfd::{FileDialog, MessageDialogResult};
 use ruffle_render::backend::{RenderBackend, ViewportDimensions};
 use windowing::Player;
@@ -137,7 +137,7 @@ impl FlitsPlayer {
                     NeedsRedraw::No
                 }
             }
-            FlitsEvent::UpdateTitle => NeedsRedraw::No,
+            _ => NeedsRedraw::No,
         }
     }
 
@@ -145,6 +145,11 @@ impl FlitsPlayer {
         self.state = state;
         self.event_loop
             .send_event(FlitsEvent::UpdateTitle)
+            .unwrap_or_else(|err| {
+                eprintln!("Unable to send command output event: {}", err);
+            });
+        self.event_loop
+            .send_event(FlitsEvent::UpdateHeightOffset)
             .unwrap_or_else(|err| {
                 eprintln!("Unable to send command output event: {}", err);
             });
@@ -160,6 +165,13 @@ impl FlitsPlayer {
                     if editor.unsaved_changes() { "*" } else { "" },
                 )
             }
+        }
+    }
+
+    pub fn height_offset_unscaled(&self) -> u32 {
+        match self.state {
+            FlitsState::Welcome(_) => 0,
+            FlitsState::Editor(_) => MENU_HEIGHT,
         }
     }
 }

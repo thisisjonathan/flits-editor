@@ -30,7 +30,6 @@ pub trait RuffleGui {
         menu_height_offset: f64,
     ) -> NeedsRedraw;
     fn on_player_destroyed(&self);
-    fn height_offset_unscaled(&self) -> u32;
     fn cursor_icon(&self) -> Option<CursorIcon>;
 
     fn after_window_init(&self, window: Arc<Window>, egui_ctx: &egui::Context);
@@ -69,4 +68,5 @@ pub struct Config<'a> {
     pub trace_path: Option<&'a std::path::Path>,
     pub present_mode: wgpu::PresentMode,
     pub desired_maximum_frame_latency: u32,
+    pub height_offset_unscaled: u32,
 }

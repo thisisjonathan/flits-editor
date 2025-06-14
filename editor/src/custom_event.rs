@@ -10,6 +10,7 @@ pub enum FlitsEvent {
     ExitRequested,
 
     UpdateTitle,
+    UpdateHeightOffset,
 
     /// output received from running Ruffle process
     CommandOutput(String),
