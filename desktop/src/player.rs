@@ -1,5 +1,6 @@
+use flits_core::Movie;
 use flits_editor_lib::{Editor, FlitsEvent, NeedsRedraw};
-use rfd::FileDialog;
+use rfd::{FileDialog, MessageDialogResult};
 use ruffle_render::backend::{RenderBackend, ViewportDimensions};
 use windowing::Player;
 use winit::{
@@ -62,7 +63,28 @@ impl FlitsPlayer {
 
     pub fn user_event(&mut self, event_loop: &ActiveEventLoop, event: FlitsEvent) -> NeedsRedraw {
         match event {
-            FlitsEvent::NewFile(_new_project_data) => todo!(),
+            FlitsEvent::NewFile(new_project_data) => {
+                if !new_project_data.path.is_dir() {
+                    rfd::MessageDialog::new()
+                        .set_description("Invalid path.")
+                        .show();
+                    return NeedsRedraw::Yes;
+                }
+                if !new_project_data.path.read_dir().unwrap().next().is_none() {
+                    if rfd::MessageDialog::new()
+                            .set_buttons(rfd::MessageButtons::OkCancel)
+                            .set_description("The directory is not empty, are you sure you want to create a project in this directory?")
+                            .show() != MessageDialogResult::Yes {
+                            return NeedsRedraw::Yes;
+                        }
+                }
+                let json_path = new_project_data.path.join("movie.json");
+                let movie = Movie::from_properties(new_project_data.movie_properties);
+                movie.save(&json_path);
+                self.state =
+                    FlitsState::Editor(Editor::new(json_path, self.renderer.viewport_dimensions()));
+                NeedsRedraw::Yes
+            }
             FlitsEvent::OpenFile => {
                 if let Some(path) = FileDialog::new()
                     .add_filter("Project Files", &["json"])
