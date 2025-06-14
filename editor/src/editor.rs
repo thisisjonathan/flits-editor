@@ -95,12 +95,24 @@ impl Editor {
         viewport_dimensions: ViewportDimensions,
         event_loop: EventLoopProxy<FlitsEvent>,
     ) -> Editor {
-        let movie = Movie::load(path.clone());
+        let path_is_directory = path.is_dir();
+        let project_file_path = if path_is_directory {
+            path.join("movie.json")
+        } else {
+            path.clone()
+        };
+        let directory = if path_is_directory {
+            path
+        } else {
+            PathBuf::from(project_file_path.parent().unwrap())
+        };
+
+        let movie = Movie::load(project_file_path.clone());
         let movie_properties = movie.properties.clone();
         Editor {
             movie,
-            project_file_path: path.clone(),
-            directory: PathBuf::from(path.parent().unwrap()),
+            project_file_path,
+            directory,
 
             camera: Camera::new_center_stage(&movie_properties),
             viewport_dimensions,
