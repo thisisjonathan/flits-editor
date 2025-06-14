@@ -14,10 +14,11 @@ use winit::{
     window::WindowAttributes,
 };
 
-use crate::player::FlitsPlayer;
+use crate::{cli::CliParams, player::FlitsPlayer};
 
 struct FlitsArguments {
     event_loop: EventLoopProxy<FlitsEvent>,
+    cli_params: CliParams,
 }
 
 struct FlitsGui {}
@@ -73,6 +74,7 @@ impl PlayerController for FlitsPlayerController {
         self.player = Some(Mutex::new(FlitsPlayer::new(
             Box::new(renderer),
             arguments.event_loop.clone(),
+            arguments.cli_params.clone(),
         )));
     }
 
@@ -90,13 +92,15 @@ pub struct App {
     main_window: Option<RuffleWindow<FlitsGui, FlitsPlayerController>>,
     event_loop: EventLoopProxy<FlitsEvent>,
     title: String,
+    cli_params: CliParams,
 }
 impl App {
-    pub fn new(event_loop: EventLoopProxy<FlitsEvent>) -> Self {
+    pub fn new(event_loop: EventLoopProxy<FlitsEvent>, cli_params: CliParams) -> Self {
         App {
             main_window: None,
             event_loop,
             title: String::new(),
+            cli_params,
         }
     }
 }
@@ -136,6 +140,7 @@ impl ApplicationHandler<FlitsEvent> for App {
             ));
             let arguments = FlitsArguments {
                 event_loop: self.event_loop.clone(),
+                cli_params: self.cli_params.clone(),
             };
             self.main_window.as_mut().unwrap().create_movie(&arguments);
         }

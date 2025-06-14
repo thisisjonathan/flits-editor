@@ -8,6 +8,7 @@
 #![windows_subsystem = "windows"]
 
 mod app;
+mod cli;
 mod player;
 mod welcome;
 
@@ -15,6 +16,7 @@ use std::panic::PanicHookInfo;
 
 use anyhow::{Context, Error};
 use app::App;
+use cli::parse_command_line_arguments;
 use flits_editor_lib::FlitsEvent;
 use winit::event_loop::EventLoop;
 
@@ -67,8 +69,9 @@ fn shutdown() {
 }
 
 fn start_app() -> Result<(), Error> {
+    let cli_params = parse_command_line_arguments();
     let event_loop: EventLoop<FlitsEvent> = EventLoop::with_user_event().build()?;
-    let mut app = App::new(event_loop.create_proxy());
+    let mut app = App::new(event_loop.create_proxy(), cli_params);
     event_loop.run_app(&mut app).context("Event loop failure")
 }
 

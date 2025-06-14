@@ -8,7 +8,7 @@ use winit::{
     event_loop::{ActiveEventLoop, EventLoopProxy},
 };
 
-use crate::welcome::WelcomeScreen;
+use crate::{cli::CliParams, welcome::WelcomeScreen};
 
 enum FlitsState {
     Welcome(WelcomeScreen),
@@ -22,15 +22,25 @@ pub struct FlitsPlayer {
     is_about_visible: bool,
 }
 impl FlitsPlayer {
-    pub fn new(renderer: Box<dyn RenderBackend>, event_loop: EventLoopProxy<FlitsEvent>) -> Self {
+    pub fn new(
+        renderer: Box<dyn RenderBackend>,
+        event_loop: EventLoopProxy<FlitsEvent>,
+        cli_params: CliParams,
+    ) -> Self {
+        let viewport_dimensions = renderer.viewport_dimensions();
         let mut player = FlitsPlayer {
             renderer,
-            event_loop,
+            event_loop: event_loop.clone(),
             state: FlitsState::Welcome(WelcomeScreen::new()),
             is_about_visible: false,
         };
-        // force title update
-        player.set_state(FlitsState::Welcome(WelcomeScreen::new()));
+        // call set_state  to force title update
+        player.set_state(match cli_params {
+            CliParams::NoProject => FlitsState::Welcome(WelcomeScreen::new()),
+            CliParams::OpenProject(path) => {
+                FlitsState::Editor(Editor::new(path, viewport_dimensions, event_loop.clone()))
+            }
+        });
         player
     }
     pub fn do_ui(&mut self, egui_ctx: &egui::Context) -> NeedsRedraw {
