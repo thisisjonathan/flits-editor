@@ -86,12 +86,14 @@ impl PlayerController for FlitsPlayerController {
 pub struct App {
     main_window: Option<RuffleWindow<FlitsGui, FlitsPlayerController>>,
     event_loop: EventLoopProxy<FlitsEvent>,
+    title: String,
 }
 impl App {
     pub fn new(event_loop: EventLoopProxy<FlitsEvent>) -> Self {
         App {
             main_window: None,
             event_loop,
+            title: String::new(),
         }
     }
 }
@@ -99,7 +101,7 @@ impl ApplicationHandler<FlitsEvent> for App {
     fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: StartCause) {
         if cause == StartCause::Init {
             let window_attributes = WindowAttributes::default()
-                .with_title("Windowing Sample Program")
+                .with_title("Flits Editor")
                 .with_visible(true);
             let window = event_loop
                 .create_window(window_attributes)
@@ -157,6 +159,10 @@ impl ApplicationHandler<FlitsEvent> for App {
 
     fn user_event(&mut self, event_loop: &ActiveEventLoop, event: FlitsEvent) {
         if let Some(main_window) = &mut self.main_window {
+            if matches!(event, FlitsEvent::UpdateTitle) {
+                self.title = main_window.player_mut().get().unwrap().title();
+                main_window.window().set_title(&self.title);
+            }
             let needs_redraw = main_window
                 .player_mut()
                 .get()

@@ -1061,4 +1061,13 @@ impl Editor {
     pub fn on_ruffle_closed(&mut self) {
         self.run_ui = None;
     }
+
+    pub fn project_name(&self) -> &str {
+        self.directory
+            .as_path()
+            .file_name()
+            .unwrap()
+            .to_str()
+            .unwrap_or("INVALID DIRECTORY NAME")
+    }
 }

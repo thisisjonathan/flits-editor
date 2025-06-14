@@ -1,10 +1,11 @@
 use crate::{GuiController, Player, PlayerController, RuffleGui};
 use ruffle_render::backend::ViewportDimensions;
-use std::time::Instant;
+use std::{sync::Arc, time::Instant};
 use winit::{
     dpi::PhysicalPosition,
     event::WindowEvent,
     event_loop::{ActiveEventLoop, ControlFlow},
+    window::Window,
 };
 
 pub struct RuffleWindow<G, P>
@@ -145,5 +146,9 @@ where
 
     pub fn player_mut(&mut self) -> &mut P {
         &mut self.player
+    }
+
+    pub fn window(&self) -> &Arc<Window> {
+        self.gui.window()
     }
 }

@@ -23,12 +23,15 @@ pub struct FlitsPlayer {
 }
 impl FlitsPlayer {
     pub fn new(renderer: Box<dyn RenderBackend>, event_loop: EventLoopProxy<FlitsEvent>) -> Self {
-        FlitsPlayer {
+        let mut player = FlitsPlayer {
             renderer,
             event_loop,
             state: FlitsState::Welcome(WelcomeScreen::new()),
             is_about_visible: false,
-        }
+        };
+        // force title update
+        player.set_state(FlitsState::Welcome(WelcomeScreen::new()));
+        player
     }
     pub fn do_ui(&mut self, egui_ctx: &egui::Context) {
         match &mut self.state {
@@ -72,17 +75,19 @@ impl FlitsPlayer {
                 }
                 if !new_project_data.path.read_dir().unwrap().next().is_none() {
                     if rfd::MessageDialog::new()
-                            .set_buttons(rfd::MessageButtons::OkCancel)
-                            .set_description("The directory is not empty, are you sure you want to create a project in this directory?")
-                            .show() != MessageDialogResult::Yes {
-                            return NeedsRedraw::Yes;
-                        }
+                                    .set_buttons(rfd::MessageButtons::OkCancel)
+                                    .set_description("The directory is not empty, are you sure you want to create a project in this directory?")
+                                    .show() != MessageDialogResult::Yes {
+                                    return NeedsRedraw::Yes;
+                                }
                 }
                 let json_path = new_project_data.path.join("movie.json");
                 let movie = Movie::from_properties(new_project_data.movie_properties);
                 movie.save(&json_path);
-                self.state =
-                    FlitsState::Editor(Editor::new(json_path, self.renderer.viewport_dimensions()));
+                self.set_state(FlitsState::Editor(Editor::new(
+                    json_path,
+                    self.renderer.viewport_dimensions(),
+                )));
                 NeedsRedraw::Yes
             }
             FlitsEvent::OpenFile => {
@@ -92,13 +97,15 @@ impl FlitsPlayer {
                     .set_title("Load a project")
                     .pick_file()
                 {
-                    self.state =
-                        FlitsState::Editor(Editor::new(path, self.renderer.viewport_dimensions()));
+                    self.set_state(FlitsState::Editor(Editor::new(
+                        path,
+                        self.renderer.viewport_dimensions(),
+                    )));
                 }
                 NeedsRedraw::Yes
             }
             FlitsEvent::CloseFile => {
-                self.state = FlitsState::Welcome(WelcomeScreen::new());
+                self.set_state(FlitsState::Welcome(WelcomeScreen::new()));
                 NeedsRedraw::Yes
             }
             FlitsEvent::ExitRequested => {
@@ -110,7 +117,6 @@ impl FlitsPlayer {
                 self.is_about_visible = true;
                 NeedsRedraw::Yes
             }
-
             FlitsEvent::CommandOutput(line) => {
                 if let FlitsState::Editor(editor) = &mut self.state {
                     editor.receive_command_output(line)
@@ -125,6 +131,25 @@ impl FlitsPlayer {
                 } else {
                     NeedsRedraw::No
                 }
+            }
+            FlitsEvent::UpdateTitle => NeedsRedraw::No,
+        }
+    }
+
+    fn set_state(&mut self, state: FlitsState) {
+        self.state = state;
+        self.event_loop
+            .send_event(FlitsEvent::UpdateTitle)
+            .unwrap_or_else(|err| {
+                eprintln!("Unable to send command output event: {}", err);
+            });
+    }
+
+    pub fn title(&self) -> String {
+        match &self.state {
+            FlitsState::Welcome(_) => "Flits Editor".into(),
+            FlitsState::Editor(editor) => {
+                format!("{} - Flits Editor", editor.project_name())
             }
         }
     }

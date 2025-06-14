@@ -9,6 +9,8 @@ pub enum FlitsEvent {
     About,
     ExitRequested,
 
+    UpdateTitle,
+
     /// output received from running Ruffle process
     CommandOutput(String),
     RuffleClosed,
