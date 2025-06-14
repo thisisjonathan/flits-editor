@@ -1,4 +1,5 @@
 use flits_editor_lib::{Editor, FlitsEvent, NeedsRedraw};
+use rfd::FileDialog;
 use ruffle_render::backend::{RenderBackend, ViewportDimensions};
 use windowing::Player;
 use winit::{
@@ -63,10 +64,15 @@ impl FlitsPlayer {
         match event {
             FlitsEvent::NewFile(_new_project_data) => todo!(),
             FlitsEvent::OpenFile => {
-                self.state = FlitsState::Editor(Editor::new(
-                    std::path::PathBuf::from("example/movie.json"),
-                    self.renderer.viewport_dimensions(),
-                ));
+                if let Some(path) = FileDialog::new()
+                    .add_filter("Project Files", &["json"])
+                    .add_filter("All Files", &["*"])
+                    .set_title("Load a project")
+                    .pick_file()
+                {
+                    self.state =
+                        FlitsState::Editor(Editor::new(path, self.renderer.viewport_dimensions()));
+                }
                 NeedsRedraw::Yes
             }
             FlitsEvent::CloseFile => {

@@ -42,6 +42,7 @@ impl Movie {
         }
     }
     pub fn load(path: PathBuf) -> Movie {
+        // TODO: error handling
         let directory = path.parent().unwrap();
         let file = std::fs::File::open(path.clone()).expect("Unable to load file");
         let mut movie: Movie = serde_json::from_reader(file).expect("Unable to load file");
