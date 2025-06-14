@@ -45,7 +45,10 @@ where
                 if let Some(mut player) = self.player.get() {
                     // Even if the movie is paused, user interaction with debug tools can change the render output
                     player.render();
-                    self.gui.render(Some(player));
+                    match self.gui.render(Some(player)) {
+                        crate::NeedsRedraw::Yes => self.gui.window().request_redraw(),
+                        crate::NeedsRedraw::No => (),
+                    }
                 } else {
                     self.gui.render(None);
                 }

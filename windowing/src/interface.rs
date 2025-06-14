@@ -8,6 +8,11 @@ use winit::{
 
 use crate::MovieView;
 
+pub enum NeedsRedraw {
+    Yes,
+    No,
+}
+
 pub trait RuffleGui {
     type Player: Player;
     type Arguments;
@@ -23,7 +28,7 @@ pub trait RuffleGui {
         show_menu: bool,
         player: Option<&mut Self::Player>,
         menu_height_offset: f64,
-    ) -> ();
+    ) -> NeedsRedraw;
     fn on_player_destroyed(&self);
     fn height_offset_unscaled(&self) -> u32;
     fn cursor_icon(&self) -> Option<CursorIcon>;

@@ -7,6 +7,7 @@ use ruffle_render::commands::CommandHandler;
 use ruffle_render_wgpu::{backend::WgpuRenderBackend, descriptors::Descriptors};
 use swf::Twips;
 use wgpu::{Backends, PowerPreference};
+use windowing::NeedsRedraw;
 use windowing::{
     Config, GuiController, MovieView, Player, PlayerController, RuffleGui, RuffleWindow,
 };
@@ -35,11 +36,12 @@ impl RuffleGui for MyGui {
         _show_menu: bool,
         _player: Option<&mut Self::Player>,
         _menu_height_offset: f64,
-    ) -> () {
+    ) -> NeedsRedraw {
         egui::Window::new("Test Window").show(egui_ctx, |ui| {
             ui.label("Hello, world!");
             // TODO: inputs to check if tab works
         });
+        NeedsRedraw::No
     }
 
     fn on_player_destroyed(&self) {}

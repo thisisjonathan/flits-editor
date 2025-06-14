@@ -1,5 +1,5 @@
 use crate::movie::{MovieView, MovieViewRenderer};
-use crate::{Config, Player, PlayerController, RuffleGui};
+use crate::{Config, NeedsRedraw, Player, PlayerController, RuffleGui};
 use anyhow::anyhow;
 use egui::{Context, ViewportId};
 use ruffle_render_wgpu::backend::{request_adapter_and_device, WgpuRenderBackend};
@@ -251,7 +251,7 @@ impl<G: RuffleGui> GuiController<G> {
         PhysicalPosition::new(x, y)
     }
 
-    pub fn render(&mut self, mut player: Option<MutexGuard<G::Player>>) {
+    pub fn render(&mut self, mut player: Option<MutexGuard<G::Player>>) -> NeedsRedraw {
         let surface_texture = match self.surface.get_current_texture() {
             Ok(surface_texture) => surface_texture,
             Err(e @ (SurfaceError::Lost | SurfaceError::Outdated)) => {
@@ -265,14 +265,14 @@ impl<G: RuffleGui> GuiController<G> {
                 // Testing on Vulkan shows that reconfiguring the surface works in that case.
                 tracing::warn!("Surface became unavailable: {:?}, reconfiguring", e);
                 self.reconfigure_surface();
-                return;
+                return NeedsRedraw::Yes;
             }
             Err(e @ SurfaceError::Timeout) => {
                 // An operation related to the surface took too long to complete.
                 // This error may happen due to many reasons (GPU overload, GPU driver bugs, etc.),
                 // the best thing we can do is skip a frame and wait.
                 tracing::warn!("Surface became unavailable: {:?}, skipping a frame", e);
-                return;
+                return NeedsRedraw::No;
             }
             Err(SurfaceError::OutOfMemory) => {
                 // Cannot help with that :(
@@ -284,10 +284,12 @@ impl<G: RuffleGui> GuiController<G> {
             }
         };
 
+        let mut needs_redraw = NeedsRedraw::No;
+
         let raw_input = self.egui_winit.take_egui_input(&self.window);
         let show_menu = self.window.fullscreen().is_none() && !self.no_gui;
         let mut full_output = self.egui_winit.egui_ctx().run(raw_input, |context| {
-            self.gui.update(
+            needs_redraw = self.gui.update(
                 context,
                 show_menu,
                 player.as_deref_mut(),
@@ -387,6 +389,8 @@ impl<G: RuffleGui> GuiController<G> {
         self.descriptors.queue.submit(command_buffers);
         self.window.pre_present_notify();
         surface_texture.present();
+
+        needs_redraw
     }
 
     pub fn needs_render(&self) -> bool {

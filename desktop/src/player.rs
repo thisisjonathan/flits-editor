@@ -33,19 +33,22 @@ impl FlitsPlayer {
         player.set_state(FlitsState::Welcome(WelcomeScreen::new()));
         player
     }
-    pub fn do_ui(&mut self, egui_ctx: &egui::Context) {
+    pub fn do_ui(&mut self, egui_ctx: &egui::Context) -> NeedsRedraw {
+        let mut needs_redraw = NeedsRedraw::No;
         match &mut self.state {
             FlitsState::Welcome(welcome_screen) => {
                 welcome_screen.do_ui(egui_ctx, self.event_loop.clone())
             }
             FlitsState::Editor(editor) => {
-                editor.do_ui(egui_ctx, &self.event_loop);
+                needs_redraw = editor.do_ui(egui_ctx, &self.event_loop);
             }
         }
 
         if self.is_about_visible {
             self.about_window(egui_ctx);
         }
+
+        needs_redraw
     }
 
     fn about_window(&mut self, egui_ctx: &egui::Context) {

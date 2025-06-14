@@ -4,7 +4,9 @@ use anyhow::anyhow;
 use flits_editor_lib::FlitsEvent;
 use ruffle_render_wgpu::{backend::WgpuRenderBackend, descriptors::Descriptors};
 use wgpu::{Backends, PowerPreference};
-use windowing::{Config, GuiController, MovieView, PlayerController, RuffleGui, RuffleWindow};
+use windowing::{
+    Config, GuiController, MovieView, NeedsRedraw, PlayerController, RuffleGui, RuffleWindow,
+};
 use winit::{
     application::ApplicationHandler,
     event::StartCause,
@@ -36,10 +38,15 @@ impl RuffleGui for FlitsGui {
         _show_menu: bool,
         player: Option<&mut Self::Player>,
         _menu_height_offset: f64,
-    ) -> () {
+    ) -> NeedsRedraw {
         if let Some(player) = player {
-            player.do_ui(egui_ctx);
+            // we need the conversion because they are defined in different crates and they don't depend on each other
+            return match player.do_ui(egui_ctx) {
+                flits_editor_lib::NeedsRedraw::Yes => NeedsRedraw::Yes,
+                flits_editor_lib::NeedsRedraw::No => NeedsRedraw::No,
+            };
         }
+        NeedsRedraw::No
     }
 
     fn on_player_destroyed(&self) {}
