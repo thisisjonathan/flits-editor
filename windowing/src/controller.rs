@@ -34,6 +34,7 @@ pub struct GuiController<G: RuffleGui> {
     /// If this is set, we should not render the main menu.
     no_gui: bool,
     height_offset_unscaled: u32,
+    send_tab_to_player: bool,
 }
 
 impl<G: RuffleGui> GuiController<G> {
@@ -122,6 +123,7 @@ impl<G: RuffleGui> GuiController<G> {
             size,
             no_gui,
             height_offset_unscaled: config.height_offset_unscaled,
+            send_tab_to_player: config.send_tab_to_player,
         })
     }
 
@@ -174,16 +176,18 @@ impl<G: RuffleGui> GuiController<G> {
             self.resize(*size);
         }
 
-        if matches!(
-            &event,
-            WindowEvent::KeyboardInput {
-                event: winit::event::KeyEvent {
-                    logical_key: Key::Named(NamedKey::Tab),
+        if self.send_tab_to_player
+            && matches!(
+                &event,
+                WindowEvent::KeyboardInput {
+                    event: winit::event::KeyEvent {
+                        logical_key: Key::Named(NamedKey::Tab),
+                        ..
+                    },
                     ..
-                },
-                ..
-            }
-        ) {
+                }
+            )
+        {
             // Prevent egui from consuming the Tab key.
             return false;
         }

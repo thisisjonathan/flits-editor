@@ -69,4 +69,5 @@ pub struct Config<'a> {
     pub present_mode: wgpu::PresentMode,
     pub desired_maximum_frame_latency: u32,
     pub height_offset_unscaled: u32,
+    pub send_tab_to_player: bool,
 }

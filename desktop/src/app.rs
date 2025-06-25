@@ -125,6 +125,7 @@ impl ApplicationHandler<FlitsEvent> for App {
                     // changing this from the default 2 doesn't seem to have an effect but change it anyway to be sure
                     desired_maximum_frame_latency: 1,
                     height_offset_unscaled: 0,
+                    send_tab_to_player: false,
                 },
                 FlitsGui {},
                 false,
