@@ -13,7 +13,8 @@ accepted = [
     "MPL-2.0",
     "ISC",
     "Zlib",
-    "LicenseRef-UFL-1.0",    
+    "LicenseRef-UFL-1.0",
+    "NCSA",
 ]
 
 # otherwise it includes flits editor as GPL 3 only instead of GPL 3 and later
