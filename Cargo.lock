@@ -993,6 +993,7 @@ dependencies = [
  "ruffle_render_wgpu",
  "swf",
  "wgpu",
+ "winapi",
  "windowing",
  "winit",
 ]

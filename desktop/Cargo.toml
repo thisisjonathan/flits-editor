@@ -18,4 +18,8 @@ ruffle_render = { workspace = true }
 ruffle_render_wgpu = { workspace = true }
 
 # we can't use the xdg-portal version because it doesn't support message boxes
+# update: it seems they now use zenity: https://github.com/PolyMeilex/rfd/issues/254
 rfd = { version = "0.15.0",  default-features = false, features = ["gtk3"] }
+
+[target.'cfg(windows)'.dependencies]
+winapi = { version = "0.3.9", features = ["wincon"] }
