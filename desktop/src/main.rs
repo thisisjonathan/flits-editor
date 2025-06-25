@@ -1,4 +1,4 @@
-// error handling code copied from Ruffle
+// error handling code and windows console handling copied from Ruffle
 #![deny(clippy::unwrap_used)]
 // By default, Windows creates an additional console window for our program.
 //
