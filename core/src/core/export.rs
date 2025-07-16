@@ -1,6 +1,8 @@
 use std::{collections::HashMap, path::PathBuf};
 
+use font::build_font;
 use swf::*;
+use text_field::build_text_field;
 use typed_arena::Arena;
 
 use self::{
@@ -16,8 +18,10 @@ use super::{Movie, PlaceSymbol, PreloaderType, Symbol, SymbolIndex, SWF_VERSION}
 mod as2;
 mod audio;
 mod bitmap;
+mod font;
 mod movieclip;
 mod preloader;
+mod text_field;
 
 pub fn export_movie_to_swf<'a>(
     movie: &Movie,
@@ -92,6 +96,9 @@ fn build_library<'a>(
             Symbol::MovieClip(movieclip) => {
                 build_movieclip_outer(symbol_index, movieclip, swf_builder)?
             }
+            Symbol::Font(font) => {
+                build_font(symbol_index, font, swf_builder, arenas, directory.clone())?
+            }
         }
         symbol_index += 1;
     }
@@ -138,12 +145,14 @@ impl<'a> SwfBuilder<'a> {
 struct Arenas {
     data: Arena<Vec<u8>>,
     strings: Arena<String>,
+    swf_bufs: Arena<SwfBuf>,
 }
 impl Arenas {
     fn new() -> Arenas {
         Arenas {
             data: Arena::new(),
             strings: Arena::new(),
+            swf_bufs: Arena::new(),
         }
     }
     fn alloc_swf_string(&self, str: String) -> &SwfStr {
@@ -201,19 +210,24 @@ fn get_placed_symbols_tags<'a>(
             }
         }
 
+        let mut character_id = *swf_builder
+            .symbol_index_to_character_id
+            .get(&place_symbol.symbol_index)
+            .ok_or_else(|| {
+                format!(
+                    "No character id for symbol id {}",
+                    place_symbol.symbol_index
+                )
+            })?;
+
+        if let Some(text) = &place_symbol.text {
+            // change the character id to the text field instead of the font
+            character_id = build_text_field(character_id, text, swf_builder, arenas);
+        }
+
         tags.push(Tag::PlaceObject(Box::new(PlaceObject {
             version: 2,
-            action: PlaceObjectAction::Place(
-                *swf_builder
-                    .symbol_index_to_character_id
-                    .get(&place_symbol.symbol_index)
-                    .ok_or_else(|| {
-                        format!(
-                            "No character id for symbol id {}",
-                            place_symbol.symbol_index
-                        )
-                    })?,
-            ),
+            action: PlaceObjectAction::Place(character_id),
             depth: (i as u16) + 1,
             matrix: Some(matrix.into()),
             color_transform: None,

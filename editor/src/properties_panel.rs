@@ -1,10 +1,12 @@
 use egui::Vec2;
 
 use flits_core::{
-    Animation, Bitmap, BitmapCacheStatus, BitmapProperties, EditorColor, Movie, MovieClip,
-    MovieClipProperties, MovieProperties, PlaceSymbol, PlacedSymbolIndex, PreloaderType, Symbol,
-    SymbolIndex, SymbolIndexOrRoot,
+    Animation, Bitmap, BitmapCacheStatus, BitmapProperties, EditorColor, FlitsFont, Movie,
+    MovieClip, MovieClipProperties, MovieProperties, PlaceSymbol, PlacedSymbolIndex, PreloaderType,
+    Symbol, SymbolIndex, SymbolIndexOrRoot, TextProperties,
 };
+
+use crate::edit::FontPropertiesEdit;
 
 use super::{
     edit::{
@@ -123,6 +125,7 @@ pub struct SymbolPropertiesPanel {
 pub enum SymbolProperties {
     Bitmap(BitmapProperties),
     MovieClip(MovieClipProperties),
+    Font(FlitsFont),
 }
 impl SymbolPropertiesPanel {
     pub fn do_ui(&mut self, movie: &mut Movie, ui: &mut egui::Ui) -> Option<MovieEdit> {
@@ -147,6 +150,7 @@ impl SymbolPropertiesPanel {
         let edit2 = match symbol {
             Symbol::Bitmap(bitmap) => self.bitmap_ui(bitmap, ui),
             Symbol::MovieClip(movieclip) => self.movieclip_ui(movieclip, ui),
+            Symbol::Font(font) => self.font_ui(font, ui),
         };
         if edit1.is_some() {
             edit1
@@ -300,6 +304,41 @@ impl SymbolPropertiesPanel {
 
         edit
     }
+
+    fn font_ui(&self, font: &mut FlitsFont, ui: &mut egui::Ui) -> Option<MovieEdit> {
+        let mut edit: Option<MovieEdit> = None;
+        let mut edited = false;
+        egui::Grid::new(format!("font_{}_properties_grid", self.symbol_index)).show(ui, |ui| {
+            ui.label("Path:");
+            let response =
+                ui.add(egui::TextEdit::singleline(&mut font.path).min_size(Vec2::new(200.0, 0.0)));
+            if response.lost_focus() {
+                edited = true;
+            }
+            ui.end_row();
+
+            ui.label("Characters:");
+            let response = ui.add(
+                egui::TextEdit::singleline(&mut font.characters).min_size(Vec2::new(200.0, 0.0)),
+            );
+            if response.lost_focus() {
+                edited = true;
+            }
+        });
+
+        let SymbolProperties::Font(before_edit) = &self.before_edit else {
+            panic!("before_edit is not a font");
+        };
+        if edited && before_edit != font {
+            edit = Some(MovieEdit::EditFontProperties(FontPropertiesEdit {
+                editing_symbol_index: self.symbol_index,
+                before: before_edit.clone(),
+                after: font.clone(),
+            }));
+        }
+
+        edit
+    }
 }
 
 pub struct PlacedSymbolPropertiesPanel {
@@ -320,81 +359,97 @@ impl PlacedSymbolPropertiesPanel {
             .unwrap();
 
         let mut edit: Option<MovieEdit> = None;
+        let mut transform_puc = PropertyUiContext::new();
+        let mut puc = PropertyUiContext::new();
+
         egui::Grid::new(format!(
             "placed_symbol_{placed_symbol_index}_properties_grid"
         ))
         .show(ui, |ui| {
-            let mut dvc = DragValueContext { ui, edited: false };
-            let mut properties_edited = false;
+            transform_puc.drag_value(ui, "x", &mut placed_symbol.transform.x);
+            transform_puc.drag_value(ui, "X scale", &mut placed_symbol.transform.x_scale);
 
-            Self::drag_value(&mut dvc, "x", &mut placed_symbol.transform.x);
-            Self::drag_value(&mut dvc, "X scale", &mut placed_symbol.transform.x_scale);
+            puc.text_value(ui, "Instance name:", &mut placed_symbol.instance_name);
 
-            dvc.ui.label("Instance name:");
-            let response = dvc.ui.add(
-                egui::TextEdit::singleline(&mut placed_symbol.instance_name)
-                    .min_size(Vec2::new(200.0, 0.0)),
-            );
-            if response.lost_focus() {
-                properties_edited = true;
-            }
+            ui.end_row();
 
-            dvc.ui.end_row();
+            transform_puc.drag_value(ui, "y", &mut placed_symbol.transform.y);
+            transform_puc.drag_value(ui, "Y scale", &mut placed_symbol.transform.y_scale);
+            ui.end_row();
+        });
 
-            Self::drag_value(&mut dvc, "y", &mut placed_symbol.transform.y);
-            Self::drag_value(&mut dvc, "Y scale", &mut placed_symbol.transform.y_scale);
-            dvc.ui.end_row();
+        if let Some(text) = &mut placed_symbol.text {
+            Self::text_ui(ui, &mut puc, text);
+        }
 
-            if dvc.edited {
-                let placed_symbol_before_edit = &self.before_edit;
-                // only add edit when the position actually changed
-                if f64::abs(placed_symbol_before_edit.transform.x - placed_symbol.transform.x)
+        if transform_puc.edited {
+            let placed_symbol_before_edit = &self.before_edit;
+            // only add edit when the position actually changed
+            if f64::abs(placed_symbol_before_edit.transform.x - placed_symbol.transform.x)
+                > EDIT_EPSILON
+                || f64::abs(placed_symbol_before_edit.transform.y - placed_symbol.transform.y)
                     > EDIT_EPSILON
-                    || f64::abs(placed_symbol_before_edit.transform.y - placed_symbol.transform.y)
-                        > EDIT_EPSILON
-                    || f64::abs(
-                        placed_symbol_before_edit.transform.x_scale
-                            - placed_symbol.transform.x_scale,
-                    ) > EDIT_EPSILON
-                    || f64::abs(
-                        placed_symbol_before_edit.transform.y_scale
-                            - placed_symbol.transform.y_scale,
-                    ) > EDIT_EPSILON
-                {
-                    edit = Some(MovieEdit::EditPlacedSymbol(PlacedSymbolEdit {
-                        editing_symbol_index: editing_clip,
-                        placed_symbol_index,
-                        start: placed_symbol_before_edit.clone(),
-                        end: placed_symbol.clone(),
-                    }));
-                }
-            }
-            if properties_edited {
+                || f64::abs(
+                    placed_symbol_before_edit.transform.x_scale - placed_symbol.transform.x_scale,
+                ) > EDIT_EPSILON
+                || f64::abs(
+                    placed_symbol_before_edit.transform.y_scale - placed_symbol.transform.y_scale,
+                ) > EDIT_EPSILON
+            {
                 edit = Some(MovieEdit::EditPlacedSymbol(PlacedSymbolEdit {
                     editing_symbol_index: editing_clip,
                     placed_symbol_index,
-                    start: self.before_edit.clone(),
+                    start: placed_symbol_before_edit.clone(),
                     end: placed_symbol.clone(),
                 }));
             }
-        });
+        }
+        if puc.edited {
+            edit = Some(MovieEdit::EditPlacedSymbol(PlacedSymbolEdit {
+                editing_symbol_index: editing_clip,
+                placed_symbol_index,
+                start: self.before_edit.clone(),
+                end: placed_symbol.clone(),
+            }));
+        }
 
         edit
     }
 
-    fn drag_value(dvc: &mut DragValueContext, label: &str, value: &mut f64) {
-        dvc.ui.label(label);
-        let response = dvc
-            .ui
-            .add_sized(Vec2::new(60.0, 20.0), egui::DragValue::new(value));
-        if response.lost_focus() || response.drag_stopped() {
-            dvc.edited = true;
-        }
+    fn text_ui(ui: &mut egui::Ui, puc: &mut PropertyUiContext, text: &mut TextProperties) {
+        ui.heading("Text properties");
+        ui.horizontal(|ui| {
+            puc.drag_value(ui, "Width:", &mut text.width);
+            puc.drag_value(ui, "Height:", &mut text.height);
+            ui.end_row();
+        });
+        ui.horizontal(|ui| {
+            puc.text_value(ui, "Text:", &mut text.text);
+            ui.end_row();
+        });
     }
 }
-struct DragValueContext<'a> {
-    ui: &'a mut egui::Ui,
+struct PropertyUiContext {
     edited: bool,
+}
+impl PropertyUiContext {
+    fn new() -> Self {
+        PropertyUiContext { edited: false }
+    }
+    fn drag_value(&mut self, ui: &mut egui::Ui, label: &str, value: &mut f64) {
+        ui.label(label);
+        let response = ui.add_sized(Vec2::new(60.0, 20.0), egui::DragValue::new(value));
+        if response.lost_focus() || response.drag_stopped() {
+            self.edited = true;
+        }
+    }
+    fn text_value(&mut self, ui: &mut egui::Ui, label: &str, value: &mut String) {
+        ui.label(label);
+        let response = ui.add(egui::TextEdit::singleline(value).min_size(Vec2::new(200.0, 0.0)));
+        if response.lost_focus() {
+            self.edited = true;
+        }
+    }
 }
 
 pub struct MultiSelectionPropertiesPanel {}

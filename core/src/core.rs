@@ -79,7 +79,9 @@ impl Movie {
             let file = fs_asset.unwrap();
             let file_name = file.file_name().into_string().unwrap();
             let file_path = format!("assets/{}", file_name);
-            if !file_name.ends_with(".png") {
+            let is_image = file_name.ends_with(".png");
+            let is_font = file_name.ends_with(".ttf");
+            if !is_image && !is_font {
                 continue;
             }
             let existing_index = existing_assets
@@ -90,14 +92,21 @@ impl Movie {
                 existing_assets.remove(existing_index);
             } else {
                 // asset doesn't exist yet, add it
-                self.symbols.push(Symbol::Bitmap(Bitmap {
-                    properties: BitmapProperties {
-                        name: file_name,
-                        path: file_path,
-                        animation: None,
-                    },
-                    cache: BitmapCacheStatus::Uncached,
-                }));
+                if is_image {
+                    self.symbols.push(Symbol::Bitmap(Bitmap {
+                        properties: BitmapProperties {
+                            name: file_name,
+                            path: file_path,
+                            animation: None,
+                        },
+                        cache: BitmapCacheStatus::Uncached,
+                    }));
+                } else if is_font {
+                    self.symbols.push(Symbol::Font(FlitsFont {
+                        path: file_name,
+                        characters: "1234567890".into(),
+                    }))
+                }
             }
         }
     }
@@ -218,6 +227,7 @@ impl ToString for PreloaderType {
 pub enum Symbol {
     Bitmap(Bitmap),
     MovieClip(MovieClip),
+    Font(FlitsFont),
 }
 
 impl Symbol {
@@ -225,6 +235,7 @@ impl Symbol {
         match self {
             Symbol::Bitmap(bitmap) => bitmap.properties.name.clone(),
             Symbol::MovieClip(movieclip) => movieclip.properties.name.clone(),
+            Symbol::Font(font) => font.path.clone(),
         }
     }
     pub fn is_invalid(&self) -> bool {
@@ -240,6 +251,7 @@ impl Symbol {
         match self {
             Symbol::Bitmap(_) => "Bitmap",
             Symbol::MovieClip(_) => "MovieClip",
+            Symbol::Font(_) => "Font",
         }
     }
     pub fn clone_without_cache(&self) -> Self {
@@ -251,6 +263,7 @@ impl Symbol {
                 cache: BitmapCacheStatus::Uncached,
             }),
             Symbol::MovieClip(movieclip) => Symbol::MovieClip(movieclip.clone()),
+            Symbol::Font(font) => Symbol::Font(font.clone()),
         }
     }
 }
@@ -361,6 +374,7 @@ pub struct PlaceSymbol {
     pub transform: EditorTransform,
     #[serde(default, skip_serializing_if = "is_default")]
     pub instance_name: String,
+    pub text: Option<Box<TextProperties>>,
 }
 impl PlaceSymbol {
     pub fn from_transform(
@@ -371,6 +385,7 @@ impl PlaceSymbol {
             symbol_index: exisiting_place_symbol.symbol_index,
             transform,
             instance_name: exisiting_place_symbol.instance_name.clone(),
+            text: exisiting_place_symbol.text.clone(),
         }
     }
 }
@@ -424,4 +439,17 @@ fn is_one(value: &f64) -> bool {
 // from: https://mth.st/blog/skip-default/
 fn is_default<T: Default + PartialEq>(t: &T) -> bool {
     t == &T::default()
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
+pub struct FlitsFont {
+    pub path: String,
+    pub characters: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
+pub struct TextProperties {
+    pub text: String,
+    pub width: f64,
+    pub height: f64,
 }

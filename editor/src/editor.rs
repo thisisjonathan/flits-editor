@@ -17,7 +17,7 @@ use egui::Widget;
 use flits_core::run::run_movie;
 use flits_core::{
     BitmapCacheStatus, CachedBitmap, EditorTransform, Movie, PlaceSymbol, PlacedSymbolIndex,
-    Symbol, SymbolIndex, SymbolIndexOrRoot,
+    Symbol, SymbolIndex, SymbolIndexOrRoot, TextProperties,
 };
 use ruffle_render::bitmap::BitmapHandle;
 use ruffle_render::{
@@ -229,7 +229,7 @@ impl Editor {
                     }
                     BitmapCacheStatus::Invalid(_) => (),
                 },
-                Symbol::MovieClip(_) => (),
+                _ => (),
             }
         }
 
@@ -255,7 +255,7 @@ impl Editor {
         let placed_symbols = self.movie.get_placed_symbols(self.editing_clip);
         for i in &self.selection {
             let place_symbol = placed_symbols.get(*i).unwrap();
-            let size = self.size_of_symbol(place_symbol.symbol_index);
+            let size = self.size_of_placed_symbol(place_symbol);
             if let Some(size) = size {
                 let scaled_size = (
                     size.0 * place_symbol.transform.x_scale,
@@ -337,11 +337,11 @@ impl Editor {
         commands
     }
 
-    fn size_of_symbol(&self, symbol_index: SymbolIndex) -> Option<(f64, f64)> {
+    fn size_of_placed_symbol(&self, place_symbol: &PlaceSymbol) -> Option<(f64, f64)> {
         let symbol = self
             .movie
             .symbols
-            .get(symbol_index as usize)
+            .get(place_symbol.symbol_index as usize)
             .expect("Invalid symbol placed");
         match symbol {
             Symbol::Bitmap(bitmap) => match bitmap.size() {
@@ -357,7 +357,7 @@ impl Editor {
                 let mut total_x_max = 0.0;
                 let mut total_y_max = 0.0;
                 for place_symbol in &movieclip.place_symbols {
-                    let size = self.size_of_symbol(place_symbol.symbol_index);
+                    let size = self.size_of_placed_symbol(place_symbol);
                     let Some(size) = size else {
                         continue;
                     };
@@ -383,6 +383,10 @@ impl Editor {
                     }
                 }
                 Some((total_x_max - total_x_min, total_y_max - total_y_min))
+            }
+            Symbol::Font(_) => {
+                let text_properties = place_symbol.text.as_ref().unwrap();
+                Some((text_properties.width, text_properties.height))
             }
         }
     }
@@ -488,6 +492,26 @@ impl Editor {
                             color_transform: transform.color_transform,
                         },
                     ));
+                }
+                Symbol::Font(_) => {
+                    let place_symbol_matrix =
+                        <swf::Matrix as Into<Matrix>>::into(<EditorTransform as Into<
+                            swf::Matrix,
+                        >>::into(
+                            place_symbol.transform.clone()
+                        ));
+                    let text_properties = place_symbol.text.as_ref().unwrap();
+                    commands.push(Command::DrawRect {
+                        color: Color::MAGENTA,
+                        matrix: transform.matrix
+                            * place_symbol_matrix
+                            * Matrix::create_box(
+                                text_properties.width as f32,
+                                text_properties.height as f32,
+                                Twips::from_pixels(text_properties.width / -2.0),
+                                Twips::from_pixels(text_properties.height / -2.0),
+                            ),
+                    })
                 }
             }
         }
@@ -729,6 +753,18 @@ impl Editor {
                         return Some(i);
                     }
                 }
+                Symbol::Font(_) => {
+                    let text_properties = place_symbol.text.as_ref().unwrap();
+                    let half_width = text_properties.width * place_symbol.transform.x_scale / 2.0;
+                    let half_height = text_properties.height * place_symbol.transform.y_scale / 2.0;
+                    if x > place_symbol_x - half_width
+                        && y > place_symbol_y - half_height
+                        && x < place_symbol_x + half_width
+                        && y < place_symbol_y + half_height
+                    {
+                        return Some(i);
+                    }
+                }
             }
         }
         None
@@ -844,6 +880,14 @@ impl Editor {
                                             y_scale: 1.0,
                                         },
                                         instance_name: "".into(),
+                                        text: match &self.movie.symbols[i] {
+                                            Symbol::Font(_) => Some(Box::new(TextProperties {
+                                                text: "123456".into(),
+                                                width: 200.0,
+                                                height: 50.0,
+                                            })),
+                                            _ => None,
+                                        },
                                     },
                                     placed_symbol_index: None,
                                 }));
@@ -936,6 +980,10 @@ impl Editor {
                     before_edit: SymbolProperties::MovieClip(movieclip.properties.clone()),
                 })
             }
+            Symbol::Font(font) => PropertiesPanel::SymbolProperties(SymbolPropertiesPanel {
+                symbol_index,
+                before_edit: SymbolProperties::Font(font.clone()),
+            }),
         }
     }
 
@@ -981,6 +1029,7 @@ impl Editor {
                                 Symbol::MovieClip(movieclip) => {
                                     SymbolProperties::MovieClip(movieclip.properties.clone())
                                 }
+                                Symbol::Font(font) => SymbolProperties::Font(font.clone()),
                             },
                         });
                 } else {

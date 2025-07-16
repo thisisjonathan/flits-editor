@@ -1,8 +1,8 @@
 use undo::Edit;
 
 use flits_core::{
-    BitmapProperties, Movie, MovieClip, MovieClipProperties, MovieProperties, PlaceSymbol,
-    PlacedSymbolIndex, Symbol, SymbolIndex, SymbolIndexOrRoot,
+    BitmapProperties, FlitsFont, Movie, MovieClip, MovieClipProperties, MovieProperties,
+    PlaceSymbol, PlacedSymbolIndex, Symbol, SymbolIndex, SymbolIndexOrRoot,
 };
 
 pub enum MovieEdit {
@@ -13,6 +13,7 @@ pub enum MovieEdit {
 
     EditBitmapProperties(BitmapPropertiesEdit),
     EditMovieClipProperties(MovieClipPropertiesEdit),
+    EditFontProperties(FontPropertiesEdit),
 
     EditPlacedSymbol(PlacedSymbolEdit),
     AddPlacedSymbol(AddPlacedSymbolEdit),
@@ -29,6 +30,7 @@ impl Edit for MovieEdit {
             MovieEdit::RemoveSymbol(edit) => edit.edit(target),
             MovieEdit::EditBitmapProperties(edit) => edit.edit(target),
             MovieEdit::EditMovieClipProperties(edit) => edit.edit(target),
+            MovieEdit::EditFontProperties(edit) => edit.edit(target),
             MovieEdit::EditPlacedSymbol(edit) => edit.edit(target),
             MovieEdit::AddPlacedSymbol(edit) => edit.edit(target),
             MovieEdit::RemovePlacedSymbol(edit) => edit.edit(target),
@@ -42,6 +44,7 @@ impl Edit for MovieEdit {
             MovieEdit::RemoveSymbol(edit) => edit.undo(target),
             MovieEdit::EditBitmapProperties(edit) => edit.undo(target),
             MovieEdit::EditMovieClipProperties(edit) => edit.undo(target),
+            MovieEdit::EditFontProperties(edit) => edit.undo(target),
             MovieEdit::EditPlacedSymbol(edit) => edit.undo(target),
             MovieEdit::AddPlacedSymbol(edit) => edit.undo(target),
             MovieEdit::RemovePlacedSymbol(edit) => edit.undo(target),
@@ -136,6 +139,7 @@ impl RemoveSymbolEdit {
         match &self.symbol {
             Symbol::Bitmap(_) => MoviePropertiesOutput::Properties(Some(self.symbol_index)),
             Symbol::MovieClip(_) => MoviePropertiesOutput::Stage(Some(self.symbol_index)),
+            Symbol::Font(_) => MoviePropertiesOutput::Properties(Some(self.symbol_index)),
         }
     }
     fn increase_placed_symbols(&self, placed_symbols: &mut Vec<PlaceSymbol>) {
@@ -214,6 +218,25 @@ impl MovieClipPropertiesEdit {
             _ => panic!("Editing symbol that isn't a movieclip"),
         };
         movieclip.properties = self.before.clone();
+
+        MoviePropertiesOutput::Properties(Some(self.editing_symbol_index))
+    }
+}
+
+pub struct FontPropertiesEdit {
+    pub editing_symbol_index: SymbolIndex,
+
+    pub before: FlitsFont,
+    pub after: FlitsFont,
+}
+impl FontPropertiesEdit {
+    fn edit(&mut self, target: &mut Movie) -> MoviePropertiesOutput {
+        target.symbols[self.editing_symbol_index] = Symbol::Font(self.after.clone());
+
+        MoviePropertiesOutput::Properties(Some(self.editing_symbol_index))
+    }
+    fn undo(&mut self, target: &mut Movie) -> MoviePropertiesOutput {
+        target.symbols[self.editing_symbol_index] = Symbol::Font(self.before.clone());
 
         MoviePropertiesOutput::Properties(Some(self.editing_symbol_index))
     }
