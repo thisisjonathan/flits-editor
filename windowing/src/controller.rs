@@ -80,6 +80,12 @@ impl<G: RuffleGui> GuiController<G> {
         );
         let descriptors = Descriptors::new(instance, adapter, device, queue);
         let egui_ctx = Context::default();
+        egui_ctx.options_mut(|options| {
+            // this kind of zoom is completely broken
+            // TODO: figure out why this doesn't work and make it work
+            // though if we want this it would be nicer as a menu options, for discoverability
+            options.zoom_with_keyboard = false;
+        });
 
         let mut egui_winit = egui_winit::State::new(
             egui_ctx,
