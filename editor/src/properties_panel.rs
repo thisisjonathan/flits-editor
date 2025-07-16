@@ -77,28 +77,15 @@ impl MoviePropertiesPanel {
                 properties_edited = true;
             }
 
-            ui.label("Background color:");
-            let mut color: egui::Rgba = egui::Rgba::from_rgba_premultiplied(
-                movie.properties.background_color.r as f32 / 255.0,
-                movie.properties.background_color.g as f32 / 255.0,
-                movie.properties.background_color.b as f32 / 255.0,
-                movie.properties.background_color.a as f32 / 255.0,
-            );
-            let response = egui::color_picker::color_edit_button_rgba(
+            let mut bg_color_puc = PropertyUiContext::new();
+            bg_color_puc.color_value(
                 ui,
-                &mut color,
+                "Background color:",
+                &mut movie.properties.background_color,
+                &self.before_edit.background_color,
                 egui::color_picker::Alpha::OnlyBlend,
             );
-            movie.properties.background_color = EditorColor {
-                r: (color.r() * 255.0) as u8,
-                g: (color.g() * 255.0) as u8,
-                b: (color.b() * 255.0) as u8,
-                a: (color.a() * 255.0) as u8,
-            };
-            // this is true even when you don't have the color picker selected
-            // and you click anywhere in the program
-            // but that is mitigated by the equality check below
-            if response.clicked_elsewhere() {
+            if bg_color_puc.edited {
                 properties_edited = true;
             }
             ui.end_row();
