@@ -83,7 +83,8 @@ impl MoviePropertiesPanel {
                 "Background color:",
                 &mut movie.properties.background_color,
                 &self.before_edit.background_color,
-                egui::color_picker::Alpha::OnlyBlend,
+                // background color is rgb
+                egui::color_picker::Alpha::Opaque,
             );
             if bg_color_puc.edited {
                 properties_edited = true;
