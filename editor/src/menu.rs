@@ -65,7 +65,7 @@ pub const MENUS: &[Menu] = &[
             MenuItem {
                 name: "Undo",
                 keyboard_shortcut: Some(egui::KeyboardShortcut::new(
-                    egui::Modifiers::CTRL,
+                    egui::Modifiers::COMMAND,
                     egui::Key::Z,
                 )),
                 action: undo,
@@ -73,7 +73,7 @@ pub const MENUS: &[Menu] = &[
             MenuItem {
                 name: "Redo",
                 keyboard_shortcut: Some(egui::KeyboardShortcut::new(
-                    egui::Modifiers::CTRL,
+                    egui::Modifiers::COMMAND,
                     egui::Key::R,
                 )),
                 action: redo,
@@ -130,7 +130,7 @@ pub const MENUS: &[Menu] = &[
         items: &[MenuItem {
             name: "Test Movie",
             keyboard_shortcut: Some(egui::KeyboardShortcut::new(
-                egui::Modifiers::CTRL,
+                egui::Modifiers::COMMAND,
                 egui::Key::Enter,
             )),
             action: run_project,
