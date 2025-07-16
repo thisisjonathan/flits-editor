@@ -74,16 +74,7 @@ where
                 // TODO: Change this when winit adds a `Window::minimized` or `WindowEvent::Minimize`.
                 self.minimized = size.width == 0 && size.height == 0;
 
-                if let Some(mut player) = self.player.get() {
-                    let viewport_scale_factor = self.gui.window().scale_factor();
-                    player.set_viewport_dimensions(ViewportDimensions {
-                        width: size.width,
-                        height: size
-                            .height
-                            .saturating_sub(self.gui.height_offset_scaled() as u32),
-                        scale_factor: viewport_scale_factor,
-                    });
-                }
+                self.update_viewport_dimensions();
                 self.gui.window().request_redraw();
             }
             WindowEvent::CursorMoved { position, .. } => {
@@ -105,6 +96,20 @@ where
         }
 
         false
+    }
+
+    fn update_viewport_dimensions(&mut self) {
+        if let Some(mut player) = self.player.get() {
+            let viewport_scale_factor = self.gui.window().scale_factor();
+            let size = self.gui.window().inner_size();
+            player.set_viewport_dimensions(ViewportDimensions {
+                width: size.width,
+                height: size
+                    .height
+                    .saturating_sub(self.gui.height_offset_scaled() as u32),
+                scale_factor: viewport_scale_factor,
+            });
+        }
     }
 
     pub fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
@@ -157,5 +162,6 @@ where
 
     pub fn set_height_offset_unscaled(&mut self, height_offset_unscaled: u32) {
         self.gui.set_height_offset_unscaled(height_offset_unscaled);
+        self.update_viewport_dimensions();
     }
 }
