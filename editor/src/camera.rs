@@ -26,7 +26,6 @@ impl Camera {
     pub fn world_to_screen_matrix(&self, stage_size: StageSize) -> Matrix {
         Matrix::translate(
             Twips::from_pixels(stage_size.width as f64 / 2.0),
-            // we don't know the height of the properties panel, so just use an approximation
             Twips::from_pixels(stage_size.height as f64 / 2.0),
         ) * Matrix::create_box(
             self.zoom_level as f32,

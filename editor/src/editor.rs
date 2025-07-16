@@ -35,7 +35,7 @@ use winit::{
     event_loop::EventLoopProxy,
 };
 
-pub const MENU_HEIGHT: u32 = 48;
+pub const MENU_HEIGHT: u32 = 44;
 const LIBRARY_WIDTH: u32 = 150;
 pub const EDIT_EPSILON: f64 = 0.00001;
 const EMPTY_CLIP_WIDTH: f64 = 16.0;
@@ -143,7 +143,7 @@ impl Editor {
         StageSize {
             width: viewport_dimensions.width - LIBRARY_WIDTH,
             // we don't know the height of the properties panel, so just use an approximation
-            height: viewport_dimensions.height - 75,
+            height: viewport_dimensions.height - 65,
         }
     }
 
