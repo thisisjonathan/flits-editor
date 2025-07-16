@@ -13,7 +13,7 @@ pub(super) fn build_text_field<'a>(
     let edit_text_id = swf_builder.next_character_id();
     let edit_text = EditText::new()
         .with_id(edit_text_id)
-        .with_font_id(font_character_id, Twips::from_pixels(50.0))
+        .with_font_id(font_character_id, Twips::from_pixels(text.size))
         .with_bounds(Rectangle {
             x_min: Twips::from_pixels(text.width / -2.0),
             x_max: Twips::from_pixels(text.width / 2.0),

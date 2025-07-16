@@ -452,4 +452,5 @@ pub struct TextProperties {
     pub text: String,
     pub width: f64,
     pub height: f64,
+    pub size: f64,
 }

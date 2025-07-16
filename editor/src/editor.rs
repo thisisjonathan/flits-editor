@@ -885,6 +885,7 @@ impl Editor {
                                                 text: "123456".into(),
                                                 width: 200.0,
                                                 height: 50.0,
+                                                size: 50.0,
                                             })),
                                             _ => None,
                                         },

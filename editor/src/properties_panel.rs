@@ -421,6 +421,7 @@ impl PlacedSymbolPropertiesPanel {
         ui.horizontal(|ui| {
             puc.drag_value(ui, "Width:", &mut text.width);
             puc.drag_value(ui, "Height:", &mut text.height);
+            puc.drag_value(ui, "Size:", &mut text.size);
             ui.end_row();
         });
         ui.horizontal(|ui| {
