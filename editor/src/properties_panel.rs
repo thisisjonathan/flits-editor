@@ -379,7 +379,7 @@ impl PlacedSymbolPropertiesPanel {
         });
 
         if let Some(text) = &mut placed_symbol.text {
-            Self::text_ui(ui, &mut puc, text);
+            self.text_ui(ui, &mut puc, text);
         }
 
         if transform_puc.edited {
@@ -416,12 +416,22 @@ impl PlacedSymbolPropertiesPanel {
         edit
     }
 
-    fn text_ui(ui: &mut egui::Ui, puc: &mut PropertyUiContext, text: &mut TextProperties) {
+    fn text_ui(&self, ui: &mut egui::Ui, puc: &mut PropertyUiContext, text: &mut TextProperties) {
         ui.heading("Text properties");
         ui.horizontal(|ui| {
             puc.drag_value(ui, "Width:", &mut text.width);
             puc.drag_value(ui, "Height:", &mut text.height);
             puc.drag_value(ui, "Size:", &mut text.size);
+            puc.color_value(
+                ui,
+                "Color:",
+                &mut text.color,
+                &self.before_edit.text.as_ref().unwrap().color,
+                // semi transparent text doesn't seem to work
+                // weird because according to the internet it should work for embedded fonts:
+                // https://www.permadi.com/tutorial/flashTransText/index.html
+                egui::color_picker::Alpha::Opaque,
+            );
             ui.end_row();
         });
         ui.horizontal(|ui| {
@@ -448,6 +458,29 @@ impl PropertyUiContext {
         ui.label(label);
         let response = ui.add(egui::TextEdit::singleline(value).min_size(Vec2::new(200.0, 0.0)));
         if response.lost_focus() {
+            self.edited = true;
+        }
+    }
+    fn color_value(
+        &mut self,
+        ui: &mut egui::Ui,
+        label: &str,
+        value: &mut EditorColor,
+        original_value: &EditorColor,
+        alpha: egui::color_picker::Alpha,
+    ) {
+        ui.label(label);
+        let mut color = egui::Color32::from_rgba_unmultiplied(value.r, value.g, value.b, value.a);
+        let response = egui::color_picker::color_edit_button_srgba(ui, &mut color, alpha);
+        let color_data = color.to_srgba_unmultiplied();
+        value.r = color_data[0];
+        value.g = color_data[1];
+        value.b = color_data[2];
+        value.a = color_data[3];
+        // response.clicked_elsewhere() is true even when you don't have the color picker selected
+        // and you click anywhere in the program
+        // but that is mitigated by the equality check
+        if response.clicked_elsewhere() && value != original_value {
             self.edited = true;
         }
     }

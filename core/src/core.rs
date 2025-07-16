@@ -197,6 +197,14 @@ pub struct EditorColor {
     pub b: u8,
     pub a: u8,
 }
+impl EditorColor {
+    pub const BLACK: Self = EditorColor {
+        r: 0,
+        g: 0,
+        b: 0,
+        a: 255,
+    };
+}
 impl Into<Color> for EditorColor {
     fn into(self) -> Color {
         Color {
@@ -453,4 +461,5 @@ pub struct TextProperties {
     pub width: f64,
     pub height: f64,
     pub size: f64,
+    pub color: EditorColor,
 }

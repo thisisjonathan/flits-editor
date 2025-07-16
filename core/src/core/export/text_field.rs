@@ -20,7 +20,7 @@ pub(super) fn build_text_field<'a>(
             y_min: Twips::from_pixels(text.height / -2.0),
             y_max: Twips::from_pixels(text.height / 2.0),
         })
-        .with_color(Some(swf::Color::RED))
+        .with_color(Some(text.color.clone().into()))
         .with_layout(Some(swf::TextLayout {
             align: swf::TextAlign::Center,
             left_margin: Twips::ZERO,

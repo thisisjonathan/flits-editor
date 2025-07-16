@@ -16,8 +16,8 @@ use crate::run_ui::RunUi;
 use egui::Widget;
 use flits_core::run::run_movie;
 use flits_core::{
-    BitmapCacheStatus, CachedBitmap, EditorTransform, Movie, PlaceSymbol, PlacedSymbolIndex,
-    Symbol, SymbolIndex, SymbolIndexOrRoot, TextProperties,
+    BitmapCacheStatus, CachedBitmap, EditorColor, EditorTransform, Movie, PlaceSymbol,
+    PlacedSymbolIndex, Symbol, SymbolIndex, SymbolIndexOrRoot, TextProperties,
 };
 use ruffle_render::bitmap::BitmapHandle;
 use ruffle_render::{
@@ -886,6 +886,7 @@ impl Editor {
                                                 width: 200.0,
                                                 height: 50.0,
                                                 size: 50.0,
+                                                color: EditorColor::BLACK,
                                             })),
                                             _ => None,
                                         },
