@@ -29,7 +29,13 @@ pub(super) fn build_text_field<'a>(
             leading: Twips::ZERO,
         }))
         .with_initial_text(Some(arenas.alloc_swf_string(text.text.clone())))
-        .with_use_outlines(true);
+        .with_is_read_only(!text.editable)
+        .with_is_selectable(text.selectable)
+        .with_is_password(text.is_password)
+        .with_is_html(text.is_html)
+        .with_is_multiline(text.is_multiline)
+        .with_is_word_wrap(text.word_wrap)
+        .with_use_outlines(true); // enables embedded fonts
     swf_builder
         .tags
         .push(Tag::DefineEditText(Box::new(edit_text)));

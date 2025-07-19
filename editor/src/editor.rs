@@ -16,8 +16,8 @@ use crate::run_ui::RunUi;
 use egui::Widget;
 use flits_core::run::run_movie;
 use flits_core::{
-    BitmapCacheStatus, CachedBitmap, EditorColor, EditorTransform, Movie, PlaceSymbol,
-    PlacedSymbolIndex, Symbol, SymbolIndex, SymbolIndexOrRoot, TextAlign, TextProperties,
+    BitmapCacheStatus, CachedBitmap, EditorTransform, Movie, PlaceSymbol, PlacedSymbolIndex,
+    Symbol, SymbolIndex, SymbolIndexOrRoot, TextProperties,
 };
 use ruffle_render::bitmap::BitmapHandle;
 use ruffle_render::{
@@ -881,14 +881,9 @@ impl Editor {
                                         },
                                         instance_name: "".into(),
                                         text: match &self.movie.symbols[i] {
-                                            Symbol::Font(_) => Some(Box::new(TextProperties {
-                                                text: "123456".into(),
-                                                width: 200.0,
-                                                height: 50.0,
-                                                size: 50.0,
-                                                color: EditorColor::BLACK,
-                                                align: TextAlign::Left,
-                                            })),
+                                            Symbol::Font(_) => {
+                                                Some(Box::new(TextProperties::new()))
+                                            }
                                             _ => None,
                                         },
                                     },

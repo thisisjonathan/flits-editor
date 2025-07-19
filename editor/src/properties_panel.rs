@@ -426,10 +426,23 @@ impl PlacedSymbolPropertiesPanel {
                 ui.selectable_value(&mut text.align, TextAlign::Center, "Center");
                 ui.selectable_value(&mut text.align, TextAlign::Justify, "Justify");
             });
-            ui.end_row();
         });
+        ui.end_row();
         ui.horizontal(|ui| {
-            puc.text_value(ui, "Text:", &mut text.text);
+            puc.bool_value(ui, "Editable", &mut text.editable);
+            puc.bool_value(ui, "Selectable", &mut text.selectable);
+            puc.bool_value(ui, "Password", &mut text.is_password);
+            puc.bool_value(ui, "HTML", &mut text.is_html);
+            puc.bool_value(ui, "Multiline", &mut text.is_multiline);
+            puc.bool_value(ui, "Word wrap", &mut text.word_wrap);
+        });
+        ui.end_row();
+        ui.horizontal(|ui| {
+            if text.is_multiline {
+                puc.text_value_multiline(ui, "Text:", &mut text.text);
+            } else {
+                puc.text_value(ui, "Text:", &mut text.text);
+            }
             ui.end_row();
         });
     }
@@ -451,6 +464,13 @@ impl PropertyUiContext {
     fn text_value(&mut self, ui: &mut egui::Ui, label: &str, value: &mut String) {
         ui.label(label);
         let response = ui.add(egui::TextEdit::singleline(value).min_size(Vec2::new(200.0, 0.0)));
+        if response.lost_focus() {
+            self.edited = true;
+        }
+    }
+    fn text_value_multiline(&mut self, ui: &mut egui::Ui, label: &str, value: &mut String) {
+        ui.label(label);
+        let response = ui.add(egui::TextEdit::multiline(value).min_size(Vec2::new(200.0, 0.0)));
         if response.lost_focus() {
             self.edited = true;
         }
@@ -490,6 +510,12 @@ impl PropertyUiContext {
             .selected_text(value_string)
             .show_ui(ui, callback);
         if response.response.changed() {
+            self.edited = true;
+        }
+    }
+    fn bool_value(&mut self, ui: &mut egui::Ui, label: &str, value: &mut bool) {
+        let response = ui.checkbox(value, label);
+        if response.changed() {
             self.edited = true;
         }
     }

@@ -463,13 +463,39 @@ pub struct TextProperties {
     pub size: f64,
     pub color: EditorColor,
     pub align: TextAlign,
+
+    pub editable: bool,
+    pub selectable: bool,
+    pub is_password: bool,
+    pub is_html: bool,
+    pub is_multiline: bool,
+    pub word_wrap: bool,
+}
+impl TextProperties {
+    pub fn new() -> Self {
+        TextProperties {
+            text: "123456".into(),
+            width: 200.0,
+            height: 50.0,
+            size: 50.0,
+            color: EditorColor::BLACK,
+            align: TextAlign::Left,
+
+            editable: false,
+            selectable: false,
+            is_password: false,
+            is_html: false,
+            is_multiline: false,
+            word_wrap: false,
+        }
+    }
 }
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
 pub enum TextAlign {
-    Left = 0,
-    Right = 1,
-    Center = 2,
-    Justify = 3,
+    Left,
+    Right,
+    Center,
+    Justify,
 }
 impl Into<swf::TextAlign> for TextAlign {
     fn into(self) -> swf::TextAlign {
