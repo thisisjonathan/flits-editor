@@ -784,12 +784,18 @@ impl Editor {
         }
         let mut needs_redraw = NeedsRedraw::No;
         egui::TopBottomPanel::top("menu_bar").show(egui_ctx, |ui| {
+            // this isn't just text field, also buttons and such
+            let is_something_focused = egui_ctx.memory(|memory| memory.focused().is_some());
             for menu in MENUS {
                 for item in menu.items {
                     if let Some(keyboard_shortcut) = item.keyboard_shortcut {
-                        if ui
-                            .ctx()
-                            .input_mut(|input| input.consume_shortcut(&keyboard_shortcut))
+                        // only activate keyboard shortcuts without modifiers when nothing is focused
+                        let can_activate =
+                            keyboard_shortcut.modifiers.any() || !is_something_focused;
+                        if can_activate
+                            && ui
+                                .ctx()
+                                .input_mut(|input| input.consume_shortcut(&keyboard_shortcut))
                         {
                             (item.action)(self, event_loop);
                             ui.close_menu();
@@ -798,6 +804,7 @@ impl Editor {
                     }
                 }
             }
+
             egui::menu::bar(ui, |ui| {
                 for menu in MENUS {
                     egui::menu::menu_button(ui, menu.name, |ui| {
