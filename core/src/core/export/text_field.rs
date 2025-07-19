@@ -22,7 +22,7 @@ pub(super) fn build_text_field<'a>(
         })
         .with_color(Some(text.color.clone().into()))
         .with_layout(Some(swf::TextLayout {
-            align: swf::TextAlign::Center,
+            align: text.align.clone().into(),
             left_margin: Twips::ZERO,
             right_margin: Twips::ZERO,
             indent: Twips::ZERO,

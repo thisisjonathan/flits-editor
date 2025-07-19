@@ -17,7 +17,7 @@ use egui::Widget;
 use flits_core::run::run_movie;
 use flits_core::{
     BitmapCacheStatus, CachedBitmap, EditorColor, EditorTransform, Movie, PlaceSymbol,
-    PlacedSymbolIndex, Symbol, SymbolIndex, SymbolIndexOrRoot, TextProperties,
+    PlacedSymbolIndex, Symbol, SymbolIndex, SymbolIndexOrRoot, TextAlign, TextProperties,
 };
 use ruffle_render::bitmap::BitmapHandle;
 use ruffle_render::{
@@ -887,6 +887,7 @@ impl Editor {
                                                 height: 50.0,
                                                 size: 50.0,
                                                 color: EditorColor::BLACK,
+                                                align: TextAlign::Left,
                                             })),
                                             _ => None,
                                         },

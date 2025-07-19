@@ -3,7 +3,7 @@ use egui::Vec2;
 use flits_core::{
     Animation, Bitmap, BitmapCacheStatus, BitmapProperties, EditorColor, FlitsFont, Movie,
     MovieClip, MovieClipProperties, MovieProperties, PlaceSymbol, PlacedSymbolIndex, PreloaderType,
-    Symbol, SymbolIndex, SymbolIndexOrRoot, TextProperties,
+    Symbol, SymbolIndex, SymbolIndexOrRoot, TextAlign, TextProperties,
 };
 
 use crate::edit::FontPropertiesEdit;
@@ -420,6 +420,12 @@ impl PlacedSymbolPropertiesPanel {
                 // https://www.permadi.com/tutorial/flashTransText/index.html
                 egui::color_picker::Alpha::Opaque,
             );
+            puc.combobox(ui, "Align:", format!("{:?}", text.align), |ui| {
+                ui.selectable_value(&mut text.align, TextAlign::Left, "Left");
+                ui.selectable_value(&mut text.align, TextAlign::Right, "Right");
+                ui.selectable_value(&mut text.align, TextAlign::Center, "Center");
+                ui.selectable_value(&mut text.align, TextAlign::Justify, "Justify");
+            });
             ui.end_row();
         });
         ui.horizontal(|ui| {
@@ -469,6 +475,21 @@ impl PropertyUiContext {
         // and you click anywhere in the program
         // but that is mitigated by the equality check
         if response.clicked_elsewhere() && value != original_value {
+            self.edited = true;
+        }
+    }
+    fn combobox(
+        &mut self,
+        ui: &mut egui::Ui,
+        label: &str,
+        value_string: String,
+        callback: impl FnOnce(&mut egui::Ui),
+    ) {
+        ui.label(label);
+        let response = egui::ComboBox::from_id_salt(label)
+            .selected_text(value_string)
+            .show_ui(ui, callback);
+        if response.response.changed() {
             self.edited = true;
         }
     }

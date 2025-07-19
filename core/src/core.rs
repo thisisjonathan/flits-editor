@@ -462,4 +462,22 @@ pub struct TextProperties {
     pub height: f64,
     pub size: f64,
     pub color: EditorColor,
+    pub align: TextAlign,
+}
+#[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
+pub enum TextAlign {
+    Left = 0,
+    Right = 1,
+    Center = 2,
+    Justify = 3,
+}
+impl Into<swf::TextAlign> for TextAlign {
+    fn into(self) -> swf::TextAlign {
+        match self {
+            TextAlign::Left => swf::TextAlign::Left,
+            TextAlign::Right => swf::TextAlign::Right,
+            TextAlign::Center => swf::TextAlign::Center,
+            TextAlign::Justify => swf::TextAlign::Justify,
+        }
+    }
 }
