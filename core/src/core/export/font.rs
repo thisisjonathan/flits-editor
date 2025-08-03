@@ -1,11 +1,18 @@
-use std::{io::Write, path::PathBuf, process::Stdio};
+use std::path::PathBuf;
 
-use swf::{ExportedAsset, Font, FontFlag, Tag};
-
-use crate::{FlitsFont, SymbolIndex};
+use debug::compare_swfmill_font;
+use swf::{ExportedAsset, Font, Point, PointDelta, Rectangle, ShapeRecord, Tag, Twips};
 
 use super::{Arenas, SwfBuilder};
+use crate::{FlitsFont, SymbolIndex};
 
+mod debug;
+
+// taken from swfmill, then added * 3.2 to make the results match up with swfmill
+const SHAPE_SCALING_FACTOR_X: f64 = 1.0 / 64.0 * 3.2;
+const SHAPE_SCALING_FACTOR_Y: f64 = -1.0 / 64.0 * 3.2;
+
+// adapted from: https://github.com/djcsdy/swfmill/blob/53d769029adc9d817972e1ccd648b7b335bf78b7/src/swft/swft_import_ttf.cpp#L289
 pub(super) fn build_font<'a>(
     symbol_index: SymbolIndex,
     font: &FlitsFont,
@@ -13,101 +20,139 @@ pub(super) fn build_font<'a>(
     arenas: &'a Arenas,
     directory: PathBuf,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    // TODO: make this work properly
-    if font.characters.contains('"') || font.characters.contains('\\') {
-        return Err(format!(
-            "Font \"{}\" characters contains \" or \\ which is not allowed",
-            font.path
-        )
-        .into());
+    let scaling_factor = 1024;
+
+    let font_data = std::fs::read(directory.join("assets").join(font.path.clone()))?;
+    let mut face = rustybuzz::Face::from_slice(&font_data, 0).ok_or("Font doesn't have a face")?;
+    // swfmill calls this, not sure what it does
+    face.set_pixels_per_em(Some((scaling_factor as u16, scaling_factor as u16)));
+    let mut buffer = rustybuzz::UnicodeBuffer::new();
+    // TODO: shape each character seperately to avoid kerning and litugates
+    buffer.push_str(&font.characters);
+    let features = vec![];
+    let glyph_buffer = rustybuzz::shape(&face, &features, buffer);
+
+    let characters_as_utf16: Vec<u16> = font.characters.encode_utf16().collect();
+
+    let mut glyphs = Vec::with_capacity(glyph_buffer.len());
+    for (index, (glyph_info, glyph_pos)) in glyph_buffer
+        .glyph_infos()
+        .iter()
+        .zip(glyph_buffer.glyph_positions())
+        .enumerate()
+    {
+        // we need to cast to u16 for some reason, it's what rustybuzz does: https://github.com/harfbuzz/rustybuzz/blob/51d99b83ae78e4ad8993f393f0e5ce05701ebb7e/src/hb/buffer.rs#L247
+        let glyph_id = rustybuzz::ttf_parser::GlyphId(glyph_info.glyph_id as u16);
+        let bounding_box = face
+            .glyph_bounding_box(glyph_id)
+            .ok_or("Font doesn't have a bounding box")?;
+        let mut builder = ShapeRecordBuilder::new();
+        face.outline_glyph(glyph_id, &mut builder);
+        dbg!(glyph_pos.x_advance);
+        dbg!(bounding_box);
+        dbg!(face.units_per_em());
+        glyphs.push(swf::Glyph {
+            shape_records: builder.shape_records,
+            code: characters_as_utf16[index],
+            // swfmill does this, but it produces way too small results:
+            // advance: 1 + (glyph_pos.x_advance >> 6) as i16,
+            // this is much closer:
+            advance: glyph_pos.x_advance as i16,
+            bounds: Some(Rectangle {
+                x_min: Twips::from_pixels(bounding_box.x_min as f64 * SHAPE_SCALING_FACTOR_X),
+                x_max: Twips::from_pixels(bounding_box.x_max as f64 * SHAPE_SCALING_FACTOR_X),
+                // min and max are reversed because we are multiplying with a negative number
+                y_min: Twips::from_pixels(bounding_box.y_max as f64 * SHAPE_SCALING_FACTOR_Y),
+                y_max: Twips::from_pixels(bounding_box.y_min as f64 * SHAPE_SCALING_FACTOR_Y),
+            }),
+        });
     }
 
-    let dependencies_dir = std::env::current_exe()?
-        .parent()
-        .ok_or("Editor executable is not in a directory")?
-        .join("dependencies");
-    // No need to add .exe on windows, Command does that automatically
-    let swfmill_path = dependencies_dir.join("swfmill");
+    let character_id = swf_builder.next_character_id();
+    swf_builder
+        .symbol_index_to_character_id
+        .insert(symbol_index, character_id);
+    swf_builder.tags.push(swf::Tag::DefineFont2(Box::new(Font {
+        version: 2, // TODO: Why doesn't this work if it's 3?
+        id: character_id,
+        // i want the name of the file, not the font inside
+        // TODO: is this the right choice?
+        name: arenas.alloc_swf_string(font.path.clone()),
+        language: swf::Language::Unknown, // swfmill doesn't seem to set this
+        layout: Some(swf::FontLayout {
+            ascent: (face.ascender() as i32 * scaling_factor / face.units_per_em()) as u16,
+            descent: (-face.descender() as i32 * scaling_factor / face.units_per_em()) as u16,
+            leading: (face.line_gap() as i32 * scaling_factor / face.units_per_em()) as i16,
+            kerning: vec![], // TODO: swfmill has a TODO for kerning
+        }),
+        glyphs,
+        flags: swf::FontFlag::HAS_LAYOUT | swf::FontFlag::IS_ANSI, // TODO: find out correct flags, plus we should be able to handle non-ascii characters
+    })));
+    swf_builder.tags.push(Tag::ExportAssets(vec![ExportedAsset {
+        id: character_id,
+        name: arenas.alloc_swf_string(font.path.clone()),
+    }]));
 
-    let mut command = std::process::Command::new(swfmill_path);
-    // this is a workaround to get swfmill to work on Arch, because swfmill depends on outdated libraries
-    // TODO: find a better solution
-    command.env("LD_LIBRARY_PATH", dependencies_dir.join("lib"));
-    command.arg("simple").arg("stdin");
-    // uncomment this to write to an swf instead of stdout
-    // command.arg("temp.swf");
-    command.stdin(Stdio::piped());
-    command.stdout(Stdio::piped());
-    command.current_dir(directory.join("assets"));
-
-    let mut child = command.spawn().map_err(|err| match err.kind() {
-            std::io::ErrorKind::NotFound => {
-                "Could not find swfmill executable. There is supposed to be a 'dependencies' directory in the same directory as this program with the mtasc executable.".into()
-            }
-            _ => format!("Unable to run swfmill: {}", err),
-        })?;
-
-    let xml_input = format!(
-        r##"<?xml version="1.0" encoding="iso-8859-1" ?>
-    <movie width="320" height="240" framerate="12">
-        <frame>
-            <font id="{}" import="{}" glyphs="{}"/>
-        </frame>
-    </movie>"##,
-        font.path,
-        font.path,
-        font.characters // can't contain " or \
-    );
-    let mut stdin = child.stdin.take().expect("Failed to open SwfMill stdin");
-    std::thread::spawn(move || {
-        stdin
-            .write_all(xml_input.as_bytes())
-            .expect("Failed to write to stdin");
-    });
-
-    let output = child.wait_with_output()?;
-    if !output.status.success() {
-        return Err(format!(
-            "Error with SwfMill while converting fonts: {}{}",
-            std::str::from_utf8(&output.stdout)?,
-            std::str::from_utf8(&output.stderr)?
-        )
-        .into());
-    }
-
-    let swf_buf = swf::decompress_swf(&output.stdout[..])?;
-    let swf = swf::parse_swf(arenas.swf_bufs.alloc(swf_buf))?;
-
-    for tag in &swf.tags {
-        let swf::Tag::DefineFont2(define_font_tag) = tag else {
-            continue;
-        };
-
-        let character_id = swf_builder.next_character_id();
-        swf_builder
-            .symbol_index_to_character_id
-            .insert(symbol_index, character_id);
-        let mut font_flags = define_font_tag.flags;
-        // the swf crate doesn't look at the flags to see if it should use wide offsets but instead
-        // chooses based on the glyph data.
-        // TODO: we should do the same check to make sure they are in sync
-        font_flags.remove(FontFlag::HAS_WIDE_OFFSETS);
-        swf_builder.tags.push(swf::Tag::DefineFont2(Box::new(Font {
-            version: define_font_tag.version,
-            id: character_id,
-            // i want the name of the file, not the font inside
-            // TODO: is this the right choice?
-            name: arenas.alloc_swf_string(font.path.clone()),
-            language: define_font_tag.language,
-            layout: define_font_tag.layout.clone(),
-            glyphs: define_font_tag.glyphs.clone(),
-            flags: font_flags,
-        })));
-        swf_builder.tags.push(Tag::ExportAssets(vec![ExportedAsset {
-            id: character_id,
-            name: arenas.alloc_swf_string(font.path.clone()),
-        }]));
-    }
+    compare_swfmill_font(symbol_index, font, swf_builder, arenas, directory)?;
 
     Ok(())
+}
+
+struct ShapeRecordBuilder {
+    last_x: f32,
+    last_y: f32,
+    shape_records: Vec<ShapeRecord>,
+}
+impl ShapeRecordBuilder {
+    fn new() -> Self {
+        ShapeRecordBuilder {
+            last_x: 0.0,
+            last_y: 0.0,
+            shape_records: vec![],
+        }
+    }
+}
+impl rustybuzz::ttf_parser::OutlineBuilder for ShapeRecordBuilder {
+    fn move_to(&mut self, x: f32, y: f32) {
+        self.last_x = x;
+        self.last_y = y;
+        self.shape_records
+            .push(ShapeRecord::StyleChange(Box::new(swf::StyleChangeData {
+                move_to: Some(Point::new(
+                    Twips::from_pixels(x as f64 * SHAPE_SCALING_FACTOR_X),
+                    Twips::from_pixels(y as f64 * SHAPE_SCALING_FACTOR_Y),
+                )),
+                fill_style_0: Some(1),
+                fill_style_1: None,
+                line_style: None,
+                new_styles: None,
+            })));
+    }
+
+    fn line_to(&mut self, x: f32, y: f32) {
+        let dx = x - self.last_x;
+        let dy = y - self.last_y;
+        self.last_x = x;
+        self.last_y = y;
+        self.shape_records.push(ShapeRecord::StraightEdge {
+            delta: PointDelta::new(
+                Twips::from_pixels(dx as f64 * SHAPE_SCALING_FACTOR_X),
+                Twips::from_pixels(dy as f64 * SHAPE_SCALING_FACTOR_Y),
+            ),
+        })
+    }
+
+    fn quad_to(&mut self, x1: f32, y1: f32, x: f32, y: f32) {
+        // TODO
+        println!("quad to");
+    }
+
+    fn curve_to(&mut self, x1: f32, y1: f32, x2: f32, y2: f32, x: f32, y: f32) {
+        // TODO
+        println!("curve to");
+    }
+
+    fn close(&mut self) {
+        // TODO
+    }
 }

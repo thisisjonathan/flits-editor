@@ -104,7 +104,7 @@ impl Movie {
                 } else if is_font {
                     self.symbols.push(Symbol::Font(FlitsFont {
                         path: file_name,
-                        characters: "1234567890".into(),
+                        characters: "0123456789".into(),
                     }))
                 }
             }
