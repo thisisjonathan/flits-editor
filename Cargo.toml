@@ -4,6 +4,7 @@ members = [
   "editor",
   "desktop",
   "windowing",
+  "font-to-swf"
 ]
 default-members = ["desktop"]
 resolver = "2"

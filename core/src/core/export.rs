@@ -71,12 +71,12 @@ pub fn export_movie_to_swf<'a>(
     let writer = std::io::BufWriter::new(file);
     swf::write_swf(&header, &tags, writer)?;
 
-    /*compile_as2(
+    compile_as2(
         &movie,
         &swf_builder.symbol_index_to_character_id,
         project_directory,
         swf_path,
-    )?;*/
+    )?;
 
     Ok(())
 }
@@ -145,14 +145,12 @@ impl<'a> SwfBuilder<'a> {
 struct Arenas {
     data: Arena<Vec<u8>>,
     strings: Arena<String>,
-    swf_bufs: Arena<SwfBuf>,
 }
 impl Arenas {
     fn new() -> Arenas {
         Arenas {
             data: Arena::new(),
             strings: Arena::new(),
-            swf_bufs: Arena::new(),
         }
     }
     fn alloc_swf_string(&self, str: String) -> &SwfStr {
@@ -221,34 +219,6 @@ fn get_placed_symbols_tags<'a>(
             })?;
 
         if let Some(text) = &place_symbol.text {
-            // TODO: debug, do this in a better way
-            // build another text field with the SWFMill font
-            let debug_text_field_character_id =
-                build_text_field(character_id + 1, text, swf_builder, arenas);
-            tags.push(Tag::PlaceObject(Box::new(PlaceObject {
-                version: 2,
-                action: PlaceObjectAction::Place(debug_text_field_character_id),
-                depth: (i as u16) + 2,
-                matrix: Some(matrix.into()),
-                color_transform: None,
-                ratio: None,
-                name: if place_symbol.instance_name != "" {
-                    Some(arenas.alloc_swf_string(place_symbol.instance_name.clone()))
-                } else {
-                    None
-                },
-                clip_depth: None,
-                class_name: None,
-                filters: None,
-                background_color: None,
-                blend_mode: None,
-                clip_actions: None,
-                has_image: true,
-                is_bitmap_cached: None,
-                is_visible: Some(true),
-                amf_data: None,
-            })));
-
             // change the character id to the text field instead of the font
             character_id = build_text_field(character_id, text, swf_builder, arenas);
         }

@@ -1,0 +1,11 @@
+[package]
+name = "font-to-swf"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+swf = { workspace = true }
+rustybuzz = "*"
+typed-arena = "2.0.2" # TODO: move to workspace
