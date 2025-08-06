@@ -12,18 +12,18 @@ pub(super) trait DebugFontSwfBuilder<'a>: FontSwfBuilder<'a> {
 }
 
 pub(super) fn compare_swfmill_font<'a>(
-    path: String,
+    name: String,
+    path: PathBuf,
     characters: String,
-    directory: PathBuf,
     character_id: CharacterId,
     swf_builder: &'a mut impl DebugFontSwfBuilder<'a>,
     allocator: &'a impl FontAllocator,
     swf_bufs: Arena<SwfBuf>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     swfmill::build_font_swfmill(
+        name,
         path,
         characters.clone(),
-        directory,
         character_id,
         swf_builder,
         allocator,

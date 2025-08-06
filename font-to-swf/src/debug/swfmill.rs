@@ -5,9 +5,9 @@ use swf::{CharacterId, Font, FontFlag, SwfBuf};
 use typed_arena::Arena;
 
 pub(super) fn build_font_swfmill<'a>(
-    path: String,
+    name: String,
+    path: PathBuf,
     characters: String,
-    directory: PathBuf,
     character_id: CharacterId,
     swf_builder: &mut impl FontSwfBuilder<'a>,
     allocator: &'a impl FontAllocator,
@@ -17,7 +17,7 @@ pub(super) fn build_font_swfmill<'a>(
     if characters.contains('"') || characters.contains('\\') {
         return Err(format!(
             "Font \"{}\" characters contains \" or \\ which is not allowed",
-            path
+            name
         )
         .into());
     }
@@ -38,7 +38,7 @@ pub(super) fn build_font_swfmill<'a>(
     // command.arg("temp.swf");
     command.stdin(Stdio::piped());
     command.stdout(Stdio::piped());
-    command.current_dir(directory.join("assets"));
+    command.current_dir(path.parent().unwrap());
 
     let mut child = command.spawn().map_err(|err| match err.kind() {
             std::io::ErrorKind::NotFound => {
@@ -54,8 +54,8 @@ pub(super) fn build_font_swfmill<'a>(
             <font id="{}" import="{}" glyphs="{}"/>
         </frame>
     </movie>"##,
-        path,
-        path,
+        name,
+        name,
         characters // can't contain " or \
     );
     let mut stdin = child.stdin.take().expect("Failed to open SwfMill stdin");

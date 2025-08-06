@@ -17,17 +17,16 @@ const SHAPE_SCALING_FACTOR_Y: f64 = -1.0 / 64.0 * 3.2;
 
 // adapted from: https://github.com/djcsdy/swfmill/blob/53d769029adc9d817972e1ccd648b7b335bf78b7/src/swft/swft_import_ttf.cpp#L289
 pub fn font_to_swf<'a>(
-    path: String,
+    name: String,
+    path: PathBuf,
     characters: String,
-    directory: PathBuf,
     character_id: CharacterId,
     swf_builder: &mut impl FontSwfBuilder<'a>,
     allocator: &'a impl FontAllocator,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let scaling_factor = 1024;
 
-    // TODO: now that this is a seperate crate, we should just pass the complete path of the font
-    let font_data = std::fs::read(directory.join("assets").join(path.clone()))?;
+    let font_data = std::fs::read(path)?;
     let mut face = rustybuzz::Face::from_slice(&font_data, 0).ok_or("Font doesn't have a face")?;
     // swfmill calls this, not sure what it does
     face.set_pixels_per_em(Some((scaling_factor as u16, scaling_factor as u16)));
@@ -73,9 +72,7 @@ pub fn font_to_swf<'a>(
     swf_builder.add_tag(swf::Tag::DefineFont2(Box::new(Font {
         version: 2, // TODO: Why doesn't this work if it's 3?
         id: character_id,
-        // i want the name of the file, not the font inside
-        // TODO: is this the right choice?
-        name: allocator.alloc_swf_string(path.clone()),
+        name: allocator.alloc_swf_string(name.clone()),
         language: swf::Language::Unknown, // swfmill doesn't seem to set this
         layout: Some(swf::FontLayout {
             ascent: (face.ascender() as i32 * scaling_factor / face.units_per_em()) as u16,
@@ -88,7 +85,7 @@ pub fn font_to_swf<'a>(
     })));
     swf_builder.add_tag(Tag::ExportAssets(vec![ExportedAsset {
         id: character_id,
-        name: allocator.alloc_swf_string(path.clone()),
+        name: allocator.alloc_swf_string(name),
     }]));
 
     Ok(())
