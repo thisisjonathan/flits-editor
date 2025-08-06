@@ -10,6 +10,9 @@ use typed_arena::Arena;
 mod debug;
 mod font_to_swf;
 
+/// Converts all fonts in example/assets to swf with both Flits Editor and swfmill and
+/// writes an swf with all the fonts in text fields to example/output.swf
+/// for visual comparison. Also prints metrics from both conversions.
 fn main() {
     let allocator = DebugAllocator {
         string_arena: Arena::new(),
