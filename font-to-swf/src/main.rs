@@ -17,8 +17,10 @@ fn main() {
     let characters: String = "0123456789".into();
     let directory: PathBuf = "example/assets".into();
     let fs_assets = std::fs::read_dir(directory).unwrap();
+    let mut swf_builder = DebugFontSwfBuilderImpl { tags: Vec::new() };
+    let mut character_id = 1;
+    let mut font_character_ids = Vec::new();
     for fs_asset in fs_assets {
-        let mut swf_builder = DebugFontSwfBuilderImpl { tags: Vec::new() };
         let file = fs_asset.unwrap();
         let file_name = file
             .file_name()
@@ -37,22 +39,33 @@ fn main() {
             font_name.clone(),
             font_path.clone(),
             characters.clone(),
-            1,
+            character_id,
             &mut swf_builder,
             &allocator,
         )
         .unwrap();
+
         debug::compare_swfmill_font(
             font_name,
             font_path,
             characters.clone(),
-            2,
+            character_id + 1,
             &mut swf_builder,
             &allocator,
             Arena::new(),
         )
         .unwrap();
+
+        font_character_ids.push((character_id, character_id + 1));
+        character_id += 2;
     }
+    debug::comparison_swf::create_comparision_swf(
+        swf_builder.tags,
+        font_character_ids,
+        "example/output.swf".into(),
+    )
+    .unwrap();
+    println!("Wrote comparison swf to {}", "example/output.swf");
 }
 struct DebugFontSwfBuilderImpl<'a> {
     tags: Vec<Tag<'a>>,
@@ -63,7 +76,7 @@ impl<'a> FontSwfBuilder<'a> for DebugFontSwfBuilderImpl<'a> {
     }
 }
 impl<'a> DebugFontSwfBuilder<'a> for DebugFontSwfBuilderImpl<'a> {
-    fn tags(&'a self) -> &'a Vec<swf::Tag<'a>> {
+    fn tags(&self) -> &Vec<swf::Tag> {
         &self.tags
     }
 }

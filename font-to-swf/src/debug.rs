@@ -5,10 +5,11 @@ use crate::font_to_swf::FontSwfBuilder;
 use swf::{CharacterId, SwfBuf, Tag};
 use typed_arena::Arena;
 
+pub mod comparison_swf;
 mod swfmill;
 
 pub(super) trait DebugFontSwfBuilder<'a>: FontSwfBuilder<'a> {
-    fn tags(&'a self) -> &'a Vec<Tag<'a>>;
+    fn tags(&self) -> &Vec<Tag>;
 }
 
 pub(super) fn compare_swfmill_font<'a>(
@@ -16,10 +17,11 @@ pub(super) fn compare_swfmill_font<'a>(
     path: PathBuf,
     characters: String,
     character_id: CharacterId,
-    swf_builder: &'a mut impl DebugFontSwfBuilder<'a>,
+    swf_builder: &mut impl DebugFontSwfBuilder<'a>,
     allocator: &'a impl FontAllocator,
     swf_bufs: Arena<SwfBuf>,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    // TODO: move this call outside this function
     swfmill::build_font_swfmill(
         name,
         path,
