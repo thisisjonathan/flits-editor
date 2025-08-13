@@ -13,7 +13,7 @@ use crate::properties_panel::{
     PropertiesPanel, SymbolProperties, SymbolPropertiesPanel,
 };
 use crate::run_ui::RunUi;
-use egui::Widget;
+use egui::{Modifiers, Widget};
 use flits_core::run::run_movie;
 use flits_core::{
     BitmapCacheStatus, CachedBitmap, EditorTransform, Movie, PlaceSymbol, PlacedSymbolIndex,
@@ -54,6 +54,7 @@ pub enum NeedsRedraw {
     No,
 }
 
+#[derive(Clone)]
 struct DragData {
     symbol_start_transform: EditorTransform,
     start_x: f64,
@@ -79,7 +80,8 @@ pub struct Editor {
     editing_clip: SymbolIndexOrRoot,
 
     selection: Vec<SymbolIndex>,
-    drag_data: Option<DragData>,
+    // one DragData per selected PlacedSymbol
+    drag_datas: Option<Vec<DragData>>,
     properties_panel: PropertiesPanel,
 
     new_symbol_window: Option<NewSymbolWindow>,
@@ -87,6 +89,8 @@ pub struct Editor {
 
     run_ui: Option<RunUi>,
     event_loop: EventLoopProxy<FlitsEvent>,
+
+    modifiers: Modifiers,
 }
 
 impl Editor {
@@ -122,7 +126,7 @@ impl Editor {
             editing_clip: None,
 
             selection: vec![],
-            drag_data: None,
+            drag_datas: None,
             properties_panel: PropertiesPanel::MovieProperties(MoviePropertiesPanel {
                 before_edit: movie_properties.clone(),
             }),
@@ -132,6 +136,8 @@ impl Editor {
 
             run_ui: None,
             event_loop,
+
+            modifiers: Modifiers::NONE,
         })
     }
 
@@ -525,16 +531,18 @@ impl Editor {
         let world_space_mouse_position = self.camera.screen_to_world_matrix(self.stage_size())
             * Matrix::translate(Twips::from_pixels(mouse_x), Twips::from_pixels(mouse_y));
         let placed_symbols = self.movie.get_placed_symbols_mut(self.editing_clip);
-        if let Some(drag_data) = &self.drag_data {
-            let place_symbol = placed_symbols
-                .get_mut(drag_data.place_symbol_index)
-                .unwrap();
-            place_symbol.transform.x = drag_data.symbol_start_transform.x
-                + world_space_mouse_position.tx.to_pixels()
-                - drag_data.start_x;
-            place_symbol.transform.y = drag_data.symbol_start_transform.y
-                + world_space_mouse_position.ty.to_pixels()
-                - drag_data.start_y;
+        if let Some(drag_datas) = &self.drag_datas {
+            for drag_data in drag_datas {
+                let place_symbol = placed_symbols
+                    .get_mut(drag_data.place_symbol_index)
+                    .unwrap();
+                place_symbol.transform.x = drag_data.symbol_start_transform.x
+                    + world_space_mouse_position.tx.to_pixels()
+                    - drag_data.start_x;
+                place_symbol.transform.y = drag_data.symbol_start_transform.y
+                    + world_space_mouse_position.ty.to_pixels()
+                    - drag_data.start_y;
+            }
         }
 
         self.camera.update_drag(mouse_x, mouse_y);
@@ -553,59 +561,88 @@ impl Editor {
         let world_space_mouse_position = self.camera.screen_to_world_matrix(self.stage_size())
             * Matrix::translate(Twips::from_pixels(mouse_x), Twips::from_pixels(mouse_y));
         if button == MouseButton::Left && state == ElementState::Pressed {
-            self.set_selection(vec![]);
             let symbol_index =
                 self.get_placed_symbol_at_position(mouse_x, mouse_y, self.editing_clip);
             if let Some(symbol_index) = symbol_index {
-                let place_symbol = &self.movie.get_placed_symbols(self.editing_clip)[symbol_index];
-                self.drag_data = Some(DragData {
-                    symbol_start_transform: place_symbol.transform.clone(),
-                    start_x: world_space_mouse_position.tx.to_pixels(),
-                    start_y: world_space_mouse_position.ty.to_pixels(),
-                    place_symbol_index: symbol_index,
-                });
-                self.set_selection(vec![symbol_index]);
+                let item_already_selected = self.selection.contains(&symbol_index);
+                if !self.modifiers.shift && !item_already_selected {
+                    self.selection = Vec::new();
+                }
+                if item_already_selected && self.modifiers.shift {
+                    self.selection.retain(|si| *si != symbol_index);
+                }
+                if !item_already_selected {
+                    self.selection.push(symbol_index);
+                }
+
+                self.drag_datas = Some(
+                    self.selection
+                        .iter()
+                        .map(|placed_symbol_index| {
+                            let place_symbol = &self.movie.get_placed_symbols(self.editing_clip)
+                                [*placed_symbol_index];
+                            DragData {
+                                symbol_start_transform: place_symbol.transform.clone(),
+                                start_x: world_space_mouse_position.tx.to_pixels(),
+                                start_y: world_space_mouse_position.ty.to_pixels(),
+                                place_symbol_index: *placed_symbol_index,
+                            }
+                        })
+                        .collect(),
+                );
+            } else {
+                self.selection = Vec::new();
             }
+            self.update_selection();
         }
         if button == MouseButton::Left && state == ElementState::Released {
-            if let Some(drag_data) = &self.drag_data {
-                let end = EditorTransform {
-                    x: drag_data.symbol_start_transform.x
-                        + world_space_mouse_position.tx.to_pixels()
-                        - drag_data.start_x,
-                    y: drag_data.symbol_start_transform.y
-                        + world_space_mouse_position.ty.to_pixels()
-                        - drag_data.start_y,
-                    x_scale: self.movie.get_placed_symbols(self.editing_clip)
-                        [drag_data.place_symbol_index]
-                        .transform
-                        .x_scale,
-                    y_scale: self.movie.get_placed_symbols(self.editing_clip)
-                        [drag_data.place_symbol_index]
-                        .transform
-                        .y_scale,
-                };
+            if let Some(drag_datas) = self.drag_datas.clone() {
+                let mut edits = Vec::with_capacity(drag_datas.len());
+                for drag_data in drag_datas {
+                    let end = EditorTransform {
+                        x: drag_data.symbol_start_transform.x
+                            + world_space_mouse_position.tx.to_pixels()
+                            - drag_data.start_x,
+                        y: drag_data.symbol_start_transform.y
+                            + world_space_mouse_position.ty.to_pixels()
+                            - drag_data.start_y,
+                        x_scale: self.movie.get_placed_symbols(self.editing_clip)
+                            [drag_data.place_symbol_index]
+                            .transform
+                            .x_scale,
+                        y_scale: self.movie.get_placed_symbols(self.editing_clip)
+                            [drag_data.place_symbol_index]
+                            .transform
+                            .y_scale,
+                    };
 
-                // only insert an edit if you actually moved the placed symbol
-                if f64::abs(drag_data.symbol_start_transform.x - end.x) > EDIT_EPSILON
-                    || f64::abs(drag_data.symbol_start_transform.y - end.y) > EDIT_EPSILON
-                {
-                    self.do_edit(MovieEdit::EditPlacedSymbol(PlacedSymbolEdit {
-                        editing_symbol_index: self.editing_clip,
-                        placed_symbol_index: drag_data.place_symbol_index,
-                        start: PlaceSymbol::from_transform(
-                            &self.movie.get_placed_symbols(self.editing_clip)
-                                [drag_data.place_symbol_index],
-                            drag_data.symbol_start_transform.clone(),
-                        ),
-                        end: PlaceSymbol::from_transform(
-                            &self.movie.get_placed_symbols(self.editing_clip)
-                                [drag_data.place_symbol_index],
-                            end,
-                        ),
-                    }));
+                    // only insert an edit if you actually moved the placed symbol
+                    if f64::abs(drag_data.symbol_start_transform.x - end.x) > EDIT_EPSILON
+                        || f64::abs(drag_data.symbol_start_transform.y - end.y) > EDIT_EPSILON
+                    {
+                        edits.push(MovieEdit::EditPlacedSymbol(PlacedSymbolEdit {
+                            editing_symbol_index: self.editing_clip,
+                            placed_symbol_index: drag_data.place_symbol_index,
+                            start: PlaceSymbol::from_transform(
+                                self.movie.get_placed_symbols(self.editing_clip)
+                                    [drag_data.place_symbol_index]
+                                    .clone(),
+                                drag_data.symbol_start_transform.clone(),
+                            ),
+                            end: PlaceSymbol::from_transform(
+                                self.movie.get_placed_symbols(self.editing_clip)
+                                    [drag_data.place_symbol_index]
+                                    .clone(),
+                                end,
+                            ),
+                        }));
+                    }
                 }
-                self.drag_data = None;
+                for edit in edits {
+                    self.do_edit(edit);
+                }
+
+                self.drag_datas = None;
             }
         }
         if button == MouseButton::Middle && state == ElementState::Pressed {
@@ -782,6 +819,7 @@ impl Editor {
         if !self.is_editor_visible() {
             return NeedsRedraw::No;
         }
+        egui_ctx.input(|input| self.modifiers = input.modifiers);
         let mut needs_redraw = NeedsRedraw::No;
         egui::TopBottomPanel::top("menu_bar").show(egui_ctx, |ui| {
             // this isn't just text field, also buttons and such

@@ -386,14 +386,14 @@ pub struct PlaceSymbol {
 }
 impl PlaceSymbol {
     pub fn from_transform(
-        exisiting_place_symbol: &PlaceSymbol,
+        exisiting_place_symbol: PlaceSymbol,
         transform: EditorTransform,
     ) -> PlaceSymbol {
         PlaceSymbol {
             symbol_index: exisiting_place_symbol.symbol_index,
             transform,
-            instance_name: exisiting_place_symbol.instance_name.clone(),
-            text: exisiting_place_symbol.text.clone(),
+            instance_name: exisiting_place_symbol.instance_name,
+            text: exisiting_place_symbol.text,
         }
     }
 }
