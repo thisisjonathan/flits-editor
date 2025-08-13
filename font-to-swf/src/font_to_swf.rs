@@ -80,7 +80,6 @@ pub fn font_to_swf<'a>(
             }),
         });
     }
-    dbg!(face.units_per_em());
 
     swf_builder.add_tag(swf::Tag::DefineFont2(Box::new(Font {
         version: 2, // TODO: Why doesn't this work if it's 3?
