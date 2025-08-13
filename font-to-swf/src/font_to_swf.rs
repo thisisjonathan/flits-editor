@@ -11,10 +11,6 @@ pub trait FontAllocator {
     fn alloc_swf_string(&self, string: String) -> &SwfStr;
 }
 
-// taken from swfmill, then added * 3.2 to make the results match up with swfmill
-const SHAPE_SCALING_FACTOR_X: f64 = 1.0 / 64.0 * 3.2;
-const SHAPE_SCALING_FACTOR_Y: f64 = -1.0 / 64.0 * 3.2;
-
 // adapted from: https://github.com/djcsdy/swfmill/blob/53d769029adc9d817972e1ccd648b7b335bf78b7/src/swft/swft_import_ttf.cpp#L289
 pub fn font_to_swf<'a>(
     name: String,
@@ -30,6 +26,13 @@ pub fn font_to_swf<'a>(
     let mut face = rustybuzz::Face::from_slice(&font_data, 0).ok_or("Font doesn't have a face")?;
     // swfmill calls this, not sure what it does
     face.set_pixels_per_em(Some((scaling_factor as u16, scaling_factor as u16)));
+    // formula found by manually finding scaling factors for fonts with different units_per_em
+    // by lining things up visually and then creating a formula that worked for both values i tested
+    // (font with units_per_em 1000 and 2048, scaling factors 3.2 and 1.6)
+    let shape_scaling_factor: f64 = -0.001527 * face.units_per_em() as f64 + 4.727;
+    // dividing by 64 is what swfmill does
+    let shape_scaling_factor_x = 1.0 / 64.0 * shape_scaling_factor;
+    let shape_scaling_factor_y = -1.0 / 64.0 * shape_scaling_factor;
     let mut buffer = rustybuzz::UnicodeBuffer::new();
     // TODO: shape each character seperately to avoid kerning and litugates
     buffer.push_str(&characters);
@@ -50,24 +53,27 @@ pub fn font_to_swf<'a>(
         let bounding_box = face
             .glyph_bounding_box(glyph_id)
             .ok_or("Font doesn't have a bounding box")?;
-        let mut builder = ShapeRecordBuilder::new();
+        let mut builder = ShapeRecordBuilder::new(shape_scaling_factor_x, shape_scaling_factor_y);
         face.outline_glyph(glyph_id, &mut builder);
         glyphs.push(swf::Glyph {
             shape_records: builder.shape_records,
             code: characters_as_utf16[index],
             // swfmill does this, but it produces way too small results:
             // advance: 1 + (glyph_pos.x_advance >> 6) as i16,
-            // this is much closer:
-            advance: glyph_pos.x_advance as i16,
+            // this is much closer for fonts with units_per_em of 1000:
+            // advance: glyph_pos.x_advance as i16,
+            // but not for fonts with units_per_em of 2048, hence this code:
+            advance: (glyph_pos.x_advance as f64 * (1030.0 / face.units_per_em() as f64)) as i16,
             bounds: Some(Rectangle {
-                x_min: Twips::from_pixels(bounding_box.x_min as f64 * SHAPE_SCALING_FACTOR_X),
-                x_max: Twips::from_pixels(bounding_box.x_max as f64 * SHAPE_SCALING_FACTOR_X),
+                x_min: Twips::from_pixels(bounding_box.x_min as f64 * shape_scaling_factor_x),
+                x_max: Twips::from_pixels(bounding_box.x_max as f64 * shape_scaling_factor_x),
                 // min and max are reversed because we are multiplying with a negative number
-                y_min: Twips::from_pixels(bounding_box.y_max as f64 * SHAPE_SCALING_FACTOR_Y),
-                y_max: Twips::from_pixels(bounding_box.y_min as f64 * SHAPE_SCALING_FACTOR_Y),
+                y_min: Twips::from_pixels(bounding_box.y_max as f64 * shape_scaling_factor_y),
+                y_max: Twips::from_pixels(bounding_box.y_min as f64 * shape_scaling_factor_y),
             }),
         });
     }
+    dbg!(face.units_per_em());
 
     swf_builder.add_tag(swf::Tag::DefineFont2(Box::new(Font {
         version: 2, // TODO: Why doesn't this work if it's 3?
@@ -88,17 +94,23 @@ pub fn font_to_swf<'a>(
         name: allocator.alloc_swf_string(name),
     }]));
 
+    // TODO: there are weird lines when viewing in Flash player
+
     Ok(())
 }
 
 struct ShapeRecordBuilder {
+    shape_scaling_factor_x: f64,
+    shape_scaling_factor_y: f64,
     last_x: f32,
     last_y: f32,
     shape_records: Vec<ShapeRecord>,
 }
 impl ShapeRecordBuilder {
-    fn new() -> Self {
+    fn new(shape_scaling_factor_x: f64, shape_scaling_factor_y: f64) -> Self {
         ShapeRecordBuilder {
+            shape_scaling_factor_x,
+            shape_scaling_factor_y,
             last_x: 0.0,
             last_y: 0.0,
             shape_records: vec![],
@@ -112,8 +124,8 @@ impl rustybuzz::ttf_parser::OutlineBuilder for ShapeRecordBuilder {
         self.shape_records
             .push(ShapeRecord::StyleChange(Box::new(swf::StyleChangeData {
                 move_to: Some(Point::new(
-                    Twips::from_pixels(x as f64 * SHAPE_SCALING_FACTOR_X),
-                    Twips::from_pixels(y as f64 * SHAPE_SCALING_FACTOR_Y),
+                    Twips::from_pixels(x as f64 * self.shape_scaling_factor_x),
+                    Twips::from_pixels(y as f64 * self.shape_scaling_factor_y),
                 )),
                 fill_style_0: Some(1),
                 fill_style_1: None,
@@ -129,15 +141,29 @@ impl rustybuzz::ttf_parser::OutlineBuilder for ShapeRecordBuilder {
         self.last_y = y;
         self.shape_records.push(ShapeRecord::StraightEdge {
             delta: PointDelta::new(
-                Twips::from_pixels(dx as f64 * SHAPE_SCALING_FACTOR_X),
-                Twips::from_pixels(dy as f64 * SHAPE_SCALING_FACTOR_Y),
+                Twips::from_pixels(dx as f64 * self.shape_scaling_factor_x),
+                Twips::from_pixels(dy as f64 * self.shape_scaling_factor_y),
             ),
         })
     }
 
     fn quad_to(&mut self, x1: f32, y1: f32, x: f32, y: f32) {
-        // TODO
-        println!("quad to");
+        let ctx = x1 - self.last_x;
+        let cty = y1 - self.last_y;
+        let dx = (x - self.last_x) - ctx;
+        let dy = (y - self.last_y) - cty;
+        self.last_x = x;
+        self.last_y = y;
+        self.shape_records.push(ShapeRecord::CurvedEdge {
+            anchor_delta: PointDelta::from_pixels(
+                dx as f64 * self.shape_scaling_factor_x,
+                dy as f64 * self.shape_scaling_factor_y,
+            ),
+            control_delta: PointDelta::from_pixels(
+                ctx as f64 * self.shape_scaling_factor_x,
+                cty as f64 * self.shape_scaling_factor_y,
+            ),
+        })
     }
 
     fn curve_to(&mut self, x1: f32, y1: f32, x2: f32, y2: f32, x: f32, y: f32) {
