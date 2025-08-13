@@ -20,6 +20,13 @@ pub fn font_to_swf<'a>(
     swf_builder: &mut impl FontSwfBuilder<'a>,
     allocator: &'a impl FontAllocator,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    if path.extension().is_none_or(|extension| extension != "ttf") {
+        return Err(format!(
+            "Only ttf files are supported, got {}",
+            path.to_str().unwrap_or("Unable to convert path to string")
+        )
+        .into());
+    }
     let scaling_factor = 1024;
 
     let font_data = std::fs::read(path)?;
@@ -166,9 +173,12 @@ impl rustybuzz::ttf_parser::OutlineBuilder for ShapeRecordBuilder {
         })
     }
 
-    fn curve_to(&mut self, x1: f32, y1: f32, x2: f32, y2: f32, x: f32, y: f32) {
-        // TODO
-        println!("curve to");
+    fn curve_to(&mut self, _x1: f32, _y1: f32, _x2: f32, _y2: f32, _x: f32, _y: f32) {
+        // ttf doesn't support cubic splines according to this:
+        // https://github.com/godotengine/godot/issues/97420
+        // https://typedrawers.com/discussion/4167/why-does-truetype-use-quadratic-splines
+        // so we don't need to deal with this
+        panic!("According to the internet, ttf fonts don't support cubic splines. If you see this it turns out that was wrong.");
     }
 
     fn close(&mut self) {
