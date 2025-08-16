@@ -181,6 +181,44 @@ impl rustybuzz::ttf_parser::OutlineBuilder for ShapeRecordBuilder {
     }
 
     fn close(&mut self) {
-        // TODO
+        // Flash player expects the last point to match up with the first point, otherwise it should weird lines.
+        // we don't match up exactly due to floating point math
+        // compensate by finding how much the last point is off and then move it to match up
+        // this is hacky but it works
+        let mut dx = 0;
+        let mut dy = 0;
+        for shape_record in &self.shape_records {
+            match shape_record {
+                ShapeRecord::StyleChange(_) => {}
+                ShapeRecord::StraightEdge { delta } => {
+                    dx += delta.dx.get();
+                    dy += delta.dy.get();
+                }
+                ShapeRecord::CurvedEdge {
+                    control_delta,
+                    anchor_delta,
+                } => {
+                    dx += control_delta.dx.get() + anchor_delta.dx.get();
+                    dy += control_delta.dy.get() + anchor_delta.dy.get();
+                }
+            }
+        }
+        match self.shape_records.last_mut().unwrap() {
+            ShapeRecord::StyleChange(_style_change_data) => {
+                panic!("Last shape record of font is a move")
+            }
+            ShapeRecord::StraightEdge { delta } => {
+                delta.dx -= Twips::new(dx);
+                delta.dy -= Twips::new(dy);
+            }
+            ShapeRecord::CurvedEdge {
+                control_delta: _,
+                anchor_delta,
+            } => {
+                // TODO: also modify the control?
+                anchor_delta.dx -= Twips::new(dx);
+                anchor_delta.dy -= Twips::new(dy);
+            }
+        }
     }
 }
