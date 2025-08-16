@@ -15,9 +15,22 @@ pub enum MovieEdit {
     EditMovieClipProperties(MovieClipPropertiesEdit),
     EditFontProperties(FontPropertiesEdit),
 
-    EditPlacedSymbol(PlacedSymbolEdit),
     AddPlacedSymbol(AddPlacedSymbolEdit),
-    RemovePlacedSymbol(RemovePlacedSymbolEdit),
+
+    Multi(MultiEdit),
+}
+impl MovieEdit {
+    // use multi edit system for editing single placed symbols to
+    // avoid needing seperate implementations for single and multiple edits
+    pub fn new_placed_symbol_edit(
+        editing_symbol_index: SymbolIndexOrRoot,
+        edit: PlacedSymbolEdit,
+    ) -> Self {
+        Self::Multi(MultiEdit {
+            editing_symbol_index,
+            edits: vec![MultiEditEdit::EditPlacedSymbol(edit)],
+        })
+    }
 }
 impl Edit for MovieEdit {
     type Target = Movie;
@@ -31,9 +44,8 @@ impl Edit for MovieEdit {
             MovieEdit::EditBitmapProperties(edit) => edit.edit(target),
             MovieEdit::EditMovieClipProperties(edit) => edit.edit(target),
             MovieEdit::EditFontProperties(edit) => edit.edit(target),
-            MovieEdit::EditPlacedSymbol(edit) => edit.edit(target),
             MovieEdit::AddPlacedSymbol(edit) => edit.edit(target),
-            MovieEdit::RemovePlacedSymbol(edit) => edit.edit(target),
+            MovieEdit::Multi(edit) => edit.edit(target),
         }
     }
 
@@ -45,18 +57,21 @@ impl Edit for MovieEdit {
             MovieEdit::EditBitmapProperties(edit) => edit.undo(target),
             MovieEdit::EditMovieClipProperties(edit) => edit.undo(target),
             MovieEdit::EditFontProperties(edit) => edit.undo(target),
-            MovieEdit::EditPlacedSymbol(edit) => edit.undo(target),
             MovieEdit::AddPlacedSymbol(edit) => edit.undo(target),
-            MovieEdit::RemovePlacedSymbol(edit) => edit.undo(target),
+            MovieEdit::Multi(edit) => edit.undo(target),
         }
     }
 }
 pub enum MoviePropertiesOutput {
     Stage(SymbolIndexOrRoot),
     Properties(SymbolIndexOrRoot),
-    PlacedSymbolProperties(SymbolIndexOrRoot, PlacedSymbolIndex),
-    // needs to be a seperate item because the selection needs to be reset
-    RemovedPlacedSymbol(SymbolIndexOrRoot),
+    Multi(SymbolIndexOrRoot, Vec<PlacedSymbolIndex>),
+}
+impl MoviePropertiesOutput {
+    fn remove_placed_symbol(symbol_index: SymbolIndexOrRoot) -> Self {
+        // removing is the same as an edit for no placed symbols, because the selection needs to be reset
+        Self::Multi(symbol_index, vec![])
+    }
 }
 
 pub struct AddMovieClipEdit {
@@ -242,36 +257,6 @@ impl FontPropertiesEdit {
     }
 }
 
-pub struct PlacedSymbolEdit {
-    pub editing_symbol_index: SymbolIndexOrRoot,
-    pub placed_symbol_index: PlacedSymbolIndex,
-
-    pub start: PlaceSymbol,
-    pub end: PlaceSymbol,
-}
-impl PlacedSymbolEdit {
-    fn edit(&mut self, target: &mut Movie) -> MoviePropertiesOutput {
-        let placed_symbols = target.get_placed_symbols_mut(self.editing_symbol_index);
-        let symbol = &mut placed_symbols[self.placed_symbol_index];
-        self.end.clone_into(symbol);
-
-        MoviePropertiesOutput::PlacedSymbolProperties(
-            self.editing_symbol_index,
-            self.placed_symbol_index,
-        )
-    }
-
-    fn undo(&mut self, target: &mut Movie) -> MoviePropertiesOutput {
-        let placed_symbols = target.get_placed_symbols_mut(self.editing_symbol_index);
-        let symbol = &mut placed_symbols[self.placed_symbol_index];
-        self.start.clone_into(symbol);
-
-        MoviePropertiesOutput::PlacedSymbolProperties(
-            self.editing_symbol_index,
-            self.placed_symbol_index,
-        )
-    }
-}
 pub struct AddPlacedSymbolEdit {
     pub editing_symbol_index: SymbolIndexOrRoot,
     pub placed_symbol: PlaceSymbol,
@@ -285,10 +270,7 @@ impl AddPlacedSymbolEdit {
         let placed_symbol_index = target.get_placed_symbols(self.editing_symbol_index).len() - 1;
         self.placed_symbol_index = Some(placed_symbol_index);
 
-        MoviePropertiesOutput::PlacedSymbolProperties(
-            self.editing_symbol_index,
-            placed_symbol_index,
-        )
+        MoviePropertiesOutput::Multi(self.editing_symbol_index, vec![placed_symbol_index])
     }
 
     fn undo(&mut self, target: &mut Movie) -> MoviePropertiesOutput {
@@ -299,7 +281,85 @@ impl AddPlacedSymbolEdit {
             .get_placed_symbols_mut(self.editing_symbol_index)
             .remove(placed_symbol_index);
 
-        MoviePropertiesOutput::RemovedPlacedSymbol(self.editing_symbol_index)
+        MoviePropertiesOutput::remove_placed_symbol(self.editing_symbol_index)
+    }
+}
+
+// this contains only edits that make sense for multi edit
+pub enum MultiEditEdit {
+    EditPlacedSymbol(PlacedSymbolEdit),
+    RemovePlacedSymbol(RemovePlacedSymbolEdit),
+}
+// the surrounding MultiEdit has the editing symbol index
+enum MultiEditOutput {
+    PlacedSymbolProperties(PlacedSymbolIndex),
+    // needs to be a seperate item because removed symbol should not be selected
+    RemovedPlacedSymbol(),
+}
+// edits multiple placed symbols at once
+pub struct MultiEdit {
+    pub editing_symbol_index: SymbolIndexOrRoot,
+    pub edits: Vec<MultiEditEdit>,
+}
+impl MultiEdit {
+    fn edit(&mut self, target: &mut Movie) -> MoviePropertiesOutput {
+        let placed_symbol_indexes = self
+            .edits
+            .iter_mut()
+            .map(|edit| match edit {
+                MultiEditEdit::EditPlacedSymbol(edit) => edit.edit(target),
+                MultiEditEdit::RemovePlacedSymbol(edit) => edit.edit(target),
+            })
+            .filter_map(|output| match output {
+                MultiEditOutput::PlacedSymbolProperties(placed_symbol_index) => {
+                    Some(placed_symbol_index)
+                }
+                MultiEditOutput::RemovedPlacedSymbol() => None,
+            })
+            .collect();
+        MoviePropertiesOutput::Multi(self.editing_symbol_index, placed_symbol_indexes)
+    }
+    fn undo(&mut self, target: &mut Movie) -> MoviePropertiesOutput {
+        let placed_symbol_indexes = self
+            .edits
+            .iter_mut()
+            .rev() // iterate in reverse to make sure everything is applied in the right order
+            .map(|edit| match edit {
+                MultiEditEdit::EditPlacedSymbol(edit) => edit.undo(target),
+                MultiEditEdit::RemovePlacedSymbol(edit) => edit.undo(target),
+            })
+            .filter_map(|output| match output {
+                MultiEditOutput::PlacedSymbolProperties(placed_symbol_index) => {
+                    Some(placed_symbol_index)
+                }
+                MultiEditOutput::RemovedPlacedSymbol() => None,
+            })
+            .collect();
+        MoviePropertiesOutput::Multi(self.editing_symbol_index, placed_symbol_indexes)
+    }
+}
+pub struct PlacedSymbolEdit {
+    pub editing_symbol_index: SymbolIndexOrRoot,
+    pub placed_symbol_index: PlacedSymbolIndex,
+
+    pub start: PlaceSymbol,
+    pub end: PlaceSymbol,
+}
+impl PlacedSymbolEdit {
+    fn edit(&mut self, target: &mut Movie) -> MultiEditOutput {
+        let placed_symbols = target.get_placed_symbols_mut(self.editing_symbol_index);
+        let symbol = &mut placed_symbols[self.placed_symbol_index];
+        self.end.clone_into(symbol);
+
+        MultiEditOutput::PlacedSymbolProperties(self.placed_symbol_index)
+    }
+
+    fn undo(&mut self, target: &mut Movie) -> MultiEditOutput {
+        let placed_symbols = target.get_placed_symbols_mut(self.editing_symbol_index);
+        let symbol = &mut placed_symbols[self.placed_symbol_index];
+        self.start.clone_into(symbol);
+
+        MultiEditOutput::PlacedSymbolProperties(self.placed_symbol_index)
     }
 }
 pub struct RemovePlacedSymbolEdit {
@@ -308,22 +368,19 @@ pub struct RemovePlacedSymbolEdit {
     pub placed_symbol: PlaceSymbol, // for adding when undoing
 }
 impl RemovePlacedSymbolEdit {
-    fn edit(&mut self, target: &mut Movie) -> MoviePropertiesOutput {
+    fn edit(&mut self, target: &mut Movie) -> MultiEditOutput {
         target
             .get_placed_symbols_mut(self.editing_symbol_index)
             .remove(self.placed_symbol_index);
 
-        MoviePropertiesOutput::RemovedPlacedSymbol(self.editing_symbol_index)
+        MultiEditOutput::RemovedPlacedSymbol()
     }
 
-    fn undo(&mut self, target: &mut Movie) -> MoviePropertiesOutput {
+    fn undo(&mut self, target: &mut Movie) -> MultiEditOutput {
         target
             .get_placed_symbols_mut(self.editing_symbol_index)
             .insert(self.placed_symbol_index, self.placed_symbol.clone());
 
-        MoviePropertiesOutput::PlacedSymbolProperties(
-            self.editing_symbol_index,
-            self.placed_symbol_index,
-        )
+        MultiEditOutput::PlacedSymbolProperties(self.placed_symbol_index)
     }
 }

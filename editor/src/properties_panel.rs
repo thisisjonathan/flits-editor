@@ -384,21 +384,27 @@ impl PlacedSymbolPropertiesPanel {
                     placed_symbol_before_edit.transform.y_scale - placed_symbol.transform.y_scale,
                 ) > EDIT_EPSILON
             {
-                edit = Some(MovieEdit::EditPlacedSymbol(PlacedSymbolEdit {
-                    editing_symbol_index: editing_clip,
-                    placed_symbol_index,
-                    start: placed_symbol_before_edit.clone(),
-                    end: placed_symbol.clone(),
-                }));
+                edit = Some(MovieEdit::new_placed_symbol_edit(
+                    editing_clip,
+                    PlacedSymbolEdit {
+                        editing_symbol_index: editing_clip,
+                        placed_symbol_index,
+                        start: placed_symbol_before_edit.clone(),
+                        end: placed_symbol.clone(),
+                    },
+                ));
             }
         }
         if puc.edited {
-            edit = Some(MovieEdit::EditPlacedSymbol(PlacedSymbolEdit {
-                editing_symbol_index: editing_clip,
-                placed_symbol_index,
-                start: self.before_edit.clone(),
-                end: placed_symbol.clone(),
-            }));
+            edit = Some(MovieEdit::new_placed_symbol_edit(
+                editing_clip,
+                PlacedSymbolEdit {
+                    editing_symbol_index: editing_clip,
+                    placed_symbol_index,
+                    start: self.before_edit.clone(),
+                    end: placed_symbol.clone(),
+                },
+            ));
         }
 
         edit

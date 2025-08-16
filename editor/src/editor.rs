@@ -4,7 +4,8 @@ use std::path::PathBuf;
 use crate::camera::Camera;
 use crate::custom_event::FlitsEvent;
 use crate::edit::{
-    AddPlacedSymbolEdit, MovieEdit, MoviePropertiesOutput, PlacedSymbolEdit, RemovePlacedSymbolEdit,
+    AddPlacedSymbolEdit, MovieEdit, MoviePropertiesOutput, MultiEdit, MultiEditEdit,
+    PlacedSymbolEdit, RemovePlacedSymbolEdit,
 };
 use crate::menu::MENUS;
 use crate::new_symbol_window::NewSymbolWindow;
@@ -620,7 +621,7 @@ impl Editor {
                     if f64::abs(drag_data.symbol_start_transform.x - end.x) > EDIT_EPSILON
                         || f64::abs(drag_data.symbol_start_transform.y - end.y) > EDIT_EPSILON
                     {
-                        edits.push(MovieEdit::EditPlacedSymbol(PlacedSymbolEdit {
+                        edits.push(MultiEditEdit::EditPlacedSymbol(PlacedSymbolEdit {
                             editing_symbol_index: self.editing_clip,
                             placed_symbol_index: drag_data.place_symbol_index,
                             start: PlaceSymbol::from_transform(
@@ -638,8 +639,11 @@ impl Editor {
                         }));
                     }
                 }
-                for edit in edits {
-                    self.do_edit(edit);
+                if edits.len() > 0 {
+                    self.do_edit(MovieEdit::Multi(MultiEdit {
+                        editing_symbol_index: self.editing_clip,
+                        edits,
+                    }));
                 }
 
                 self.drag_datas = None;
@@ -708,14 +712,9 @@ impl Editor {
                         });
                 }
             }
-            MoviePropertiesOutput::PlacedSymbolProperties(editing_clip, placed_symbol_index) => {
+            MoviePropertiesOutput::Multi(editing_clip, items) => {
                 self.change_editing_clip(editing_clip);
-                self.set_selection(vec![placed_symbol_index]);
-            }
-            MoviePropertiesOutput::RemovedPlacedSymbol(editing_clip) => {
-                // reset the selection to make sure the removed placed symbol isn't selected anymore
-                self.set_selection(vec![]);
-                self.change_editing_clip(editing_clip);
+                self.set_selection(items);
             }
         }
     }
@@ -1110,9 +1109,10 @@ impl Editor {
 
         // reset selection before doing edits because otherwise you can delete something while it's still selected
         self.set_selection(vec![]);
+        let mut edits = vec![];
         for i in (0..selection.len()).rev() {
             let placed_symbol_index = *selection.get(i).unwrap();
-            self.do_edit(MovieEdit::RemovePlacedSymbol(RemovePlacedSymbolEdit {
+            edits.push(MultiEditEdit::RemovePlacedSymbol(RemovePlacedSymbolEdit {
                 editing_symbol_index: self.editing_clip,
                 placed_symbol_index,
                 placed_symbol: self.movie.get_placed_symbols(self.editing_clip)
@@ -1120,6 +1120,10 @@ impl Editor {
                     .clone(),
             }));
         }
+        self.do_edit(MovieEdit::Multi(MultiEdit {
+            editing_symbol_index: self.editing_clip,
+            edits,
+        }));
     }
 
     pub fn reload_assets(&mut self) {
