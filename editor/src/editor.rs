@@ -68,6 +68,12 @@ pub struct StageSize {
     pub height: u32,
 }
 
+struct BoxSelection {
+    start_x: f64,
+    start_y: f64,
+    size: (f64, f64),
+}
+
 pub struct Editor {
     pub(crate) movie: Movie,
     pub(crate) project_file_path: PathBuf,
@@ -84,6 +90,7 @@ pub struct Editor {
     // one DragData per selected PlacedSymbol
     drag_datas: Option<Vec<DragData>>,
     properties_panel: PropertiesPanel,
+    box_selection: Option<BoxSelection>,
 
     new_symbol_window: Option<NewSymbolWindow>,
     export_error: Option<String>,
@@ -131,6 +138,7 @@ impl Editor {
             properties_panel: PropertiesPanel::MovieProperties(MoviePropertiesPanel {
                 before_edit: movie_properties.clone(),
             }),
+            box_selection: None,
 
             new_symbol_window: None,
             export_error: None,
@@ -262,89 +270,119 @@ impl Editor {
         let placed_symbols = self.movie.get_placed_symbols(self.editing_clip);
         for i in &self.selection {
             let place_symbol = placed_symbols.get(*i).unwrap();
-            let size = self.size_of_placed_symbol(place_symbol);
-            if let Some(size) = size {
-                let scaled_size = (
-                    size.0 * place_symbol.transform.x_scale,
-                    size.1 * place_symbol.transform.y_scale,
-                );
-                let line_size = 1.0 / self.camera.zoom_level();
-                commands.extend(vec![
-                    // top
-                    Command::DrawRect {
-                        color: Color::BLACK,
-                        matrix: world_to_screen_matrix
-                            * Matrix::create_box(
-                                (scaled_size.0 + line_size * 2.0) as f32,
-                                line_size as f32,
-                                Twips::from_pixels(
-                                    place_symbol.transform.x - scaled_size.0 / 2.0 - line_size,
-                                ),
-                                Twips::from_pixels(
-                                    place_symbol.transform.y - scaled_size.1 / 2.0 - line_size,
-                                ),
-                            ),
-                    },
-                    // bottom
-                    Command::DrawRect {
-                        color: Color::BLACK,
-                        matrix: world_to_screen_matrix
-                            * Matrix::create_box(
-                                (scaled_size.0 + line_size * 2.0) as f32,
-                                line_size as f32,
-                                Twips::from_pixels(
-                                    place_symbol.transform.x - scaled_size.0 / 2.0 - line_size,
-                                ),
-                                Twips::from_pixels(place_symbol.transform.y + scaled_size.1 / 2.0),
-                            ),
-                    },
-                    // left
-                    Command::DrawRect {
-                        color: Color::BLACK,
-                        matrix: world_to_screen_matrix
-                            * Matrix::create_box(
-                                line_size as f32,
-                                (scaled_size.1 + line_size * 2.0) as f32,
-                                Twips::from_pixels(
-                                    place_symbol.transform.x - scaled_size.0 / 2.0 - line_size,
-                                ),
-                                Twips::from_pixels(
-                                    place_symbol.transform.y - scaled_size.1 / 2.0 - line_size,
-                                ),
-                            ),
-                    },
-                    // right
-                    Command::DrawRect {
-                        color: Color::BLACK,
-                        matrix: world_to_screen_matrix
-                            * Matrix::create_box(
-                                line_size as f32,
-                                (scaled_size.1 + line_size * 2.0) as f32,
-                                Twips::from_pixels(place_symbol.transform.x + scaled_size.0 / 2.0),
-                                Twips::from_pixels(
-                                    place_symbol.transform.y - scaled_size.1 / 2.0 - line_size,
-                                ),
-                            ),
-                    },
-                ]);
-                // fill whole selection
-                /*commands.push(Command::DrawRect {
-                    color: Color::BLACK,
-                    matrix: world_to_screen_matrix
-                        * Matrix::create_box(
-                            scaled_size.0 as f32,
-                            scaled_size.1 as f32,
-                            0.0,
-                            Twips::from_pixels(place_symbol.transform.x - scaled_size.0 / 2.0),
-                            Twips::from_pixels(place_symbol.transform.y - scaled_size.1 / 2.0),
-                        ),
-                });*/
+            let bounds = self.bounds_of_placed_symbol(place_symbol);
+            if let Some(bounds) = bounds {
+                let mut rect = self.render_selection_rectangle(world_to_screen_matrix, bounds);
+                commands.append(&mut rect);
             }
         }
+
+        // render box selection
+        if let Some(box_selection) = &self.box_selection {
+            let mut rect = self.render_selection_rectangle(
+                world_to_screen_matrix,
+                (
+                    box_selection.start_x,
+                    box_selection.start_y,
+                    box_selection.start_x + box_selection.size.0,
+                    box_selection.start_y + box_selection.size.1,
+                ),
+            );
+            commands.append(&mut rect);
+        }
+
         commands
     }
 
-    fn size_of_placed_symbol(&self, place_symbol: &PlaceSymbol) -> Option<(f64, f64)> {
+    fn render_selection_rectangle(
+        &self,
+        world_to_screen_matrix: Matrix,
+        bounds: (f64, f64, f64, f64),
+    ) -> Vec<Command> {
+        let mut commands = vec![];
+        let line_size = 1.0 / self.camera.zoom_level();
+        let scaled_size = (bounds.2 - bounds.0, bounds.3 - bounds.1);
+        let x = bounds.0 + scaled_size.0 / 2.0;
+        let y = bounds.1 + scaled_size.1 / 2.0;
+        commands.extend(vec![
+            // top
+            Command::DrawRect {
+                color: Color::BLACK,
+                matrix: world_to_screen_matrix
+                    * Matrix::create_box(
+                        (scaled_size.0 + line_size * 2.0) as f32,
+                        line_size as f32,
+                        Twips::from_pixels(x - scaled_size.0 / 2.0 - line_size),
+                        Twips::from_pixels(y - scaled_size.1 / 2.0 - line_size),
+                    ),
+            },
+            // bottom
+            Command::DrawRect {
+                color: Color::BLACK,
+                matrix: world_to_screen_matrix
+                    * Matrix::create_box(
+                        (scaled_size.0 + line_size * 2.0) as f32,
+                        line_size as f32,
+                        Twips::from_pixels(x - scaled_size.0 / 2.0 - line_size),
+                        Twips::from_pixels(y + scaled_size.1 / 2.0),
+                    ),
+            },
+            // left
+            Command::DrawRect {
+                color: Color::BLACK,
+                matrix: world_to_screen_matrix
+                    * Matrix::create_box(
+                        line_size as f32,
+                        (scaled_size.1 + line_size * 2.0) as f32,
+                        Twips::from_pixels(x - scaled_size.0 / 2.0 - line_size),
+                        Twips::from_pixels(y - scaled_size.1 / 2.0 - line_size),
+                    ),
+            },
+            // right
+            Command::DrawRect {
+                color: Color::BLACK,
+                matrix: world_to_screen_matrix
+                    * Matrix::create_box(
+                        line_size as f32,
+                        (scaled_size.1 + line_size * 2.0) as f32,
+                        Twips::from_pixels(x + scaled_size.0 / 2.0),
+                        Twips::from_pixels(y - scaled_size.1 / 2.0 - line_size),
+                    ),
+            },
+        ]);
+        // fill whole selection
+        /*commands.push(Command::DrawRect {
+            color: Color::BLACK,
+            matrix: world_to_screen_matrix
+                * Matrix::create_box(
+                    scaled_size.0 as f32,
+                    scaled_size.1 as f32,
+                    0.0,
+                    Twips::from_pixels(place_symbol.transform.x - scaled_size.0 / 2.0),
+                    Twips::from_pixels(place_symbol.transform.y - scaled_size.1 / 2.0),
+                ),
+        });*/
+
+        commands
+    }
+
+    fn bounds_of_placed_symbol(&self, place_symbol: &PlaceSymbol) -> Option<(f64, f64, f64, f64)> {
+        let local_bounds = self.local_bounds_of_placed_symbol(place_symbol);
+        if let Some(local_bounds) = local_bounds {
+            return Some((
+                place_symbol.transform.x + local_bounds.0 * place_symbol.transform.x_scale,
+                place_symbol.transform.y + local_bounds.1 * place_symbol.transform.y_scale,
+                place_symbol.transform.x + local_bounds.2 * place_symbol.transform.x_scale,
+                place_symbol.transform.y + local_bounds.3 * place_symbol.transform.y_scale,
+            ));
+        }
+        None
+    }
+
+    fn local_bounds_of_placed_symbol(
+        &self,
+        place_symbol: &PlaceSymbol,
+    ) -> Option<(f64, f64, f64, f64)> {
         let symbol = self
             .movie
             .symbols
@@ -352,48 +390,55 @@ impl Editor {
             .expect("Invalid symbol placed");
         match symbol {
             Symbol::Bitmap(bitmap) => match bitmap.size() {
-                Some(size) => Some((size.0 as f64, size.1 as f64)),
+                Some(size) => Some((
+                    size.0 as f64 / -2.0,
+                    size.1 as f64 / -2.0,
+                    size.0 as f64 / 2.0,
+                    size.1 as f64 / 2.0,
+                )),
                 None => None,
             },
             Symbol::MovieClip(movieclip) => {
                 if movieclip.place_symbols.len() == 0 {
-                    return Some((EMPTY_CLIP_WIDTH, EMPTY_CLIP_HEIGHT));
+                    return Some((
+                        -EMPTY_CLIP_WIDTH / 2.0,
+                        -EMPTY_CLIP_HEIGHT / 2.0,
+                        EMPTY_CLIP_WIDTH / 2.0,
+                        EMPTY_CLIP_HEIGHT / 2.0,
+                    ));
                 }
                 let mut total_x_min = 0.0;
                 let mut total_y_min = 0.0;
                 let mut total_x_max = 0.0;
                 let mut total_y_max = 0.0;
-                for place_symbol in &movieclip.place_symbols {
-                    let size = self.size_of_placed_symbol(place_symbol);
-                    let Some(size) = size else {
+                for inner_place_symbol in &movieclip.place_symbols {
+                    let bounds = self.bounds_of_placed_symbol(inner_place_symbol);
+                    let Some(bounds) = bounds else {
                         continue;
                     };
-                    let scaled_half_size = (
-                        size.0 * place_symbol.transform.x_scale / 2.0,
-                        size.1 * place_symbol.transform.y_scale / 2.0,
-                    );
-                    let x_min = place_symbol.transform.x - scaled_half_size.0;
-                    if x_min < total_x_min {
-                        total_x_min = x_min;
+                    if bounds.0 < total_x_min {
+                        total_x_min = bounds.0;
                     }
-                    let y_min = place_symbol.transform.y - scaled_half_size.1;
-                    if y_min < total_y_min {
-                        total_y_min = y_min;
+                    if bounds.1 < total_y_min {
+                        total_y_min = bounds.1;
                     }
-                    let x_max = place_symbol.transform.x + scaled_half_size.0;
-                    if x_max > total_x_max {
-                        total_x_max = x_max;
+                    if bounds.2 > total_x_max {
+                        total_x_max = bounds.2;
                     }
-                    let y_max = place_symbol.transform.y + scaled_half_size.1;
-                    if y_max > total_y_max {
-                        total_y_max = y_max;
+                    if bounds.3 > total_y_max {
+                        total_y_max = bounds.3;
                     }
                 }
-                Some((total_x_max - total_x_min, total_y_max - total_y_min))
+                Some((total_x_min, total_y_min, total_x_max, total_y_max))
             }
             Symbol::Font(_) => {
                 let text_properties = place_symbol.text.as_ref().unwrap();
-                Some((text_properties.width, text_properties.height))
+                Some((
+                    -text_properties.width / 2.0,
+                    -text_properties.height / 2.0,
+                    text_properties.width / 2.0,
+                    text_properties.height / 2.0,
+                ))
             }
         }
     }
@@ -546,6 +591,13 @@ impl Editor {
             }
         }
 
+        if let Some(box_selection) = &mut self.box_selection {
+            box_selection.size.0 =
+                world_space_mouse_position.tx.to_pixels() - box_selection.start_x;
+            box_selection.size.1 =
+                world_space_mouse_position.ty.to_pixels() - box_selection.start_y;
+        }
+
         self.camera.update_drag(mouse_x, mouse_y);
     }
 
@@ -593,6 +645,11 @@ impl Editor {
                 );
             } else {
                 self.selection = Vec::new();
+                self.box_selection = Some(BoxSelection {
+                    start_x: world_space_mouse_position.tx.to_pixels(),
+                    start_y: world_space_mouse_position.ty.to_pixels(),
+                    size: (0.0, 0.0),
+                });
             }
             self.update_selection();
         }
@@ -648,6 +705,7 @@ impl Editor {
 
                 self.drag_datas = None;
             }
+            self.box_selection = None;
         }
         if button == MouseButton::Middle && state == ElementState::Pressed {
             self.camera.start_drag(mouse_x, mouse_y)
