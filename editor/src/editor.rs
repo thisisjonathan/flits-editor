@@ -68,10 +68,12 @@ pub struct StageSize {
     pub height: u32,
 }
 
-struct BoxSelection {
-    start_x: f64,
-    start_y: f64,
-    size: (f64, f64),
+#[derive(Clone, Copy)]
+struct Bounds {
+    min_x: f64,
+    min_y: f64,
+    max_x: f64,
+    max_y: f64,
 }
 
 pub struct Editor {
@@ -90,7 +92,7 @@ pub struct Editor {
     // one DragData per selected PlacedSymbol
     drag_datas: Option<Vec<DragData>>,
     properties_panel: PropertiesPanel,
-    box_selection: Option<BoxSelection>,
+    box_selection: Option<Bounds>,
 
     new_symbol_window: Option<NewSymbolWindow>,
     export_error: Option<String>,
@@ -278,16 +280,8 @@ impl Editor {
         }
 
         // render box selection
-        if let Some(box_selection) = &self.box_selection {
-            let mut rect = self.render_selection_rectangle(
-                world_to_screen_matrix,
-                (
-                    box_selection.start_x,
-                    box_selection.start_y,
-                    box_selection.start_x + box_selection.size.0,
-                    box_selection.start_y + box_selection.size.1,
-                ),
-            );
+        if let Some(box_selection) = self.box_selection {
+            let mut rect = self.render_selection_rectangle(world_to_screen_matrix, box_selection);
             commands.append(&mut rect);
         }
 
@@ -297,13 +291,13 @@ impl Editor {
     fn render_selection_rectangle(
         &self,
         world_to_screen_matrix: Matrix,
-        bounds: (f64, f64, f64, f64),
+        bounds: Bounds,
     ) -> Vec<Command> {
         let mut commands = vec![];
         let line_size = 1.0 / self.camera.zoom_level();
-        let scaled_size = (bounds.2 - bounds.0, bounds.3 - bounds.1);
-        let x = bounds.0 + scaled_size.0 / 2.0;
-        let y = bounds.1 + scaled_size.1 / 2.0;
+        let scaled_size = (bounds.max_x - bounds.min_x, bounds.max_y - bounds.min_y);
+        let x = bounds.min_x + scaled_size.0 / 2.0;
+        let y = bounds.min_y + scaled_size.1 / 2.0;
         commands.extend(vec![
             // top
             Command::DrawRect {
@@ -366,23 +360,24 @@ impl Editor {
         commands
     }
 
-    fn bounds_of_placed_symbol(&self, place_symbol: &PlaceSymbol) -> Option<(f64, f64, f64, f64)> {
+    fn bounds_of_placed_symbol(&self, place_symbol: &PlaceSymbol) -> Option<Bounds> {
         let local_bounds = self.local_bounds_of_placed_symbol(place_symbol);
         if let Some(local_bounds) = local_bounds {
-            return Some((
-                place_symbol.transform.x + local_bounds.0 * place_symbol.transform.x_scale,
-                place_symbol.transform.y + local_bounds.1 * place_symbol.transform.y_scale,
-                place_symbol.transform.x + local_bounds.2 * place_symbol.transform.x_scale,
-                place_symbol.transform.y + local_bounds.3 * place_symbol.transform.y_scale,
-            ));
+            return Some(Bounds {
+                min_x: place_symbol.transform.x
+                    + local_bounds.min_x * place_symbol.transform.x_scale,
+                min_y: place_symbol.transform.y
+                    + local_bounds.min_y * place_symbol.transform.y_scale,
+                max_x: place_symbol.transform.x
+                    + local_bounds.max_x * place_symbol.transform.x_scale,
+                max_y: place_symbol.transform.y
+                    + local_bounds.max_y * place_symbol.transform.y_scale,
+            });
         }
         None
     }
 
-    fn local_bounds_of_placed_symbol(
-        &self,
-        place_symbol: &PlaceSymbol,
-    ) -> Option<(f64, f64, f64, f64)> {
+    fn local_bounds_of_placed_symbol(&self, place_symbol: &PlaceSymbol) -> Option<Bounds> {
         let symbol = self
             .movie
             .symbols
@@ -390,55 +385,57 @@ impl Editor {
             .expect("Invalid symbol placed");
         match symbol {
             Symbol::Bitmap(bitmap) => match bitmap.size() {
-                Some(size) => Some((
-                    size.0 as f64 / -2.0,
-                    size.1 as f64 / -2.0,
-                    size.0 as f64 / 2.0,
-                    size.1 as f64 / 2.0,
-                )),
+                Some(size) => Some(Bounds {
+                    min_x: size.0 as f64 / -2.0,
+                    min_y: size.1 as f64 / -2.0,
+                    max_x: size.0 as f64 / 2.0,
+                    max_y: size.1 as f64 / 2.0,
+                }),
                 None => None,
             },
             Symbol::MovieClip(movieclip) => {
                 if movieclip.place_symbols.len() == 0 {
-                    return Some((
-                        -EMPTY_CLIP_WIDTH / 2.0,
-                        -EMPTY_CLIP_HEIGHT / 2.0,
-                        EMPTY_CLIP_WIDTH / 2.0,
-                        EMPTY_CLIP_HEIGHT / 2.0,
-                    ));
+                    return Some(Bounds {
+                        min_x: -EMPTY_CLIP_WIDTH / 2.0,
+                        min_y: -EMPTY_CLIP_HEIGHT / 2.0,
+                        max_x: EMPTY_CLIP_WIDTH / 2.0,
+                        max_y: EMPTY_CLIP_HEIGHT / 2.0,
+                    });
                 }
-                let mut total_x_min = 0.0;
-                let mut total_y_min = 0.0;
-                let mut total_x_max = 0.0;
-                let mut total_y_max = 0.0;
+                let mut total_bounds = Bounds {
+                    min_x: 0.0,
+                    min_y: 0.0,
+                    max_x: 0.0,
+                    max_y: 0.0,
+                };
                 for inner_place_symbol in &movieclip.place_symbols {
                     let bounds = self.bounds_of_placed_symbol(inner_place_symbol);
                     let Some(bounds) = bounds else {
                         continue;
                     };
-                    if bounds.0 < total_x_min {
-                        total_x_min = bounds.0;
+                    if bounds.min_x < total_bounds.min_x {
+                        total_bounds.min_x = bounds.min_x;
                     }
-                    if bounds.1 < total_y_min {
-                        total_y_min = bounds.1;
+                    if bounds.min_y < total_bounds.min_y {
+                        total_bounds.min_y = bounds.min_y;
                     }
-                    if bounds.2 > total_x_max {
-                        total_x_max = bounds.2;
+                    if bounds.max_x > total_bounds.max_x {
+                        total_bounds.max_x = bounds.max_x;
                     }
-                    if bounds.3 > total_y_max {
-                        total_y_max = bounds.3;
+                    if bounds.max_y > total_bounds.max_y {
+                        total_bounds.max_y = bounds.max_y;
                     }
                 }
-                Some((total_x_min, total_y_min, total_x_max, total_y_max))
+                Some(total_bounds)
             }
             Symbol::Font(_) => {
                 let text_properties = place_symbol.text.as_ref().unwrap();
-                Some((
-                    -text_properties.width / 2.0,
-                    -text_properties.height / 2.0,
-                    text_properties.width / 2.0,
-                    text_properties.height / 2.0,
-                ))
+                Some(Bounds {
+                    min_x: -text_properties.width / 2.0,
+                    min_y: -text_properties.height / 2.0,
+                    max_x: text_properties.width / 2.0,
+                    max_y: text_properties.height / 2.0,
+                })
             }
         }
     }
@@ -592,10 +589,8 @@ impl Editor {
         }
 
         if let Some(box_selection) = &mut self.box_selection {
-            box_selection.size.0 =
-                world_space_mouse_position.tx.to_pixels() - box_selection.start_x;
-            box_selection.size.1 =
-                world_space_mouse_position.ty.to_pixels() - box_selection.start_y;
+            box_selection.max_x = world_space_mouse_position.tx.to_pixels();
+            box_selection.max_y = world_space_mouse_position.ty.to_pixels();
         }
 
         self.camera.update_drag(mouse_x, mouse_y);
@@ -645,10 +640,13 @@ impl Editor {
                 );
             } else {
                 self.selection = Vec::new();
-                self.box_selection = Some(BoxSelection {
-                    start_x: world_space_mouse_position.tx.to_pixels(),
-                    start_y: world_space_mouse_position.ty.to_pixels(),
-                    size: (0.0, 0.0),
+                let mouse_world_x = world_space_mouse_position.tx.to_pixels();
+                let mouse_world_y = world_space_mouse_position.ty.to_pixels();
+                self.box_selection = Some(Bounds {
+                    min_x: mouse_world_x,
+                    min_y: mouse_world_y,
+                    max_x: mouse_world_x,
+                    max_y: mouse_world_y,
                 });
             }
             self.update_selection();
