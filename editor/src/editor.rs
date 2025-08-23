@@ -75,6 +75,31 @@ struct Bounds {
     max_x: f64,
     max_y: f64,
 }
+impl Bounds {
+    fn contains(&self, other: &Self) -> bool {
+        other.min_x >= self.min_x
+            && other.min_y >= self.min_y
+            && other.max_x <= self.max_x
+            && other.max_y <= self.max_y
+    }
+    fn from_points(x1: f64, y1: f64, x2: f64, y2: f64) -> Self {
+        Bounds {
+            min_x: x1.min(x2),
+            min_y: y1.min(y2),
+            max_x: x1.max(x2),
+            max_y: y1.max(y2),
+        }
+    }
+}
+struct BoxSelection {
+    start_x: f64,
+    start_y: f64,
+    bounds: Bounds,
+    // indexes of placed symbols
+    // we need to store the items of the box selection specifically to not
+    // deselect the existing selection when holding shift
+    items: Vec<usize>,
+}
 
 pub struct Editor {
     pub(crate) movie: Movie,
@@ -92,7 +117,7 @@ pub struct Editor {
     // one DragData per selected PlacedSymbol
     drag_datas: Option<Vec<DragData>>,
     properties_panel: PropertiesPanel,
-    box_selection: Option<Bounds>,
+    box_selection: Option<BoxSelection>,
 
     new_symbol_window: Option<NewSymbolWindow>,
     export_error: Option<String>,
@@ -280,8 +305,9 @@ impl Editor {
         }
 
         // render box selection
-        if let Some(box_selection) = self.box_selection {
-            let mut rect = self.render_selection_rectangle(world_to_screen_matrix, box_selection);
+        if let Some(box_selection) = &self.box_selection {
+            let mut rect =
+                self.render_selection_rectangle(world_to_screen_matrix, box_selection.bounds);
             commands.append(&mut rect);
         }
 
@@ -588,9 +614,44 @@ impl Editor {
             }
         }
 
-        if let Some(box_selection) = &mut self.box_selection {
-            box_selection.max_x = world_space_mouse_position.tx.to_pixels();
-            box_selection.max_y = world_space_mouse_position.ty.to_pixels();
+        if self.box_selection.is_some() {
+            if let Some(box_selection) = &mut self.box_selection {
+                box_selection.bounds = Bounds::from_points(
+                    box_selection.start_x,
+                    box_selection.start_y,
+                    world_space_mouse_position.tx.to_pixels(),
+                    world_space_mouse_position.ty.to_pixels(),
+                );
+            }
+            let mut items_to_add_to_selection = Vec::new();
+            let placed_symbols = self.movie.get_placed_symbols(self.editing_clip);
+            if let Some(box_selection) = &self.box_selection {
+                // add placed symbols to selection
+                for i in 0..placed_symbols.len() {
+                    if let Some(bounds) = self.bounds_of_placed_symbol(&placed_symbols[i]) {
+                        if box_selection.bounds.contains(&bounds) {
+                            if self.selection.iter().find(|index| **index == i).is_none() {
+                                items_to_add_to_selection.push(i);
+                            }
+                        }
+                    }
+                }
+
+                // remove placed symbols from selection
+                for i in &box_selection.items {
+                    if let Some(bounds) = self.bounds_of_placed_symbol(&placed_symbols[*i]) {
+                        if !box_selection.bounds.contains(&bounds) {
+                            self.selection.retain_mut(|index| *index != *i);
+                        }
+                    }
+                }
+            }
+            for item in items_to_add_to_selection {
+                self.selection.push(item);
+                if let Some(box_selection) = &mut self.box_selection {
+                    box_selection.items.push(item);
+                }
+            }
         }
 
         self.camera.update_drag(mouse_x, mouse_y);
@@ -639,14 +700,21 @@ impl Editor {
                         .collect(),
                 );
             } else {
-                self.selection = Vec::new();
+                if !self.modifiers.shift {
+                    self.selection = Vec::new();
+                }
                 let mouse_world_x = world_space_mouse_position.tx.to_pixels();
                 let mouse_world_y = world_space_mouse_position.ty.to_pixels();
-                self.box_selection = Some(Bounds {
-                    min_x: mouse_world_x,
-                    min_y: mouse_world_y,
-                    max_x: mouse_world_x,
-                    max_y: mouse_world_y,
+                self.box_selection = Some(BoxSelection {
+                    start_x: mouse_world_x,
+                    start_y: mouse_world_y,
+                    bounds: Bounds {
+                        min_x: mouse_world_x,
+                        min_y: mouse_world_y,
+                        max_x: mouse_world_x,
+                        max_y: mouse_world_y,
+                    },
+                    items: vec![],
                 });
             }
             self.update_selection();
