@@ -41,6 +41,15 @@ pub(super) fn compare_swfmill_font<'a>(
 
     println!("Debugging Flits font vs SWFMill font");
     println!(
+        "Flits name: '{}' SWFMill name: '{}'",
+        flits_font.name.to_string_lossy(swf::UTF_8),
+        swfmill_font.name.to_string_lossy(swf::UTF_8)
+    );
+    println!("Flits flags");
+    print_props(flits_font);
+    println!("SWFMill flags");
+    print_props(swfmill_font);
+    println!(
         "Flits glyphs: {} SWFMill glyps: {}",
         flits_font.glyphs.len(),
         swfmill_font.glyphs.len()
@@ -82,5 +91,10 @@ fn debug_twips_rect(rect: Option<swf::Rectangle<swf::Twips>>) -> String {
             rect.y_max.to_pixels()
         ),
         None => "None".into(),
+    }
+}
+fn print_props(font: &Box<swf::Font>) {
+    for flag in font.flags.iter_names() {
+        println!("  {}", flag.0);
     }
 }

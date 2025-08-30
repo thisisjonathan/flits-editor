@@ -95,7 +95,9 @@ pub(super) fn build_font_swfmill<'a>(
             // TODO: is this the right choice?
             //name: arenas.alloc_swf_string(path.clone()),
             // new name for debugging purposes
-            name: allocator.alloc_swf_string(format!("{} (swfmill)", name).into()),
+            //name: allocator.alloc_swf_string(format!("{} (swfmill)", name).into()),
+            // Edit: we do actually want the name of the font, because variants (like bold) should have the same name
+            name: allocator.alloc_swf_string(define_font_tag.name.to_string_lossy(swf::UTF_8)),
             language: define_font_tag.language,
             layout: define_font_tag.layout.clone(),
             glyphs: define_font_tag.glyphs.clone(),

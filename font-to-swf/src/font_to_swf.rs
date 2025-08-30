@@ -80,11 +80,43 @@ pub fn font_to_swf<'a>(
             }),
         });
     }
+    let mut font_family = face
+        .names()
+        .get(rustybuzz::ttf_parser::name_id::FAMILY)
+        .ok_or("Unable to get font family name")?;
+    // for some reason .get() doesn't always return the right result, even though it exists?!?
+    // it just says "unsuppored encoding" but the name id is also different
+    // get the correct one manually if that's the case
+    if font_family.name_id != rustybuzz::ttf_parser::name_id::FAMILY {
+        for name in face.names() {
+            if name.name_id == rustybuzz::ttf_parser::name_id::FAMILY {
+                font_family = name;
+                break;
+            }
+        }
+    }
+    if font_family.name_id != rustybuzz::ttf_parser::name_id::FAMILY {
+        // if we still haven' found the right thing, give up
+        return Err("Unable to get font family name (even with workaround)".into());
+    }
+
+    // TODO: find out correct flags, plus we should be able to handle non-ascii characters
+    let mut flags = swf::FontFlag::HAS_LAYOUT | swf::FontFlag::IS_ANSI;
+    if face.is_bold() {
+        flags |= swf::FontFlag::IS_BOLD;
+    }
+    if face.is_italic() {
+        flags |= swf::FontFlag::IS_ITALIC;
+    }
 
     swf_builder.add_tag(swf::Tag::DefineFont2(Box::new(Font {
         version: 2, // TODO: Why doesn't this work if it's 3?
         id: character_id,
-        name: allocator.alloc_swf_string(name.clone()),
+        name: allocator.alloc_swf_string(
+            font_family
+                .to_string()
+                .ok_or("Unable to convert font name to unicode")?,
+        ),
         language: swf::Language::Unknown, // swfmill doesn't seem to set this
         layout: Some(swf::FontLayout {
             ascent: (face.ascender() as i32 * scaling_factor / face.units_per_em()) as u16,
@@ -93,14 +125,13 @@ pub fn font_to_swf<'a>(
             kerning: vec![], // TODO: swfmill has a TODO for kerning
         }),
         glyphs,
-        flags: swf::FontFlag::HAS_LAYOUT | swf::FontFlag::IS_ANSI, // TODO: find out correct flags, plus we should be able to handle non-ascii characters
+        flags,
     })));
     swf_builder.add_tag(Tag::ExportAssets(vec![ExportedAsset {
         id: character_id,
+        // TODO: should this be the file name or the family name?
         name: allocator.alloc_swf_string(name),
     }]));
-
-    // TODO: there are weird lines when viewing in Flash player
 
     Ok(())
 }
