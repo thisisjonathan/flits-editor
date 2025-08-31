@@ -28,6 +28,7 @@ pub(super) fn build_font<'a>(
         swf_builder,
         arenas,
     )?;
+    // TODO: check for 2 fonts with the same family and bold+italic?
 
     Ok(())
 }

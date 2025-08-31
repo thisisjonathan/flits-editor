@@ -29,6 +29,7 @@ pub(super) fn build_text_field<'a>(
             indent: Twips::ZERO,
             leading: Twips::ZERO,
         }))
+        // TODO: check if the font supports all the characters in the initial text?
         .with_initial_text(Some(arenas.alloc_swf_string(text.text.clone())))
         .with_is_read_only(!text.editable)
         .with_is_selectable(text.selectable)
