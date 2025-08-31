@@ -27,6 +27,7 @@ pub fn font_to_swf<'a>(
         )
         .into());
     }
+
     let scaling_factor = 1024;
 
     let font_data = std::fs::read(path)?;
@@ -40,21 +41,37 @@ pub fn font_to_swf<'a>(
     // dividing by 64 is what swfmill does
     let shape_scaling_factor_x = 1.0 / 64.0 * shape_scaling_factor;
     let shape_scaling_factor_y = -1.0 / 64.0 * shape_scaling_factor;
-    let mut buffer = rustybuzz::UnicodeBuffer::new();
-    // TODO: shape each character seperately to avoid kerning and litugates
-    buffer.push_str(&characters);
-    let features = vec![];
-    let glyph_buffer = rustybuzz::shape(&face, &features, buffer);
 
-    let characters_as_utf16: Vec<u16> = characters.encode_utf16().collect();
+    let mut characters_as_utf16: Vec<u16> = characters.encode_utf16().collect();
+    // put the characters in unicode code point order
+    // TODO: handle duplicates
+    characters_as_utf16.sort_by(|a, b| a.cmp(b));
 
-    let mut glyphs = Vec::with_capacity(glyph_buffer.len());
-    for (index, (glyph_info, glyph_pos)) in glyph_buffer
-        .glyph_infos()
-        .iter()
-        .zip(glyph_buffer.glyph_positions())
-        .enumerate()
-    {
+    let mut glyphs = Vec::with_capacity(characters_as_utf16.len());
+    for (index, character) in characters_as_utf16.iter().enumerate() {
+        let mut buffer = rustybuzz::UnicodeBuffer::new();
+        // shape each character seperately to avoid kerning and ligatures
+        let char_string = String::from_utf16(&[*character])?;
+        buffer.push_str(&char_string);
+        let features = vec![];
+        let glyph_buffer = rustybuzz::shape(&face, &features, buffer);
+        let mut iterator = glyph_buffer
+            .glyph_infos()
+            .iter()
+            .zip(glyph_buffer.glyph_positions());
+        if iterator.len() > 1 {
+            return Err(format!(
+                "Character '{}' of font '{}' has more than one glyph.",
+                char_string, name
+            )
+            .into());
+        }
+        let (glyph_info, glyph_pos) = iterator.next().ok_or_else(|| {
+            format!(
+                "Character '{}' of font '{}' has zero glyphs.",
+                char_string, name
+            )
+        })?;
         // we need to cast to u16 for some reason, it's what rustybuzz does: https://github.com/harfbuzz/rustybuzz/blob/51d99b83ae78e4ad8993f393f0e5ce05701ebb7e/src/hb/buffer.rs#L247
         let glyph_id = rustybuzz::ttf_parser::GlyphId(glyph_info.glyph_id as u16);
         let bounding_box = face
@@ -80,6 +97,7 @@ pub fn font_to_swf<'a>(
             }),
         });
     }
+
     let mut font_family = face
         .names()
         .get(rustybuzz::ttf_parser::name_id::FAMILY)
