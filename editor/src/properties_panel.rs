@@ -435,6 +435,7 @@ impl PlacedSymbolPropertiesPanel {
         });
         ui.end_row();
         ui.horizontal(|ui| {
+            // TODO: text field that are editable but not selectable are jank, maybe don't allow that combination?
             puc.bool_value(ui, "Editable", &mut text.editable);
             puc.bool_value(ui, "Selectable", &mut text.selectable);
             puc.bool_value(ui, "Password", &mut text.is_password);

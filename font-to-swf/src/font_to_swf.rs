@@ -130,6 +130,8 @@ pub fn font_to_swf<'a>(
     swf_builder.add_tag(Tag::ExportAssets(vec![ExportedAsset {
         id: character_id,
         // TODO: should this be the file name or the family name?
+        // when you create a text field in actionscript, you need to use the family name,
+        // not the exported name
         name: allocator.alloc_swf_string(name),
     }]));
 

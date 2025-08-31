@@ -19,7 +19,8 @@ pub(super) fn build_font<'a>(
         .insert(symbol_index, character_id);
     font_to_swf::font_to_swf(
         // i want the name of the file, not the font inside
-        // TODO: is this the right choice?
+        // this only gets used for ExportAssets, the name of the font is set to the font family
+        // even when referencing it in AS you still need the family name, not the name in ExportAssets
         font.path.clone(),
         directory.join("assets").join(font.path.clone()),
         font.characters.clone(),
