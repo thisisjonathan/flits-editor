@@ -195,10 +195,10 @@ fn get_placed_symbols_tags<'a>(
             .symbol_index_to_tag_index
             .get(&place_symbol.symbol_index);
 
-        // use the coordinates as the center of bitmaps instead of the top left
         if let Some(tag_index) = tag_index {
             let tag = &swf_builder.tags[*tag_index];
             // TODO: this is a hacky to solve this
+            // use the coordinates as the center of bitmaps instead of the top left
             if let Tag::DefineBitsLossless(define_bits) = tag {
                 matrix = matrix
                     * Matrix::translate(
@@ -221,6 +221,15 @@ fn get_placed_symbols_tags<'a>(
         if let Some(text) = &place_symbol.text {
             // change the character id to the text field instead of the font
             character_id = build_text_field(character_id, text, swf_builder, arenas);
+
+            // use the coordinates as the center of text fields instead of the top left
+            // we can't just set the bounds right because Ruffle selections get glitchy when
+            // the x_min is negative (Flash is fine with it)
+            matrix = matrix
+                * Matrix::translate(
+                    Twips::from_pixels(text.width / -2.0),
+                    Twips::from_pixels(text.height / -2.0),
+                );
         }
 
         tags.push(Tag::PlaceObject(Box::new(PlaceObject {

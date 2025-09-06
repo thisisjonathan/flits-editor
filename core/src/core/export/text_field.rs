@@ -15,11 +15,10 @@ pub(super) fn build_text_field<'a>(
         .with_id(edit_text_id)
         .with_font_id(font_character_id, Twips::from_pixels(text.size))
         .with_bounds(Rectangle {
-            // TODO: negative min values might be causing the selection jank in Ruffle?
-            x_min: Twips::from_pixels(text.width / -2.0),
-            x_max: Twips::from_pixels(text.width / 2.0),
-            y_min: Twips::from_pixels(text.height / -2.0),
-            y_max: Twips::from_pixels(text.height / 2.0),
+            x_min: Twips::from_pixels(0.0),
+            x_max: Twips::from_pixels(text.width),
+            y_min: Twips::from_pixels(0.0),
+            y_max: Twips::from_pixels(text.height),
         })
         .with_color(Some(text.color.clone().into()))
         .with_layout(Some(swf::TextLayout {
