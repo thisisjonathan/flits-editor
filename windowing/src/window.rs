@@ -62,6 +62,11 @@ where
             return true;
         }
 
+        // always update mouse position, even if the event is handled by the gui
+        if let WindowEvent::CursorMoved { position, .. } = event {
+            self.mouse_pos = position;
+        }
+
         if self.gui.handle_event(&event) {
             // Event consumed by GUI.
             return true;
@@ -77,9 +82,8 @@ where
                 self.update_viewport_dimensions();
                 self.gui.window().request_redraw();
             }
-            WindowEvent::CursorMoved { position, .. } => {
-                self.mouse_pos = position;
-                let (mouse_x, mouse_y) = self.gui.window_to_movie_position(position);
+            WindowEvent::CursorMoved { .. } => {
+                let (mouse_x, mouse_y) = self.gui.window_to_movie_position(self.mouse_pos);
                 self.player
                     .get()
                     .unwrap()
