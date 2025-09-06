@@ -23,7 +23,7 @@ pub(super) fn build_font<'a>(
         // even when referencing it in AS you still need the family name, not the name in ExportAssets
         font.path.clone(),
         directory.join("assets").join(font.path.clone()),
-        font.characters.clone(),
+        font.characters.characters(),
         character_id,
         swf_builder,
         arenas,

@@ -104,7 +104,10 @@ impl Movie {
                 } else if is_font {
                     self.symbols.push(Symbol::Font(FlitsFont {
                         path: file_name,
-                        characters: "0123456789".into(),
+                        characters: FontCharacters {
+                            ascii: true,
+                            additional_characters: String::new(),
+                        },
                     }))
                 }
             }
@@ -452,7 +455,26 @@ fn is_default<T: Default + PartialEq>(t: &T) -> bool {
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub struct FlitsFont {
     pub path: String,
-    pub characters: String,
+    pub characters: FontCharacters,
+}
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
+pub struct FontCharacters {
+    pub ascii: bool,
+    pub additional_characters: String,
+}
+impl FontCharacters {
+    pub fn characters(&self) -> String {
+        format!(
+            "{}{}",
+            if self.ascii {
+                // all printable ASCII characters and space
+                " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
+            } else {
+                ""
+            },
+            self.additional_characters.clone()
+        )
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
@@ -474,10 +496,10 @@ pub struct TextProperties {
 impl TextProperties {
     pub fn new() -> Self {
         TextProperties {
-            text: "123456".into(),
-            width: 200.0,
+            text: "Hello, world!".into(),
+            width: 280.0,
             height: 50.0,
-            size: 50.0,
+            size: 40.0,
             color: EditorColor::BLACK,
             align: TextAlign::Left,
 

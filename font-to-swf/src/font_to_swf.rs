@@ -74,9 +74,7 @@ pub fn font_to_swf<'a>(
         })?;
         // we need to cast to u16 for some reason, it's what rustybuzz does: https://github.com/harfbuzz/rustybuzz/blob/51d99b83ae78e4ad8993f393f0e5ce05701ebb7e/src/hb/buffer.rs#L247
         let glyph_id = rustybuzz::ttf_parser::GlyphId(glyph_info.glyph_id as u16);
-        let bounding_box = face
-            .glyph_bounding_box(glyph_id)
-            .ok_or("Font doesn't have a bounding box")?;
+        let bounding_box = face.glyph_bounding_box(glyph_id);
         let mut builder = ShapeRecordBuilder::new(shape_scaling_factor_x, shape_scaling_factor_y);
         face.outline_glyph(glyph_id, &mut builder);
         glyphs.push(swf::Glyph {
@@ -88,13 +86,18 @@ pub fn font_to_swf<'a>(
             // advance: glyph_pos.x_advance as i16,
             // but not for fonts with units_per_em of 2048, hence this code:
             advance: (glyph_pos.x_advance as f64 * (1030.0 / face.units_per_em() as f64)) as i16,
-            bounds: Some(Rectangle {
-                x_min: Twips::from_pixels(bounding_box.x_min as f64 * shape_scaling_factor_x),
-                x_max: Twips::from_pixels(bounding_box.x_max as f64 * shape_scaling_factor_x),
-                // min and max are reversed because we are multiplying with a negative number
-                y_min: Twips::from_pixels(bounding_box.y_max as f64 * shape_scaling_factor_y),
-                y_max: Twips::from_pixels(bounding_box.y_min as f64 * shape_scaling_factor_y),
-            }),
+            bounds: match bounding_box {
+                Some(bounding_box) => Some(Rectangle {
+                    x_min: Twips::from_pixels(bounding_box.x_min as f64 * shape_scaling_factor_x),
+                    x_max: Twips::from_pixels(bounding_box.x_max as f64 * shape_scaling_factor_x),
+                    // min and max are reversed because we are multiplying with a negative number
+                    y_min: Twips::from_pixels(bounding_box.y_max as f64 * shape_scaling_factor_y),
+                    y_max: Twips::from_pixels(bounding_box.y_min as f64 * shape_scaling_factor_y),
+                }),
+                // space doesn't have a bounding box
+                // TODO: is this correct? when using None the swf crate refuses to write
+                None => Some(Rectangle::ZERO),
+            },
         });
     }
 

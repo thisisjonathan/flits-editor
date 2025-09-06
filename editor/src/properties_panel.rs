@@ -295,29 +295,26 @@ impl SymbolPropertiesPanel {
 
     fn font_ui(&self, font: &mut FlitsFont, ui: &mut egui::Ui) -> Option<MovieEdit> {
         let mut edit: Option<MovieEdit> = None;
-        let mut edited = false;
+        let mut puc = PropertyUiContext::new();
         egui::Grid::new(format!("font_{}_properties_grid", self.symbol_index)).show(ui, |ui| {
-            ui.label("Path:");
-            let response =
-                ui.add(egui::TextEdit::singleline(&mut font.path).min_size(Vec2::new(200.0, 0.0)));
-            if response.lost_focus() {
-                edited = true;
-            }
+            puc.text_value(ui, "Path:", &mut font.path);
             ui.end_row();
 
             ui.label("Characters:");
-            let response = ui.add(
-                egui::TextEdit::singleline(&mut font.characters).min_size(Vec2::new(200.0, 0.0)),
-            );
-            if response.lost_focus() {
-                edited = true;
-            }
+            ui.horizontal(|ui| {
+                puc.bool_value(ui, "ASCII", &mut font.characters.ascii);
+                puc.text_value(
+                    ui,
+                    "Additional characters:",
+                    &mut font.characters.additional_characters,
+                );
+            });
         });
 
         let SymbolProperties::Font(before_edit) = &self.before_edit else {
             panic!("before_edit is not a font");
         };
-        if edited && before_edit != font {
+        if puc.edited && before_edit != font {
             edit = Some(MovieEdit::EditFontProperties(FontPropertiesEdit {
                 editing_symbol_index: self.symbol_index,
                 before: before_edit.clone(),
