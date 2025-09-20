@@ -17,8 +17,8 @@ use crate::run_ui::RunUi;
 use egui::{Modifiers, Widget};
 use flits_core::run::run_movie;
 use flits_core::{
-    BitmapCacheStatus, CachedBitmap, EditorTransform, Movie, PlaceSymbol, PlacedSymbolIndex,
-    Symbol, SymbolIndex, SymbolIndexOrRoot, TextProperties,
+    create_temp_font_and_text_field, BitmapCacheStatus, CachedBitmap, EditorTransform, Movie,
+    PlaceSymbol, PlacedSymbolIndex, Symbol, SymbolIndex, SymbolIndexOrRoot, TextProperties,
 };
 use ruffle_render::bitmap::BitmapHandle;
 use ruffle_render::{
@@ -283,6 +283,7 @@ impl Editor {
                 matrix: world_to_screen_matrix,
                 color_transform: ColorTransform::IDENTITY,
             },
+            &self.directory,
         ));
 
         commands
@@ -488,6 +489,7 @@ impl Editor {
         movie: &Movie,
         symbol_index: SymbolIndexOrRoot,
         transform: Transform,
+        directory: &PathBuf,
     ) -> Vec<Command> {
         let mut commands = vec![];
         let placed_symbols = movie.get_placed_symbols(symbol_index);
@@ -566,9 +568,10 @@ impl Editor {
                             matrix: transform.matrix * place_symbol_matrix,
                             color_transform: transform.color_transform,
                         },
+                        directory,
                     ));
                 }
-                Symbol::Font(_) => {
+                Symbol::Font(font) => {
                     let place_symbol_matrix =
                         <swf::Matrix as Into<Matrix>>::into(<EditorTransform as Into<
                             swf::Matrix,
@@ -576,17 +579,31 @@ impl Editor {
                             place_symbol.transform.clone()
                         ));
                     let text_properties = place_symbol.text.as_ref().unwrap();
-                    commands.push(Command::DrawRect {
-                        color: Color::MAGENTA,
-                        matrix: transform.matrix
-                            * place_symbol_matrix
-                            * Matrix::create_box(
-                                text_properties.width as f32,
-                                text_properties.height as f32,
-                                Twips::from_pixels(text_properties.width / -2.0),
-                                Twips::from_pixels(text_properties.height / -2.0),
-                            ),
-                    })
+                    let text_rendering_result = create_temp_font_and_text_field(
+                        font,
+                        text_properties,
+                        directory.clone(),
+                        |font, edit_text| {
+                            commands.extend(
+                                flits_text_rendering::render_text(font, edit_text, renderer)
+                                    .commands,
+                            );
+                        },
+                    );
+                    if text_rendering_result.is_err() {
+                        // draw a pink rectangle when loading/rendering fails
+                        commands.push(Command::DrawRect {
+                            color: Color::MAGENTA,
+                            matrix: transform.matrix
+                                * place_symbol_matrix
+                                * Matrix::create_box(
+                                    text_properties.width as f32,
+                                    text_properties.height as f32,
+                                    Twips::from_pixels(text_properties.width / -2.0),
+                                    Twips::from_pixels(text_properties.height / -2.0),
+                                ),
+                        })
+                    }
                 }
             }
         }

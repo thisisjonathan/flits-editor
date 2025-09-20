@@ -1015,11 +1015,28 @@ dependencies = [
  "ansi-parser",
  "egui",
  "flits-core",
+ "flits-text-rendering",
  "ruffle_render",
  "swf",
  "tracing",
  "undo",
  "winit",
+]
+
+[[package]]
+name = "flits-text-rendering"
+version = "0.1.0"
+dependencies = [
+ "fnv",
+ "gc-arena",
+ "hashbrown 0.14.5",
+ "quick-xml",
+ "ruffle_render",
+ "ruffle_wstr",
+ "swf",
+ "thiserror 2.0.16",
+ "tracing",
+ "url",
 ]
 
 [[package]]
@@ -1172,6 +1189,25 @@ dependencies = [
  "pin-project-lite",
  "pin-utils",
  "slab",
+]
+
+[[package]]
+name = "gc-arena"
+version = "0.5.3"
+source = "git+https://github.com/kyren/gc-arena.git?rev=08e08414249d5914dfc3b402d7eadc133e00ce56#08e08414249d5914dfc3b402d7eadc133e00ce56"
+dependencies = [
+ "gc-arena-derive",
+]
+
+[[package]]
+name = "gc-arena-derive"
+version = "0.5.3"
+source = "git+https://github.com/kyren/gc-arena.git?rev=08e08414249d5914dfc3b402d7eadc133e00ce56#08e08414249d5914dfc3b402d7eadc133e00ce56"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+ "synstructure",
 ]
 
 [[package]]
@@ -1352,7 +1388,7 @@ checksum = "dcf29e94d6d243368b7a56caa16bc213e4f9f8ed38c4d9557069527b5d5281ca"
 dependencies = [
  "bitflags 2.9.1",
  "gpu-descriptor-types",
- "hashbrown",
+ "hashbrown 0.15.3",
 ]
 
 [[package]]
@@ -1408,6 +1444,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "47d60b12902ba28e2730cd37e95b8c9223af2808df9e902d4df49588d1470606"
 dependencies = [
  "byteorder",
+]
+
+[[package]]
+name = "hashbrown"
+version = "0.14.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e5274423e17b7c9fc20b6e7e208532f9b19825d82dfd615708b70edd83df41f1"
+dependencies = [
+ "ahash",
+ "allocator-api2",
 ]
 
 [[package]]
@@ -1617,7 +1663,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cea70ddb795996207ad57735b50c5982d8844f38ba9ee5f1aedcfb708a2aa11e"
 dependencies = [
  "equivalent",
- "hashbrown",
+ "hashbrown 0.15.3",
 ]
 
 [[package]]
@@ -1815,7 +1861,7 @@ version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f8cc7106155f10bdf99a6f379688f543ad6596a415375b36a59a054ceda1198"
 dependencies = [
- "hashbrown",
+ "hashbrown 0.15.3",
 ]
 
 [[package]]
@@ -1963,7 +2009,7 @@ dependencies = [
  "spirv",
  "strum",
  "termcolor",
- "thiserror 2.0.12",
+ "thiserror 2.0.16",
  "unicode-xid",
 ]
 
@@ -2872,7 +2918,7 @@ dependencies = [
  "ruffle_wstr",
  "smallvec",
  "swf",
- "thiserror 2.0.12",
+ "thiserror 2.0.16",
  "tracing",
  "wgpu",
 ]
@@ -3077,7 +3123,7 @@ checksum = "297f631f50729c8c99b84667867963997ec0b50f32b2a7dbcab828ef0541e8bb"
 dependencies = [
  "num-bigint",
  "num-traits",
- "thiserror 2.0.12",
+ "thiserror 2.0.16",
  "time",
 ]
 
@@ -3284,11 +3330,11 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
-version = "2.0.12"
+version = "2.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "567b8a2dae586314f7be2a752ec7474332959c6460e02bde30d702a66d488708"
+checksum = "3467d614147380f2e4e374161426ff399c91084acd2363eaf549172b3d5e60c0"
 dependencies = [
- "thiserror-impl 2.0.12",
+ "thiserror-impl 2.0.16",
 ]
 
 [[package]]
@@ -3304,9 +3350,9 @@ dependencies = [
 
 [[package]]
 name = "thiserror-impl"
-version = "2.0.12"
+version = "2.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f7cf42b4507d8ea322120659672cf1b9dbb93f8f2d4ecfd6e51350ff5b17a1d"
+checksum = "6c5e1be1c48b9172ee610da68fd9cd2770e7a4056cb3fc98710ee6906f0c7960"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3876,7 +3922,7 @@ dependencies = [
  "raw-window-handle",
  "rustc-hash",
  "smallvec",
- "thiserror 2.0.12",
+ "thiserror 2.0.16",
  "wgpu-hal",
  "wgpu-types",
 ]
@@ -3919,7 +3965,7 @@ dependencies = [
  "renderdoc-sys",
  "rustc-hash",
  "smallvec",
- "thiserror 2.0.12",
+ "thiserror 2.0.16",
  "wasm-bindgen",
  "web-sys",
  "wgpu-types",

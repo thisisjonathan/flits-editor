@@ -19,4 +19,4 @@ On windows the file names of the binaries should end with `.exe`.
 ## License
 
 GNU General Public License v3.0 or later. See [LICENSE](LICENSE) to see the full text.
-The files in `windowing/src` and `desktop/src/main.rs` are adapted from [Ruffle](https://ruffle.rs) which is licensed under Apache V2.0/MIT.
+The files in `windowing/src`, `text-rendering` and `desktop/src/main.rs` are adapted from [Ruffle](https://ruffle.rs) which is licensed under Apache V2.0/MIT.
