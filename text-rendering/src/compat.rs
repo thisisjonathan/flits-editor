@@ -1,11 +1,12 @@
-use std::{marker::PhantomData, sync::Arc};
+use std::{collections::HashMap, marker::PhantomData, sync::Arc};
 
-use gc_arena::Mutation;
+use gc_arena::{Gc, Mutation};
 use ruffle_render::{backend::RenderBackend, commands::CommandList, transform::TransformStack};
 use swf::CharacterId;
 
 use crate::{
-    font::{DefaultFont, Font, FontType},
+    font::{DefaultFont, Font, FontQuery, FontType},
+    font_map::FontMap,
     tag_utils::SwfMovie,
 };
 
@@ -18,12 +19,6 @@ pub struct UpdateContext<'gc> {
     pub gc_context: &'gc Mutation<'gc>,
 
     pub library: Library<'gc>,
-
-    /// The renderer, used by the display objects to draw themselves.
-    //pub renderer: &'gc mut dyn RenderBackend,
-
-    /// The UI backend, used to detect user interactions.
-    pub ui: &'gc mut dyn UiBackend,
 }
 impl<'gc> UpdateContext<'gc> {
     /// Convenience method to retrieve the current GC context. Note that explicitly writing
@@ -34,17 +29,21 @@ impl<'gc> UpdateContext<'gc> {
     }
 }
 pub struct Library<'gc> {
-    font: Font<'gc>,
+    font_map: FontMap<'gc>,
     pub movie_library: MovieLibrary<'gc>,
 }
 impl<'gc> Library<'gc> {
-    pub fn from_font(font: Font<'gc>) -> Self {
+    pub fn new() -> Self {
         Self {
-            font,
+            font_map: FontMap::default(),
             movie_library: MovieLibrary {
-                phantom: PhantomData::default(),
+                fonts: HashMap::new(),
             },
         }
+    }
+    pub fn add_font(&mut self, id: CharacterId, font: Font<'gc>) {
+        self.font_map.register(font);
+        self.movie_library.fonts.insert(id, font);
     }
     pub fn library_for_movie_mut(&mut self, swf_movie: Arc<SwfMovie>) -> &mut MovieLibrary<'gc> {
         &mut self.movie_library
@@ -57,7 +56,8 @@ impl<'gc> Library<'gc> {
         is_italic: bool,
         movie: Option<Arc<SwfMovie>>,
     ) -> Option<Font<'gc>> {
-        Some(self.font)
+        let query = FontQuery::new(font_type, name.to_owned(), is_bold, is_italic);
+        self.font_map.find(&query)
     }
 
     /// Returns the default Font implementations behind the built in names (ie `_sans`)
@@ -79,11 +79,11 @@ pub struct UiBackendImpl {}
 impl UiBackend for UiBackendImpl {}
 
 pub struct MovieLibrary<'gc> {
-    pub phantom: PhantomData<&'gc ()>,
+    fonts: HashMap<CharacterId, Font<'gc>>,
 }
 impl<'gc> MovieLibrary<'gc> {
     pub fn get_font(&self, id: CharacterId) -> Option<Font<'gc>> {
-        None // TODO
+        self.fonts.get(&id).copied()
     }
 }
 

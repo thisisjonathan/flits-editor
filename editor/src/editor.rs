@@ -14,12 +14,15 @@ use crate::properties_panel::{
     PropertiesPanel, SymbolProperties, SymbolPropertiesPanel,
 };
 use crate::run_ui::RunUi;
+use crate::text_rendering::{FontsConverter, FontsConverterBuilder};
 use egui::{Modifiers, Widget};
 use flits_core::run::run_movie;
 use flits_core::{
-    create_temp_font_and_text_field, BitmapCacheStatus, CachedBitmap, EditorTransform, Movie,
-    PlaceSymbol, PlacedSymbolIndex, Symbol, SymbolIndex, SymbolIndexOrRoot, TextProperties,
+    create_temp_font_and_text_field, BitmapCacheStatus, CachedBitmap, EditorTransform,
+    FontContainer, Movie, PlaceSymbol, PlacedSymbolIndex, Symbol, SymbolIndex, SymbolIndexOrRoot,
+    TextProperties,
 };
+use flits_text_rendering::TextRenderer;
 use ruffle_render::bitmap::BitmapHandle;
 use ruffle_render::{
     backend::{RenderBackend, ViewportDimensions},
@@ -100,6 +103,10 @@ struct BoxSelection {
     // deselect the existing selection when holding shift
     items: Vec<usize>,
 }
+// TODO: we don't need the wrapper anymore
+struct TextRendererWrapper {
+    text_renderer: TextRenderer,
+}
 
 pub struct Editor {
     pub(crate) movie: Movie,
@@ -126,6 +133,9 @@ pub struct Editor {
     event_loop: EventLoopProxy<FlitsEvent>,
 
     modifiers: Modifiers,
+
+    // Option because we need the renderer to intialize it
+    text_renderer: Option<TextRendererWrapper>,
 }
 
 impl Editor {
@@ -133,7 +143,7 @@ impl Editor {
         path: PathBuf,
         viewport_dimensions: ViewportDimensions,
         event_loop: EventLoopProxy<FlitsEvent>,
-    ) -> Result<Editor, Box<dyn std::error::Error>> {
+    ) -> Result<Self, Box<dyn std::error::Error>> {
         let path_is_directory = path.is_dir();
         let project_file_path = if path_is_directory {
             path.join("movie.json")
@@ -174,6 +184,8 @@ impl Editor {
             event_loop,
 
             modifiers: Modifiers::NONE,
+
+            text_renderer: None,
         })
     }
 
@@ -195,6 +207,30 @@ impl Editor {
             return;
         }
         let symbols = &mut self.movie.symbols;
+
+        if self.text_renderer.is_none() {
+            let flits_fonts = symbols
+                .iter()
+                .enumerate()
+                .filter_map(|index_and_symbol| {
+                    let (symbol_index, symbol) = index_and_symbol;
+                    match symbol {
+                        Symbol::Font(flits_font) => Some((symbol_index, flits_font.clone())),
+                        _ => None,
+                    }
+                })
+                .collect();
+            let text_renderer = TextRenderer::new(
+                Box::new(FontsConverterBuilder::new(
+                    flits_fonts,
+                    self.directory.clone(),
+                )),
+                renderer,
+            );
+            self.text_renderer = Some(TextRendererWrapper {
+                text_renderer: text_renderer,
+            });
+        }
 
         let viewport_dimensions = renderer.viewport_dimensions();
         self.viewport_dimensions = viewport_dimensions;
@@ -277,6 +313,7 @@ impl Editor {
 
         commands.commands.extend(Editor::render_placed_symbols(
             renderer,
+            self.text_renderer.as_mut().unwrap(), // we initialized this above
             &self.movie,
             self.editing_clip,
             Transform {
@@ -486,6 +523,7 @@ impl Editor {
 
     fn render_placed_symbols(
         renderer: &mut Box<dyn RenderBackend>,
+        text_renderer: &mut TextRendererWrapper,
         movie: &Movie,
         symbol_index: SymbolIndexOrRoot,
         transform: Transform,
@@ -562,6 +600,7 @@ impl Editor {
 
                     commands.extend(Editor::render_placed_symbols(
                         renderer,
+                        text_renderer,
                         movie,
                         Some(place_symbol.symbol_index as usize),
                         Transform {
@@ -571,7 +610,7 @@ impl Editor {
                         directory,
                     ));
                 }
-                Symbol::Font(font) => {
+                Symbol::Font(_font) => {
                     let place_symbol_matrix =
                         <swf::Matrix as Into<Matrix>>::into(<EditorTransform as Into<
                             swf::Matrix,
@@ -579,7 +618,7 @@ impl Editor {
                             place_symbol.transform.clone()
                         ));
                     let text_properties = place_symbol.text.as_ref().unwrap();
-                    let text_rendering_result = create_temp_font_and_text_field(
+                    /*let text_rendering_result = create_temp_font_and_text_field(
                         font,
                         text_properties,
                         directory.clone(),
@@ -589,8 +628,20 @@ impl Editor {
                                     .commands,
                             );
                         },
-                    );
-                    if text_rendering_result.is_err() {
+                    );*/
+                    // TODO: ids should be unique for the entire project or reset when switching to a different clip
+
+                    /*let swf_edit_text = text_renderer
+                    .font_container
+                    .convert_text_field(place_symbol.symbol_index, *text_properties.clone())
+                    .unwrap();*/
+                    // TODO: don't update the edit texts every frame
+                    text_renderer
+                        .text_renderer
+                        .add_edit_text(i, (place_symbol.symbol_index, *text_properties.clone()));
+                    commands.extend(text_renderer.text_renderer.render(i, renderer).commands);
+
+                    /*if text_rendering_result.is_err() {
                         // draw a pink rectangle when loading/rendering fails
                         commands.push(Command::DrawRect {
                             color: Color::MAGENTA,
@@ -603,7 +654,7 @@ impl Editor {
                                     Twips::from_pixels(text_properties.height / -2.0),
                                 ),
                         })
-                    }
+                    }*/
                 }
             }
         }
@@ -1269,6 +1320,7 @@ impl Editor {
 
     pub fn reload_assets(&mut self) {
         self.movie.reload_assets(&self.directory);
+        // TODO: reset text rendering
     }
 
     pub fn export_and_run(&mut self, event_loop: &EventLoopProxy<FlitsEvent>) {

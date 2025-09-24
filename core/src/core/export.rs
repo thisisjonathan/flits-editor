@@ -263,6 +263,70 @@ fn get_placed_symbols_tags<'a>(
     Ok(tags)
 }
 
+pub struct FontContainer<'a> {
+    swf_builder: SwfBuilder<'a>,
+    arenas: Arenas,
+    swf_fonts: Option<Vec<swf::Font<'a>>>,
+}
+impl<'a> FontContainer<'a> {
+    pub fn new() -> Self {
+        Self {
+            swf_builder: SwfBuilder::new(),
+            arenas: Arenas::new(),
+            swf_fonts: None,
+        }
+    }
+    pub fn convert_fonts(
+        &'a mut self,
+        fonts: &Vec<(usize, FlitsFont)>,
+        directory: PathBuf,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut swf_fonts = Vec::new();
+
+        for (font_symbol_index, font) in fonts {
+            build_font(
+                *font_symbol_index,
+                &font,
+                &mut self.swf_builder,
+                &self.arenas,
+                directory.clone(),
+            )?;
+            if let swf::Tag::DefineFont2(font) =
+                &self.swf_builder.tags[self.swf_builder.tags.len() - 2]
+            {
+                swf_fonts.push(*font.clone());
+            }
+        }
+
+        self.swf_fonts = Some(swf_fonts);
+
+        Ok(())
+    }
+
+    pub fn fonts(&self) -> &Vec<swf::Font<'a>> {
+        self.swf_fonts.as_ref().expect("Fonts not converted")
+    }
+
+    pub fn convert_text_field(
+        &'a mut self,
+        font_symbol_index: usize,
+        text: TextProperties,
+    ) -> Result<EditText<'a>, Box<dyn std::error::Error>> {
+        let font_character_id = self.swf_builder.symbol_index_to_character_id[&font_symbol_index];
+        build_text_field(
+            font_character_id,
+            &text,
+            &mut self.swf_builder,
+            &self.arenas,
+        );
+        if let swf::Tag::DefineEditText(edit_text) = self.swf_builder.tags.last().unwrap() {
+            return Ok(*edit_text.clone());
+        }
+
+        Err("EditText is not the last tag".into())
+    }
+}
+
 pub fn create_temp_font_and_text_field(
     font: &FlitsFont,
     text: &TextProperties,
