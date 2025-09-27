@@ -14,13 +14,12 @@ use crate::properties_panel::{
     PropertiesPanel, SymbolProperties, SymbolPropertiesPanel,
 };
 use crate::run_ui::RunUi;
-use crate::text_rendering::{FontsConverter, FontsConverterBuilder};
+use crate::text_rendering::FontsConverterBuilder;
 use egui::{Modifiers, Widget};
 use flits_core::run::run_movie;
 use flits_core::{
-    create_temp_font_and_text_field, BitmapCacheStatus, CachedBitmap, EditorTransform,
-    FontContainer, Movie, PlaceSymbol, PlacedSymbolIndex, Symbol, SymbolIndex, SymbolIndexOrRoot,
-    TextProperties,
+    BitmapCacheStatus, CachedBitmap, EditorTransform, Movie, PlaceSymbol, PlacedSymbolIndex,
+    Symbol, SymbolIndex, SymbolIndexOrRoot, TextProperties,
 };
 use flits_text_rendering::TextRenderer;
 use ruffle_render::bitmap::BitmapHandle;

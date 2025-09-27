@@ -1,7 +1,6 @@
 use fnv::FnvHashMap;
-use gc_arena::{Collect, Gc, Mutation};
+use gc_arena::{Collect, Gc};
 use ruffle_wstr::{WStr, WString};
-use std::borrow::Cow;
 use std::cell::RefCell;
 use std::fmt;
 
@@ -26,20 +25,20 @@ pub struct StyleSheetData {
 }
 
 impl<'gc> StyleSheet<'gc> {
-    pub fn new(mc: &Mutation<'gc>) -> Self {
+    /*pub fn new(mc: &Mutation<'gc>) -> Self {
         Self(Gc::new(
             mc,
             StyleSheetData {
                 styles: RefCell::new(Default::default()),
             },
         ))
-    }
+    }*/
 
     pub fn get_style(self, selector: &WStr) -> Option<TextFormat> {
         self.0.styles.borrow().get(selector).cloned()
     }
 
-    pub fn set_style(self, selector: WString, format: TextFormat) {
+    /*pub fn set_style(self, selector: WString, format: TextFormat) {
         self.0.styles.borrow_mut().insert(selector, format);
     }
 
@@ -53,17 +52,17 @@ impl<'gc> StyleSheet<'gc> {
 
     pub fn selectors(self) -> Vec<WString> {
         self.0.styles.borrow().keys().cloned().collect()
-    }
+    }*/
 }
 
-pub type CssProperties<'a> = FnvHashMap<&'a WStr, &'a WStr>;
+//pub type CssProperties<'a> = FnvHashMap<&'a WStr, &'a WStr>;
 
 /// There's very few ways in which Flash thinks CSS is invalid.
 /// Whilst it doesn't appear to give any error to the user/developer -
 /// this could be useful for debugging.
 #[derive(Debug, thiserror::Error, PartialEq)]
 pub enum CssError {
-    #[error("Invalid selector syntax: Name cannot contain a space")]
+    /*#[error("Invalid selector syntax: Name cannot contain a space")]
     SpaceInSelectorName,
 
     #[error("Invalid selector syntax: Expected a property block to start")]
@@ -73,10 +72,10 @@ pub enum CssError {
     SpaceInPropertyName,
 
     #[error("Invalid property syntax: No value specified")]
-    PropertyValueMissing,
+    PropertyValueMissing,*/
 }
 
-pub struct CssStream<'a> {
+/*pub struct CssStream<'a> {
     pos: usize,
     input: &'a WStr,
 }
@@ -163,7 +162,7 @@ impl<'a> CssStream<'a> {
         &self.input[start..self.pos]
     }
 
-    /// Parses a map of CSS selectors and properties out from the document.
+    /*/// Parses a map of CSS selectors and properties out from the document.
     /// Expects to be top level (not inside a block), and ends when no more input is available
     /// This is the "main" parsing method
     pub fn parse(&mut self) -> Result<FnvHashMap<&'a WStr, CssProperties<'a>>, CssError> {
@@ -181,9 +180,9 @@ impl<'a> CssStream<'a> {
                 result.insert(selector, properties.clone());
             }
         }
-    }
+    }*/
 
-    /// Parses a list of selector names in preparation for an upcoming block
+    /*/// Parses a list of selector names in preparation for an upcoming block
     /// Expects to be top level (not inside a block), and ends when we enter a block ('{')
     pub(crate) fn parse_selectors(&mut self) -> Result<Vec<&'a WStr>, CssError> {
         let mut result = Vec::new();
@@ -212,9 +211,9 @@ impl<'a> CssStream<'a> {
                 _ => return Err(CssError::SpaceInSelectorName),
             }
         }
-    }
+    }*/
 
-    /// Parses a list of `key:value` properties from inside a block
+    /*/// Parses a list of `key:value` properties from inside a block
     /// Expects to already be inside a block (after the `{`), and ends when either:
     /// - We ended a block ('}')
     /// - There is no more input, and we're not in the middle of a property
@@ -309,10 +308,10 @@ impl<'a> CssStream<'a> {
                 }
             }
         }
-    }
+    }*/
 }
-
-pub fn transform_dashes_to_camel_case(input: &WStr) -> Cow<'_, WStr> {
+*/
+/*pub fn transform_dashes_to_camel_case(input: &WStr) -> Cow<'_, WStr> {
     if !input.contains(b'-') {
         return Cow::Borrowed(input);
     }
@@ -398,7 +397,8 @@ mod tests {
 
     #[test]
     fn parse_selectors_with_comment() {
-        let mut stream = CssStream::new(WStr::from_units(b"name /* comment */ {"));
+        let mut stream = CssStream::new(WStr::from_units(b"name /* comment */
+ {"));
         assert_eq!(
             stream.parse_selectors(),
             Ok(vec![WStr::from_units(b"name")])
@@ -573,3 +573,4 @@ mod tests {
         assert_eq!(stream.parse(), Err(CssError::PropertyValueMissing));
     }
 }
+*/

@@ -18,7 +18,7 @@ macro_rules! define_common_strings {
         }
 
         impl<'gc> CommonStrings<'gc> {
-            pub(super) fn new(mut intern_from_static: impl FnMut(&'static [u8]) -> AvmAtom<'gc>) -> Self {
+            /*pub(super) fn new(mut intern_from_static: impl FnMut(&'static [u8]) -> AvmAtom<'gc>) -> Self {
                 Self {
                     $ascii: std::array::from_fn(|i| {
                         let c = &ASCII_CHARS[i];
@@ -26,13 +26,13 @@ macro_rules! define_common_strings {
                     }),
                     $($field: intern_from_static($str)),*
                 }
-            }
+            }*/
         }
     };
 }
 
 const ASCII_CHARS_LEN: usize = 0x80;
-static ASCII_CHARS: [u8; ASCII_CHARS_LEN] = {
+/*static ASCII_CHARS: [u8; ASCII_CHARS_LEN] = {
     let mut chs = [0; ASCII_CHARS_LEN];
     let mut i = 0;
     while i < chs.len() {
@@ -40,7 +40,7 @@ static ASCII_CHARS: [u8; ASCII_CHARS_LEN] = {
         i += 1;
     }
     chs
-};
+};*/
 
 define_common_strings! {
     ascii_chars: <ASCII>,

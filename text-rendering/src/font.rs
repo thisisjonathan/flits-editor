@@ -1,15 +1,13 @@
-use crate::compat::Drawing;
 use crate::html::TextSpan;
 use crate::string::WStr;
 use gc_arena::{Collect, Gc, Mutation};
 use ruffle_render::backend::null::NullBitmapSource;
 use ruffle_render::backend::{RenderBackend, ShapeHandle};
-use ruffle_render::shape_utils::{DrawCommand, FillRule};
 use ruffle_render::transform::Transform;
-use std::cell::{OnceCell, RefCell};
+use std::cell::RefCell;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
-use swf::{FillStyle, Twips};
+use swf::Twips;
 
 pub use swf::TextGridFit;
 
@@ -17,7 +15,7 @@ pub use swf::TextGridFit;
 #[collect(require_static)]
 pub struct FontQuery {
     pub font_type: FontType,
-    pub name: String,
+    //pub name: String,
     pub lowercase_name: String,
     pub is_bold: bool,
     pub is_italic: bool,
@@ -28,7 +26,7 @@ impl FontQuery {
         Self {
             font_type,
             lowercase_name: name.to_lowercase(),
-            name,
+            //name,
             is_bold,
             is_italic,
         }
@@ -37,7 +35,7 @@ impl FontQuery {
     pub fn from_descriptor(font_type: FontType, descriptor: &FontDescriptor) -> Self {
         Self {
             font_type,
-            name: descriptor.name().to_owned(),
+            //name: descriptor.name().to_owned(),
             lowercase_name: descriptor.lowercase_name().to_owned(),
             is_bold: descriptor.bold(),
             is_italic: descriptor.italic(),
@@ -66,7 +64,7 @@ impl Hash for FontQuery {
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Collect)]
 #[collect(require_static)]
 pub enum DefaultFont {
-    /// `_sans`, a Sans-Serif font (similar to Helvetica or Arial)
+    /*/// `_sans`, a Sans-Serif font (similar to Helvetica or Arial)
     Sans,
 
     /// `_serif`, a Serif font (similar to Times Roman)
@@ -82,11 +80,11 @@ pub enum DefaultFont {
     JapaneseGothicMono,
 
     /// `_明朝`, a Japanese Mincho font
-    JapaneseMincho,
+    JapaneseMincho,*/
 }
 
 impl DefaultFont {
-    pub fn from_name(name: &str) -> Option<Self> {
+    /*pub fn from_name(name: &str) -> Option<Self> {
         Some(match name {
             "_serif" => DefaultFont::Serif,
             "_sans" => DefaultFont::Sans,
@@ -96,7 +94,7 @@ impl DefaultFont {
             "_明朝" => DefaultFont::JapaneseMincho,
             _ => return None,
         })
-    }
+    }*/
 }
 
 fn round_to_pixel(t: Twips) -> Twips {
@@ -138,7 +136,7 @@ impl EvalParameters {
     }
 }
 
-struct GlyphToDrawing<'a>(&'a mut Drawing);
+//struct GlyphToDrawing<'a>(&'a mut Drawing);
 
 /// Convert from a TTF outline, to a flash Drawing.
 ///
@@ -181,13 +179,13 @@ struct GlyphToDrawing<'a>(&'a mut Drawing);
 pub struct FontFileData(Arc<dyn AsRef<[u8]>>);
 
 impl FontFileData {
-    pub fn new(data: impl AsRef<[u8]> + 'static) -> Self {
+    /*pub fn new(data: impl AsRef<[u8]> + 'static) -> Self {
         Self(Arc::new(data))
     }
 
     pub fn new_shared(data: Arc<dyn AsRef<[u8]>>) -> Self {
         Self(data)
-    }
+    }*/
 }
 
 impl std::ops::Deref for FontFileData {
@@ -348,13 +346,13 @@ pub enum GlyphSource {
 }
 
 impl GlyphSource {
-    pub fn get_by_index(&self, index: usize) -> Option<&Glyph> {
+    /*pub fn get_by_index(&self, index: usize) -> Option<&Glyph> {
         match self {
             GlyphSource::Memory { glyphs, .. } => glyphs.get(index),
             //GlyphSource::FontFace(_) => None, // Unsupported.
             GlyphSource::Empty => None,
         }
-    }
+    }*/
 
     pub fn get_by_code_point(&self, code_point: char) -> Option<&Glyph> {
         match self {
@@ -405,7 +403,7 @@ impl GlyphSource {
 #[collect(require_static)]
 pub enum FontType {
     Embedded,
-    EmbeddedCFF,
+    //EmbeddedCFF,
     Device,
 }
 
@@ -446,12 +444,11 @@ struct FontData {
     descriptor: FontDescriptor,
 
     font_type: FontType,
-
-    /// Whether this font has a layout defined.
+    /*/// Whether this font has a layout defined.
     ///
     /// Fonts without a layout are used only to describe a font,
     /// not to provide glyphs.
-    has_layout: bool,
+    has_layout: bool,*/
 }
 
 impl<'gc> Font<'gc> {
@@ -503,7 +500,7 @@ impl<'gc> Font<'gc> {
                 let code = swf_glyph.code;
                 // TODO: Flash doesn't care whether it's a surrogate code point or not.
                 //   We should probably rethink using Rust's char for Flash characters.
-                let character = char::from_u32(code as u32).unwrap_or(char::REPLACEMENT_CHARACTER);
+                //let character = char::from_u32(code as u32).unwrap_or(char::REPLACEMENT_CHARACTER);
                 code_point_to_glyph.insert(code, index);
 
                 let glyph = Glyph {
@@ -511,7 +508,7 @@ impl<'gc> Font<'gc> {
                     shape: GlyphShape::Swf(Box::new(RefCell::new(SwfGlyphOrShape::Glyph(
                         swf_glyph,
                     )))),
-                    character,
+                    //character,
                 };
 
                 // Eager-load ASCII characters.
@@ -554,7 +551,7 @@ impl<'gc> Font<'gc> {
                 leading,
                 descriptor,
                 font_type,
-                has_layout: tag.layout.is_some(),
+                //has_layout: tag.layout.is_some(),
             },
         ))
     }
@@ -588,7 +585,7 @@ impl<'gc> Font<'gc> {
         }
     }*/
 
-    pub fn empty_font(
+    /*pub fn empty_font(
         gc_context: &Mutation<'gc>,
         name: &str,
         is_bold: bool,
@@ -610,7 +607,7 @@ impl<'gc> Font<'gc> {
                 has_layout: true,
             },
         ))
-    }
+    }*/
 
     /// Returns whether this font contains glyph shapes.
     /// If not, this font should be rendered as a device font.
@@ -618,11 +615,11 @@ impl<'gc> Font<'gc> {
         !matches!(self.0.glyphs, GlyphSource::Empty)
     }
 
-    /// Returns a glyph entry by index.
+    /*/// Returns a glyph entry by index.
     /// Used by `Text` display objects.
     pub fn get_glyph(&self, i: usize) -> Option<&Glyph> {
         self.0.glyphs.get_by_index(i)
-    }
+    }*/
 
     /// Returns a glyph entry by character.
     /// Used by `EditText` display objects.
@@ -630,7 +627,7 @@ impl<'gc> Font<'gc> {
         self.0.glyphs.get_by_code_point(c)
     }
 
-    /// Determine if this font contains all the glyphs within a given string.
+    /*/// Determine if this font contains all the glyphs within a given string.
     pub fn has_glyphs_for_str(&self, target_str: &WStr) -> bool {
         for character in target_str.chars() {
             let c = character.unwrap_or(char::REPLACEMENT_CHARACTER);
@@ -640,15 +637,15 @@ impl<'gc> Font<'gc> {
         }
 
         true
-    }
+    }*/
 
     pub fn descriptor(&self) -> &FontDescriptor {
         &self.0.descriptor
     }
 
-    pub fn has_layout(&self) -> bool {
+    /*pub fn has_layout(&self) -> bool {
         self.0.has_layout
-    }
+    }*/
 }
 
 impl<'gc> FontLike<'gc> for Font<'gc> {
@@ -922,7 +919,7 @@ impl SwfGlyphOrShape {
 #[derive(Debug, Clone)]
 enum GlyphShape {
     Swf(Box<RefCell<SwfGlyphOrShape>>),
-    Drawing(Box<Drawing>),
+    //Drawing(Box<Drawing>),
     None,
 }
 
@@ -951,7 +948,6 @@ impl GlyphShape {
                 handle.clone()
             }
             //GlyphShape::Drawing(drawing) => drawing.register_or_replace(renderer),
-            GlyphShape::Drawing(drawing) => unimplemented!(),
             GlyphShape::None => None,
         }
     }
@@ -961,18 +957,17 @@ impl GlyphShape {
 pub struct Glyph {
     shape: GlyphShape,
     advance: Twips,
-
     // The character this glyph represents.
-    character: char,
+    //character: char,
 }
 
 impl Glyph {
     /// Returns an empty glyph with zero advance.
-    pub fn empty(character: char) -> Self {
+    pub fn empty(_character: char) -> Self {
         Self {
             shape: GlyphShape::None,
             advance: Twips::ZERO,
-            character,
+            //character,
         }
     }
 
@@ -988,9 +983,9 @@ impl Glyph {
         self.advance
     }
 
-    pub fn character(&self) -> char {
+    /*pub fn character(&self) -> char {
         self.character
-    }
+    }*/
 }
 
 pub struct GlyphRenderData<'a, 'gc> {
@@ -1051,7 +1046,7 @@ impl FontDescriptor {
         }
     }
 
-    /// Obtain a font descriptor from a name/bold/italic triplet.
+    /*/// Obtain a font descriptor from a name/bold/italic triplet.
     pub fn from_parts(name: &str, is_bold: bool, is_italic: bool) -> Self {
         let mut name = name.to_string();
 
@@ -1066,7 +1061,7 @@ impl FontDescriptor {
             is_bold,
             is_italic,
         }
-    }
+    }*/
 
     /// Get the name of the font this descriptor identifies.
     pub fn name(&self) -> &str {
@@ -1120,7 +1115,7 @@ pub enum TextRenderSettings {
 }
 
 impl TextRenderSettings {
-    pub fn is_advanced(&self) -> bool {
+    /*pub fn is_advanced(&self) -> bool {
         matches!(self, TextRenderSettings::Advanced { .. })
     }
 
@@ -1242,7 +1237,7 @@ impl TextRenderSettings {
                 sharpness,
             },
         }
-    }
+    }*/
 }
 
 impl From<swf::CsmTextSettings> for TextRenderSettings {
@@ -1289,7 +1284,7 @@ struct FontSetData<'gc> {
 }
 
 impl<'gc> FontSet<'gc> {
-    /// Creates a font set from a sorted list of fonts.
+    /*/// Creates a font set from a sorted list of fonts.
     ///
     /// The first font is the main font, the rest are fallbacks.
     ///
@@ -1303,7 +1298,7 @@ impl<'gc> FontSet<'gc> {
                 fallback_fonts: fallback_fonts.to_vec(),
             },
         )))
-    }
+    }*/
 
     /// Creates a font set from one font only.
     pub fn from_one_font(mc: &Mutation<'gc>, font: Font<'gc>) -> Self {
@@ -1316,13 +1311,13 @@ impl<'gc> FontSet<'gc> {
         ))
     }
 
-    pub fn main_font(&self) -> Font<'gc> {
+    /* pub fn main_font(&self) -> Font<'gc> {
         self.0.main_font
     }
 
     pub fn fallback_fonts(&self) -> &[Font<'gc>] {
         &self.0.fallback_fonts
-    }
+    }*/
 }
 
 impl<'gc> FontLike<'gc> for FontSet<'gc> {

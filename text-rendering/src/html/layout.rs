@@ -1,20 +1,19 @@
 //! Layout box structure
 
 use crate::compat::{Drawing, UpdateContext};
-use crate::font::{DefaultFont, EvalParameters, Font, FontLike, FontSet, FontType};
+use crate::font::{EvalParameters, FontLike, FontSet, FontType};
 use crate::html::dimensions::{BoxBounds, Position, Size};
 use crate::html::text_format::{FormatSpans, TextFormat, TextSpan};
 use crate::string::utils as string_utils;
 use crate::tag_utils::SwfMovie;
 use gc_arena::Collect;
 use ruffle_wstr::WStr;
-use std::cmp::{max, min, Ordering};
+use std::cmp::{max, min};
 use std::fmt::{Debug, Formatter};
 use std::mem;
-use std::ops::Range;
 use std::slice::Iter;
 use std::sync::Arc;
-use swf::{Rectangle, Twips};
+use swf::Twips;
 
 /// Contains information relating to the current layout operation.
 pub struct LayoutContext<'a, 'gc> {
@@ -399,14 +398,14 @@ impl<'a, 'gc> LayoutContext<'a, 'gc> {
         }
 
         self.lines.push(LayoutLine {
-            index: self.current_line_index,
+            //index: self.current_line_index,
             bounds,
             start,
             end,
             boxes,
-            ascent: self.max_ascent,
+            //ascent: self.max_ascent,
             descent: self.max_descent,
-            leading: self.max_leading,
+            //leading: self.max_leading,
         });
         self.current_line_index += 1;
 
@@ -507,7 +506,7 @@ impl<'a, 'gc> LayoutContext<'a, 'gc> {
     }
 
     fn resolve_font(&mut self, context: &mut UpdateContext<'gc>, span: &TextSpan) -> FontSet<'gc> {
-        fn new_empty_font<'gc>(
+        /*fn new_empty_font<'gc>(
             context: &mut UpdateContext<'gc>,
             span: &TextSpan,
             font_type: FontType,
@@ -531,7 +530,7 @@ impl<'a, 'gc> LayoutContext<'a, 'gc> {
                 bold_suffix,
                 italic_suffix
             )
-        }
+        }*/
 
         let font_name = span.font.face.to_utf8_lossy();
 
@@ -786,10 +785,10 @@ impl<'a, 'gc> LayoutContext<'a, 'gc> {
         let last_span = fs.last_span().expect("At least one span should be present");
         self.fixup_line(context, true, true, fs.displayed_text().len(), last_span);
 
-        let text_size = self.text_size_bounds.unwrap_or_default();
+        //let text_size = self.text_size_bounds.unwrap_or_default();
         Layout {
-            bounds: self.bounds.unwrap_or_default(),
-            text_size: Size::from((text_size.width(), text_size.height())),
+            //bounds: self.bounds.unwrap_or_default(),
+            //text_size: Size::from((text_size.width(), text_size.height())),
             lines: self.lines,
         }
     }
@@ -868,17 +867,16 @@ fn lower_from_text_spans_known_width<'gc>(
 #[derive(Clone, Debug, Collect)]
 #[collect(no_drop)]
 pub struct Layout<'gc> {
-    #[collect(require_static)]
+    /*#[collect(require_static)]
     bounds: BoxBounds<Twips>,
 
     #[collect(require_static)]
-    text_size: Size<Twips>,
-
+    text_size: Size<Twips>,*/
     lines: Vec<LayoutLine<'gc>>,
 }
 
 impl<'gc> Layout<'gc> {
-    /// Bounds of this layout, i.e. a union of bounds of all layout boxes.
+    /*/// Bounds of this layout, i.e. a union of bounds of all layout boxes.
     pub fn bounds(&self) -> BoxBounds<Twips> {
         self.bounds
     }
@@ -886,13 +884,13 @@ impl<'gc> Layout<'gc> {
     /// Text size of this layout.
     pub fn text_size(&self) -> Size<Twips> {
         self.text_size
-    }
+    }*/
 
     pub fn lines(&self) -> &Vec<LayoutLine<'gc>> {
         &self.lines
     }
 
-    pub fn boxes_iter(&self) -> LayoutBoxIter<'_, 'gc> {
+    /*pub fn boxes_iter(&self) -> LayoutBoxIter<'_, 'gc> {
         LayoutBoxIter {
             lines_iter: self.lines.iter(),
             boxes_iter: None,
@@ -910,9 +908,9 @@ impl<'gc> Layout<'gc> {
             }
         });
         result.ok()
-    }
+    }*/
 
-    /// Returns the index of the line which is
+    /*/// Returns the index of the line which is
     /// positioned at the given y coordinate.
     ///
     /// If the coordinate is at line leading, the line above is returned.
@@ -943,14 +941,14 @@ impl<'gc> Layout<'gc> {
         } else {
             Err(max_line)
         }
-    }
+    }*/
 
-    /// Returns char bounds of the given char relative to this layout.
+    /*/// Returns char bounds of the given char relative to this layout.
     pub fn char_bounds(&self, position: usize) -> Option<Rectangle<Twips>> {
         let line_index = self.find_line_index_by_position(position)?;
         let line = self.lines.get(line_index)?;
         line.char_bounds(position)
-    }
+    }*/
 }
 
 /// A `LayoutLine` represents a single line of text.
@@ -958,10 +956,9 @@ impl<'gc> Layout<'gc> {
 #[derive(Clone, Debug, Collect)]
 #[collect(no_drop)]
 pub struct LayoutLine<'gc> {
-    /// Zero-based index of the line in the text.
+    /*/// Zero-based index of the line in the text.
     #[collect(require_static)]
-    index: usize,
-
+    index: usize,*/
     /// Line bounds.
     ///
     /// They represent the area where this line is drawn.
@@ -977,32 +974,30 @@ pub struct LayoutLine<'gc> {
     /// This position includes the line delimiter.
     end: usize,
 
-    /// The highest ascent observed within this line.
+    /*/// The highest ascent observed within this line.
     #[collect(require_static)]
-    ascent: Twips,
-
+    ascent: Twips,*/
     /// The highest descent observed within this line.
     #[collect(require_static)]
     descent: Twips,
 
-    /// The highest leading observed within this line.
+    /*/// The highest leading observed within this line.
     #[collect(require_static)]
-    leading: Twips,
-
+    leading: Twips,*/
     /// Layout boxes contained within this line.
     boxes: Vec<LayoutBox<'gc>>,
 }
 
 impl<'gc> LayoutLine<'gc> {
-    pub fn index(&self) -> usize {
+    /*pub fn index(&self) -> usize {
         self.index
-    }
+    }*/
 
     pub fn bounds(&self) -> BoxBounds<Twips> {
         self.bounds
     }
 
-    pub fn start(&self) -> usize {
+    /*pub fn start(&self) -> usize {
         self.start
     }
 
@@ -1012,13 +1007,13 @@ impl<'gc> LayoutLine<'gc> {
 
     pub fn ascent(&self) -> Twips {
         self.ascent
-    }
+    }*/
 
     pub fn descent(&self) -> Twips {
         self.descent
     }
 
-    pub fn leading(&self) -> Twips {
+    /*pub fn leading(&self) -> Twips {
         self.leading
     }
 
@@ -1028,21 +1023,21 @@ impl<'gc> LayoutLine<'gc> {
 
     pub fn text_range(&self) -> Range<usize> {
         self.start..self.end
-    }
+    }*/
 
     pub fn offset_y(&self) -> Twips {
         self.bounds().offset_y()
     }
 
-    pub fn extent_y(&self) -> Twips {
+    /*pub fn extent_y(&self) -> Twips {
         self.bounds().extent_y()
-    }
+    }*/
 
     pub fn boxes_iter(&self) -> Iter<'_, LayoutBox<'gc>> {
         self.boxes.iter()
     }
 
-    pub fn find_box_index_by_position(&self, position: usize) -> Option<usize> {
+    /*pub fn find_box_index_by_position(&self, position: usize) -> Option<usize> {
         let result = self.boxes.binary_search_by(|probe| {
             if probe.end() <= position {
                 Ordering::Less
@@ -1087,7 +1082,7 @@ impl<'gc> LayoutLine<'gc> {
             y_min: line_bounds.offset_y(),
             y_max: line_bounds.extent_y(),
         })
-    }
+    }*/
 }
 
 /// A `LayoutBox` represents a single content box within a layout.
@@ -1142,7 +1137,7 @@ pub enum LayoutContent<'gc> {
         #[collect(require_static)]
         color: swf::Color,
 
-        /// List of end positions (relative to this box) for each character.
+        /*/// List of end positions (relative to this box) for each character.
         ///
         /// By having this here, we do not have to reevaluate the font
         /// each time we want to get the position of a character,
@@ -1155,8 +1150,7 @@ pub enum LayoutContent<'gc> {
         /// [100, 200, 250, 300, 400]
         /// ```
         #[collect(require_static)]
-        char_end_pos: Vec<Twips>,
-
+        char_end_pos: Vec<Twips>,*/
         /// Whether this text should be underlined.
         underline: bool,
     },
@@ -1194,9 +1188,8 @@ pub enum LayoutContent<'gc> {
     Drawing {
         /// The position of the drawing in text.
         position: usize,
-
-        #[collect(require_static)]
-        drawing: Drawing,
+        /*#[collect(require_static)]
+        drawing: Drawing,*/
     },
 }
 
@@ -1245,7 +1238,7 @@ impl<'gc> LayoutBox<'gc> {
                 font_set,
                 params,
                 color: span.font.color,
-                char_end_pos,
+                //char_end_pos,
                 underline: span.style.underline,
             },
         }
@@ -1275,7 +1268,9 @@ impl<'gc> LayoutBox<'gc> {
     pub fn from_drawing(position: usize, drawing: Drawing) -> Self {
         Self {
             bounds: Default::default(),
-            content: LayoutContent::Drawing { position, drawing },
+            content: LayoutContent::Drawing {
+                position, /*, drawing*/
+            },
         }
     }
 
@@ -1287,7 +1282,7 @@ impl<'gc> LayoutBox<'gc> {
         &self.content
     }
 
-    pub fn is_link(&self) -> bool {
+    /*pub fn is_link(&self) -> bool {
         match &self.content {
             LayoutContent::Text {
                 text_format: TextFormat { url: Some(url), .. },
@@ -1299,7 +1294,7 @@ impl<'gc> LayoutBox<'gc> {
             } => !url.is_empty(),
             _ => false,
         }
-    }
+    }*/
 
     /// Returns a reference to the text this box contains, as well as font
     /// rendering parameters, if the layout box has any.
@@ -1346,14 +1341,14 @@ impl<'gc> LayoutBox<'gc> {
         }
     }
 
-    /// Returns a reference to the drawing this box contains, if it has one.
+    /*/// Returns a reference to the drawing this box contains, if it has one.
     pub fn as_renderable_drawing(&self) -> Option<&Drawing> {
         match &self.content {
             LayoutContent::Text { .. } => None,
             LayoutContent::Bullet { .. } => None,
             LayoutContent::Drawing { drawing, .. } => Some(drawing),
         }
-    }
+    }*/
 
     pub fn is_text_box(&self) -> bool {
         matches!(&self.content, LayoutContent::Text { .. })
@@ -1379,7 +1374,7 @@ impl<'gc> LayoutBox<'gc> {
         }
     }
 
-    pub fn text_range(&self) -> Range<usize> {
+    /*pub fn text_range(&self) -> Range<usize> {
         self.start()..self.end()
     }
 
@@ -1401,10 +1396,10 @@ impl<'gc> LayoutBox<'gc> {
                 origin_x + *char_end_pos.get(relative_position)?,
             )
         })
-    }
+    }*/
 }
 
-pub struct LayoutMetrics {
+/*pub struct LayoutMetrics {
     pub ascent: Twips,
     pub descent: Twips,
     pub leading: Twips,
@@ -1413,7 +1408,7 @@ pub struct LayoutMetrics {
     pub height: Twips,
 
     pub x: Twips,
-}
+}*/
 
 pub struct LayoutBoxIter<'layout, 'gc> {
     lines_iter: Iter<'layout, LayoutLine<'gc>>,

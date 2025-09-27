@@ -1,11 +1,11 @@
-use std::{collections::HashMap, marker::PhantomData, sync::Arc};
+use std::{collections::HashMap, sync::Arc};
 
-use gc_arena::{Gc, Mutation};
+use gc_arena::Mutation;
 use ruffle_render::{backend::RenderBackend, commands::CommandList, transform::TransformStack};
 use swf::CharacterId;
 
 use crate::{
-    font::{DefaultFont, Font, FontQuery, FontType},
+    font::{Font, FontQuery, FontType},
     font_map::FontMap,
     tag_utils::SwfMovie,
 };
@@ -45,7 +45,7 @@ impl<'gc> Library<'gc> {
         self.font_map.register(font);
         self.movie_library.fonts.insert(id, font);
     }
-    pub fn library_for_movie_mut(&mut self, swf_movie: Arc<SwfMovie>) -> &mut MovieLibrary<'gc> {
+    pub fn library_for_movie_mut(&mut self, _swf_movie: Arc<SwfMovie>) -> &mut MovieLibrary<'gc> {
         &mut self.movie_library
     }
     pub fn get_embedded_font_by_name(
@@ -54,29 +54,12 @@ impl<'gc> Library<'gc> {
         font_type: FontType,
         is_bold: bool,
         is_italic: bool,
-        movie: Option<Arc<SwfMovie>>,
+        _movie: Option<Arc<SwfMovie>>,
     ) -> Option<Font<'gc>> {
         let query = FontQuery::new(font_type, name.to_owned(), is_bold, is_italic);
         self.font_map.find(&query)
     }
-
-    /// Returns the default Font implementations behind the built in names (ie `_sans`)
-    pub fn default_font(
-        &mut self,
-        name: DefaultFont,
-        is_bold: bool,
-        is_italic: bool,
-        ui: &dyn UiBackend,
-        renderer: &mut dyn RenderBackend,
-        gc_context: &Mutation<'gc>,
-    ) -> Vec<Font<'gc>> {
-        todo!()
-    }
 }
-
-pub trait UiBackend {}
-pub struct UiBackendImpl {}
-impl UiBackend for UiBackendImpl {}
 
 pub struct MovieLibrary<'gc> {
     fonts: HashMap<CharacterId, Font<'gc>>,

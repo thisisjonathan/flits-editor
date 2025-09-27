@@ -170,14 +170,14 @@ impl<'gc> AvmStringRepr<'gc> {
         self.capacity.get().is_wide()
     }
 
-    pub(crate) fn mark_interned(&self) {
+    /*pub(crate) fn mark_interned(&self) {
         if self.is_dependent() {
             panic!("bug: we interned a dependent string");
         }
         let cap = self.capacity.get();
         let new_cap = wptr::WStrMetadata::new32(cap.len32(), true);
         self.capacity.set(new_cap);
-    }
+    }*/
 }
 
 impl Drop for AvmStringRepr<'_> {

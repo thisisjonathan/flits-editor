@@ -5,13 +5,11 @@ use crate::html::iterators::TextSpanIter;
 use crate::string::{Integer, SwfStrExt as _, Units};
 use crate::tag_utils::SwfMovie;
 use gc_arena::Collect;
-use quick_xml::{escape::escape, events::Event, Reader};
+use quick_xml::{events::Event, Reader};
 use ruffle_wstr::utils::swf_is_newline;
 use ruffle_wstr::{WStr, WString};
 use std::borrow::Cow;
 use std::cmp::{min, Ordering};
-use std::collections::VecDeque;
-use std::fmt::Write;
 use std::sync::Arc;
 
 use super::StyleSheet;
@@ -107,8 +105,8 @@ fn process_html_entity(src: &WStr) -> Option<WString> {
 pub enum TextDisplay {
     #[default]
     Block,
-    Inline,
-    None,
+    //Inline,
+    //None,
 }
 
 /// A set of text formatting options to be applied to some part, or the whole
@@ -206,7 +204,7 @@ impl TextFormat {
         }
     }
 
-    /// Given two text formats, construct a new `TextFormat` where only
+    /*/// Given two text formats, construct a new `TextFormat` where only
     /// matching properties between the two formats are defined.
     pub fn merge_matching_properties(self, rhs: TextFormat) -> Self {
         TextFormat {
@@ -302,7 +300,7 @@ impl TextFormat {
                 None
             },
         }
-    }
+    }*/
 
     /// Given two text formats, construct a new `TextFormat` where properties
     /// defined in either `TextFormat` are defined.
@@ -603,14 +601,14 @@ impl FormatSpans {
     }
 
     /// Construct a format span from its raw parts.
-    pub fn from_str_and_spans(text: &WStr, spans: &[TextSpan]) -> Self {
+    /*pub fn from_str_and_spans(text: &WStr, spans: &[TextSpan]) -> Self {
         Self {
             text: text.into(),
             displayed_text: WString::new(),
             spans: spans.to_vec(),
             default_format: Default::default(),
         }
-    }
+    }*/
 
     pub fn from_text(text: WString, format: TextFormat) -> Self {
         let len = text.len();
@@ -934,7 +932,8 @@ impl FormatSpans {
 
                             format = apply_style(style_sheet, format, WStr::from_units(tag));
 
-                            if let Some(TextDisplay::Block | TextDisplay::None) = format.display {
+                            if let Some(TextDisplay::Block /*| TextDisplay::None*/) = format.display
+                            {
                                 display_block = true;
                             }
                         }
@@ -948,9 +947,9 @@ impl FormatSpans {
                     let e = decode_to_wstr(&e.into_inner());
                     let e = process_html_entity(&e).unwrap_or(e);
                     let format = format_stack.last().unwrap().clone();
-                    if let Some(TextDisplay::None) = format.display {
+                    /*if let Some(TextDisplay::None) = format.display {
                         break 'text;
-                    }
+                    }*/
 
                     if swf_version <= 7 && e.trim().is_empty() {
                         // SWFs version 6,7 ignore whitespace-only text.
@@ -1074,7 +1073,7 @@ impl FormatSpans {
         result
     }
 
-    pub fn default_format(&self) -> &TextFormat {
+    /*pub fn default_format(&self) -> &TextFormat {
         &self.default_format
     }
 
@@ -1085,15 +1084,15 @@ impl FormatSpans {
         if self.text.is_empty() {
             self.spans = vec![TextSpan::with_length_and_format(0, &self.default_format)];
         }
-    }
+    }*/
 
     pub fn hide_text(&mut self) {
         self.displayed_text = WStr::from_units(b"*").repeat(self.text.len());
     }
 
-    pub fn clear_displayed_text(&mut self) {
+    /*pub fn clear_displayed_text(&mut self) {
         self.displayed_text = WString::new();
-    }
+    }*/
 
     pub fn has_displayed_text(&self) -> bool {
         !self.displayed_text.is_empty()
@@ -1334,7 +1333,7 @@ impl FormatSpans {
         }
     }
 
-    /// Retrieve a text format covering all of the properties applied to text
+    /*/// Retrieve a text format covering all of the properties applied to text
     /// from the start index to the end index.
     ///
     /// Any property that differs between spans of text will result in a `None`
@@ -1354,9 +1353,9 @@ impl FormatSpans {
         }
 
         merged_fmt
-    }
+    }*/
 
-    /// Change some portion of the text to have a particular set of text
+    /*/// Change some portion of the text to have a particular set of text
     /// attributes.
     pub fn set_text_format(&mut self, from: usize, to: usize, fmt: &TextFormat) {
         self.ensure_span_break_at(from);
@@ -1371,7 +1370,7 @@ impl FormatSpans {
         }
 
         self.normalize();
-    }
+    }*/
 
     /// Replace the text in the range [from, to) with the contents of `with`.
     ///
@@ -1446,7 +1445,7 @@ impl FormatSpans {
         TextSpanIter::for_format_spans(self)
     }
 
-    pub fn to_html(&self) -> WString {
+    /*pub fn to_html(&self) -> WString {
         if self.text.is_empty() {
             return WString::new();
         }
@@ -1467,10 +1466,10 @@ impl FormatSpans {
 
         state.close_all_tags();
         state.result
-    }
+    }*/
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy)]
+/*#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy)]
 enum HtmlTag {
     Textformat,
     P,
@@ -1801,3 +1800,4 @@ impl<'a> FormatState<'a> {
         }
     }
 }
+*/

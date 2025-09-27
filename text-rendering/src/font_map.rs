@@ -92,7 +92,7 @@ impl<'gc> FontMap<'gc> {
         None
     }
 
-    pub fn all(&self) -> Vec<Font<'gc>> {
+    /*pub fn all(&self) -> Vec<Font<'gc>> {
         self.0.values().copied().collect()
-    }
+    }*/
 }

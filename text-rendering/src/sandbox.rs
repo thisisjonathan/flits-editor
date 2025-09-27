@@ -25,12 +25,11 @@ pub enum SandboxType {
     ///
     /// This implies no filesystem access.
     LocalWithNetwork,
-
-    /// The movie is a trusted local movie with access to both filesystem and network.
+    /*/// The movie is a trusted local movie with access to both filesystem and network.
     LocalTrusted,
 
     /// The movie is an AIR application with access to both filesystem and network.
-    Application,
+    Application,*/
 }
 
 impl SandboxType {

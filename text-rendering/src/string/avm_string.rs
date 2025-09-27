@@ -11,7 +11,7 @@ use crate::string::{AvmAtom, AvmStringRepr};
 pub struct AvmString<'gc>(Gc<'gc, AvmStringRepr<'gc>>);
 
 impl<'gc> AvmString<'gc> {
-    /// Turns a string to a fully owned (non-dependent) managed string.
+    /*/// Turns a string to a fully owned (non-dependent) managed string.
     pub(super) fn to_fully_owned(self, mc: &Mutation<'gc>) -> Gc<'gc, AvmStringRepr<'gc>> {
         if self.0.is_dependent() {
             let repr = AvmStringRepr::from_raw(WString::from(self.as_wstr()), false);
@@ -19,7 +19,7 @@ impl<'gc> AvmString<'gc> {
         } else {
             self.0
         }
-    }
+    }*/
 
     pub fn new_ascii_static(gc_context: &Mutation<'gc>, bytes: &'static [u8]) -> Self {
         let repr = AvmStringRepr::from_raw_static(WStr::from_units(bytes), false);

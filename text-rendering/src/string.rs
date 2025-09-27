@@ -10,10 +10,8 @@ use repr::AvmStringRepr;
 
 pub use ruffle_wstr::*;
 
-pub use avm_string::AvmString;
 pub use common::CommonStrings;
-pub use context::{HasStringContext, StringContext};
-pub use interner::{AvmAtom, AvmStringInterner};
+pub use interner::AvmAtom;
 
 pub trait SwfStrExt {
     /// Converts a SWF-encoded string into a `WStr`.

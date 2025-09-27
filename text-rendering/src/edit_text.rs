@@ -4,14 +4,14 @@ use std::{marker::PhantomData, sync::Arc};
 use crate::compat::{RenderContext, UpdateContext};
 use crate::font::{FontLike as _, FontType, Glyph};
 use crate::html::{FormatSpans, Layout, LayoutBox, LayoutContent, LayoutLine, TextFormat};
-use crate::string::{utils as string_utils, AvmString, SwfStrExt as _, WStr, WString};
+use crate::string::SwfStrExt as _;
 use crate::tag_utils::SwfMovie;
 use gc_arena::{Collect, RefLock};
 use ruffle_render::commands::Command as RenderCommand;
 use ruffle_render::commands::CommandHandler as _;
 use ruffle_render::matrix::Matrix;
 use ruffle_render::transform::Transform;
-use swf::{Color, ColorTransform, Rectangle, Twips};
+use swf::{Color, Rectangle, Twips};
 
 /// The kind of autosizing behavior an `EditText` should have, if any
 #[derive(Copy, Clone, Collect, Debug, PartialEq, Eq)]
@@ -19,8 +19,8 @@ use swf::{Color, ColorTransform, Rectangle, Twips};
 pub enum AutoSizeMode {
     None,
     Left,
-    Center,
-    Right,
+    //Center,
+    //Right,
 }
 
 struct EditTextData<'gc> {
@@ -65,10 +65,10 @@ impl EditTextData<'_> {
 
 pub struct EditText<'gc>(EditTextData<'gc>);
 impl<'gc> EditText<'gc> {
-    const ANY_NEWLINE: [char; 2] = ['\n', '\r'];
+    //const ANY_NEWLINE: [char; 2] = ['\n', '\r'];
 
     // This seems to be OS-independent
-    const INPUT_NEWLINE: char = '\r';
+    //const INPUT_NEWLINE: char = '\r';
 
     /// Gutter is the constant internal padding of a text field.
     /// It applies to each side and cannot be changed.
@@ -133,11 +133,11 @@ impl<'gc> EditText<'gc> {
             FontType::Embedded,
         );
 
-        let variable = if !swf_tag.variable_name().is_empty() {
+        /*let variable = if !swf_tag.variable_name().is_empty() {
             Some(swf_tag.variable_name().decode(encoding))
         } else {
             None
-        };
+        };*/
         //let variable = variable.map(|s| context.strings.intern_wstr(s).into());
 
         // // We match the flags from the DefineEditText SWF tag.
@@ -287,7 +287,7 @@ impl<'gc> EditText<'gc> {
         &self,
         context: &mut RenderContext<'_>,
         lbox: &LayoutBox<'gc>,
-        render_state: &mut EditTextRenderState,
+        _render_state: &mut EditTextRenderState,
         max_descent: Twips,
     ) {
         let origin = lbox.bounds().origin();
@@ -332,11 +332,11 @@ impl<'gc> EditText<'gc> {
             None
         };*/
 
-        let start = if let LayoutContent::Text { start, .. } = &lbox.content() {
+        /*let start = if let LayoutContent::Text { start, .. } = &lbox.content() {
             *start
         } else {
             0
-        };
+        };*/
 
         // If the font can't be found or has no glyph information, use the "device font" instead.
         // We're cheating a bit and not actually rendering text using the OS/web.
@@ -354,7 +354,7 @@ impl<'gc> EditText<'gc> {
                 text,
                 self.text_transform(color, baseline_adjustment),
                 params,
-                |pos, transform, glyph: &Glyph, advance, x| {
+                |_pos, transform, glyph: &Glyph, _advance, _x| {
                     if let Some(glyph_shape_handle) = glyph.shape_handle(context.renderer) {
                         // If it's highlighted, override the color.
                         /*if matches!(visible_selection, Some(visible_selection) if visible_selection.contains(start + pos)) {

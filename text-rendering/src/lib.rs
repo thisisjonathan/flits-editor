@@ -1,9 +1,9 @@
-use std::{any::Any, collections::HashMap, marker::PhantomData, ops::DerefMut, sync::Arc};
+use std::{any::Any, collections::HashMap, ops::DerefMut, sync::Arc};
 
-use compat::{Library, MovieLibrary, RenderContext, UiBackendImpl, UpdateContext};
+use compat::{Library, RenderContext, UpdateContext};
 use edit_text::EditText;
 use font::Font;
-use gc_arena::{Arena, Gc, Mutation, Rootable};
+use gc_arena::{Arena, Rootable};
 use ruffle_render::{
     backend::RenderBackend,
     commands::CommandList,
@@ -30,16 +30,6 @@ struct TextRendererWorld<'gc> {
     edit_texts: HashMap<usize, EditText<'gc>>,
     fonts_container: Box<dyn SwfFontsContainer<'gc> + 'gc>,
 }
-
-/*pub trait TextSwfConverterBuilder {
-    fn build<'a>(self) -> impl TextSwfConverter;
-}
-pub trait TextSwfConverter {
-    fn convert_fonts<'a>(
-        &'a mut self,
-        input: Box<dyn Any>, // TODO: explain why this is any
-    ) -> Result<Vec<swf::Font<'a>>, Box<dyn std::error::Error>>;
-}*/
 
 pub trait SwfFontsContainerBuilder {
     fn build<'a>(&self) -> Box<dyn SwfFontsContainer<'a> + 'a>;

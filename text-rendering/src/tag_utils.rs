@@ -1,9 +1,8 @@
 use gc_arena::Collect;
 use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
-use swf::{CharacterId, Fixed8, HeaderExt, Rectangle, TagCode, Twips};
+use swf::HeaderExt;
 use thiserror::Error;
-use url::Url;
 
 use crate::sandbox::SandboxType;
 
@@ -17,20 +16,18 @@ pub enum Error {
 
     //#[error("Couldn't register font: {0}")]
     //InvalidFont(#[from] ttf_parser::FaceParsingError),
-    #[error("Attempted to set symbol classes on movie without any")]
+    /*#[error("Attempted to set symbol classes on movie without any")]
     NoSymbolClasses,
 
     #[error("Attempted to preload video frames into non-video character {0}")]
-    PreloadVideoIntoInvalidCharacter(CharacterId),
-
+    PreloadVideoIntoInvalidCharacter(CharacterId),*/
     #[error("IO Error: {0}")]
     IOError(#[from] std::io::Error),
-
-    #[error("Invalid SWF url")]
-    InvalidSwfUrl,
+    /*#[error("Invalid SWF url")]
+    InvalidSwfUrl,*/
 }
 
-/// Whether or not to end tag decoding.
+/*/// Whether or not to end tag decoding.
 pub enum ControlFlow {
     /// Stop decoding after this tag.
     Exit,
@@ -40,7 +37,7 @@ pub enum ControlFlow {
 }
 
 pub type DecodeResult = Result<ControlFlow, Error>;
-pub type SwfStream<'a> = swf::read::Reader<'a>;
+pub type SwfStream<'a> = swf::read::Reader<'a>;*/
 
 /// An open, fully parsed SWF movie ready to play back, either in a Player or a
 /// MovieClip.
@@ -101,7 +98,7 @@ impl SwfMovie {
         }
     }
 
-    /// Construct an empty movie with a fake `compressed_len`.
+    /*/// Construct an empty movie with a fake `compressed_len`.
     /// This is used by `Loader` when firing an initial `progress` event:
     /// `LoaderInfo.bytesTotal` is set to the actual value, but no data is available,
     /// and `LoaderInfo.parameters` is empty.
@@ -252,7 +249,7 @@ impl SwfMovie {
 
     pub fn header(&self) -> &HeaderExt {
         &self.header
-    }
+    }*/
 
     /// Get the version of the SWF.
     pub fn version(&self) -> u8 {
@@ -271,7 +268,7 @@ impl SwfMovie {
         self.encoding
     }
 
-    /// The width of the movie in twips.
+    /*/// The width of the movie in twips.
     pub fn width(&self) -> Twips {
         self.header.stage_size().width()
     }
@@ -333,7 +330,7 @@ impl SwfMovie {
 
     pub fn sandbox_type(&self) -> SandboxType {
         self.sandbox_type
-    }
+    }*/
 }
 
 impl Debug for SwfMovie {
@@ -381,7 +378,7 @@ impl AsRef<[u8]> for SwfSlice {
 }
 
 impl SwfSlice {
-    /// Creates an empty SwfSlice.
+    /*/// Creates an empty SwfSlice.
     #[inline]
     pub fn empty(movie: Arc<SwfMovie>) -> Self {
         Self {
@@ -491,14 +488,14 @@ impl SwfSlice {
         } else {
             self.copy_empty()
         }
-    }
+    }*/
 
     /// Convert the SwfSlice into a standard data slice.
     pub fn data(&self) -> &[u8] {
         &self.movie.data()[self.start..self.end]
     }
 
-    /// Get the version of the SWF this data comes from.
+    /*/// Get the version of the SWF this data comes from.
     pub fn version(&self) -> u8 {
         self.movie.header().version()
     }
@@ -518,10 +515,10 @@ impl SwfSlice {
     /// Get the length of the SwfSlice.
     pub fn len(&self) -> usize {
         self.end - self.start
-    }
+    }*/
 }
 
-/// Decode tags from a SWF stream reader.
+/*/// Decode tags from a SWF stream reader.
 ///
 /// The given `tag_callback` will be called for each decoded tag. It will be
 /// provided with the stream to read from, the tag code read, and the tag's
@@ -576,4 +573,4 @@ where
     }
 
     Ok(true)
-}
+}*/

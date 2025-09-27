@@ -1,14 +1,12 @@
 use core::fmt;
-use std::borrow::Borrow;
 use std::cell::RefCell;
-use std::hash::{BuildHasher, Hash, Hasher};
-use std::ops::Deref;
+use std::hash::{Hash, Hasher};
 
 use gc_arena::collect::Trace;
-use gc_arena::{Collect, Gc, GcWeak, Mutation};
+use gc_arena::{Collect, Gc, GcWeak};
 use hashbrown::HashSet;
 
-use crate::string::{AvmString, AvmStringRepr, CommonStrings, WStr};
+use crate::string::{AvmStringRepr, CommonStrings, WStr};
 
 // An interned `AvmString`, with fast by-pointer equality and hashing.
 #[derive(Copy, Clone, Collect)]
@@ -57,7 +55,7 @@ pub struct AvmStringInterner<'gc> {
 }
 
 impl<'gc> AvmStringInterner<'gc> {
-    pub fn new(mc: &Mutation<'gc>) -> Self {
+    /*pub fn new(mc: &Mutation<'gc>) -> Self {
         let mut interned = WeakSet::default();
 
         let common = CommonStrings::new(
@@ -115,7 +113,7 @@ impl<'gc> AvmStringInterner<'gc> {
             }
         }
         AvmString::substring(mc, s, start_index, end_index)
-    }
+    }*/
 }
 
 /// A set holding weakly to its elements.
@@ -129,11 +127,11 @@ struct WeakSet<'gc, T: 'gc> {
     // API is used for lookups and insertions.
     // The `RefCell` is only used to get mutable access in `Collect::trace`
     table: RefCell<HashSet<GcWeak<'gc, T>>>,
-    hasher: fnv::FnvBuildHasher,
+    //hasher: fnv::FnvBuildHasher,
 }
 
 impl<'gc, T: Hash + 'gc> WeakSet<'gc, T> {
-    fn hash<K: Hash + ?Sized>(build_hasher: &impl BuildHasher, key: &K) -> u64 {
+    /*fn hash<K: Hash + ?Sized>(build_hasher: &impl BuildHasher, key: &K) -> u64 {
         build_hasher.hash_one(key)
     }
 
@@ -224,7 +222,7 @@ impl<'gc, T: Hash + 'gc> WeakSet<'gc, T> {
                     None => unreachable!("unexpected stale entry"),
                 });
         }
-    }
+    }*/
 }
 
 unsafe impl<'gc, T> Collect<'gc> for WeakSet<'gc, T> {
