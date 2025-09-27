@@ -4,7 +4,11 @@ use compat::{Library, MovieLibrary, RenderContext, UiBackendImpl, UpdateContext}
 use edit_text::EditText;
 use font::Font;
 use gc_arena::{Arena, Gc, Mutation, Rootable};
-use ruffle_render::{backend::RenderBackend, commands::CommandList, transform::TransformStack};
+use ruffle_render::{
+    backend::RenderBackend,
+    commands::CommandList,
+    transform::{Transform, TransformStack},
+};
 use tag_utils::SwfMovie;
 
 mod compat;
@@ -113,6 +117,7 @@ impl TextRenderer {
     pub fn render(
         &self,
         edit_text_id: usize,
+        transform: Transform,
         renderer: &mut Box<dyn RenderBackend>,
     ) -> CommandList {
         let mut transform_stack = TransformStack::new();
@@ -121,6 +126,7 @@ impl TextRenderer {
             commands: CommandList::new(),
             transform_stack: &mut transform_stack,
         };
+        render_context.transform_stack.push(&transform);
         self.arena.mutate(|_, world| {
             world
                 .edit_texts

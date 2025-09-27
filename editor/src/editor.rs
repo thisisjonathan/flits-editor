@@ -639,7 +639,24 @@ impl Editor {
                     text_renderer
                         .text_renderer
                         .add_edit_text(i, (place_symbol.symbol_index, *text_properties.clone()));
-                    commands.extend(text_renderer.text_renderer.render(i, renderer).commands);
+                    commands.extend(
+                        text_renderer
+                            .text_renderer
+                            .render(
+                                i,
+                                Transform {
+                                    matrix: transform.matrix
+                                        * place_symbol_matrix
+                                        * Matrix::translate(
+                                            Twips::from_pixels(text_properties.width / -2.0),
+                                            Twips::from_pixels(text_properties.height / -2.0),
+                                        ),
+                                    color_transform: transform.color_transform,
+                                },
+                                renderer,
+                            )
+                            .commands,
+                    );
 
                     /*if text_rendering_result.is_err() {
                         // draw a pink rectangle when loading/rendering fails
