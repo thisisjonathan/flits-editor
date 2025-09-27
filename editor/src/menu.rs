@@ -87,6 +87,14 @@ pub const MENUS: &[Menu] = &[
                 action: delete_selection,
             },
             MenuItem {
+                name: "Select all",
+                keyboard_shortcut: Some(egui::KeyboardShortcut::new(
+                    egui::Modifiers::COMMAND,
+                    egui::Key::A,
+                )),
+                action: select_all,
+            },
+            MenuItem {
                 name: "Reload assets",
                 keyboard_shortcut: Some(egui::KeyboardShortcut::new(
                     egui::Modifiers::NONE,
@@ -184,6 +192,10 @@ fn redo(editor: &mut Editor, _event_loop: &EventLoopProxy<FlitsEvent>) {
 
 fn delete_selection(editor: &mut Editor, _event_loop: &EventLoopProxy<FlitsEvent>) {
     editor.delete_selection();
+}
+
+fn select_all(editor: &mut Editor, _event_loop: &EventLoopProxy<FlitsEvent>) {
+    editor.select_all();
 }
 
 fn reload_assets(editor: &mut Editor, _event_loop: &EventLoopProxy<FlitsEvent>) {
