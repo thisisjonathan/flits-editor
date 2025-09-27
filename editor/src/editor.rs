@@ -102,10 +102,6 @@ struct BoxSelection {
     // deselect the existing selection when holding shift
     items: Vec<usize>,
 }
-// TODO: we don't need the wrapper anymore
-struct TextRendererWrapper {
-    text_renderer: TextRenderer,
-}
 
 pub struct Editor {
     pub(crate) movie: Movie,
@@ -134,7 +130,7 @@ pub struct Editor {
     modifiers: Modifiers,
 
     // Option because we need the renderer to intialize it
-    text_renderer: Option<TextRendererWrapper>,
+    text_renderer: Option<TextRenderer>,
 }
 
 impl Editor {
@@ -226,9 +222,7 @@ impl Editor {
                 )),
                 renderer,
             );
-            self.text_renderer = Some(TextRendererWrapper {
-                text_renderer: text_renderer,
-            });
+            self.text_renderer = Some(text_renderer);
         }
 
         let viewport_dimensions = renderer.viewport_dimensions();
@@ -522,7 +516,7 @@ impl Editor {
 
     fn render_placed_symbols(
         renderer: &mut Box<dyn RenderBackend>,
-        text_renderer: &mut TextRendererWrapper,
+        text_renderer: &mut TextRenderer,
         movie: &Movie,
         symbol_index: SymbolIndexOrRoot,
         transform: Transform,
@@ -636,11 +630,9 @@ impl Editor {
                     .unwrap();*/
                     // TODO: don't update the edit texts every frame
                     text_renderer
-                        .text_renderer
                         .add_edit_text(i, (place_symbol.symbol_index, *text_properties.clone()));
                     commands.extend(
                         text_renderer
-                            .text_renderer
                             .render(
                                 i,
                                 Transform {

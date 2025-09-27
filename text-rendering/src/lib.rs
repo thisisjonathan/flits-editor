@@ -128,14 +128,3 @@ impl TextRenderer {
         render_context.commands
     }
 }
-
-/*pub fn render_text(
-    swf_font: swf::Font,
-    swf_edit_text: swf::EditText,
-    renderer: &mut Box<dyn RenderBackend>,
-) -> CommandList {
-    let mut text_renderer = TextRenderer::new(vec![swf_font], renderer);
-    text_renderer.add_edit_text(0, swf_edit_text);
-    text_renderer.render(0, renderer)
-}
-*/
