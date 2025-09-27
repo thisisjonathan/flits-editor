@@ -10,7 +10,6 @@ use swf::{Color, Fixed16, Matrix, Twips};
 use self::export::export_movie_to_swf;
 
 mod export;
-pub use self::export::create_temp_font_and_text_field;
 pub use self::export::FontContainer;
 pub mod run;
 

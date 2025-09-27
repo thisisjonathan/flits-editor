@@ -326,30 +326,3 @@ impl<'a> FontContainer<'a> {
         Err("EditText is not the last tag".into())
     }
 }
-
-pub fn create_temp_font_and_text_field(
-    font: &FlitsFont,
-    text: &TextProperties,
-    directory: PathBuf,
-    callback: impl FnOnce(swf::Font, swf::EditText) -> (),
-) -> Result<(), Box<dyn std::error::Error>> {
-    let mut swf_builder = SwfBuilder::new();
-    let arenas = Arenas::new();
-    let font_symbol_index = 1;
-    build_font(
-        font_symbol_index,
-        font,
-        &mut swf_builder,
-        &arenas,
-        directory,
-    )?;
-    let font_character_id = swf_builder.symbol_index_to_character_id[&font_symbol_index];
-    build_text_field(font_character_id, text, &mut swf_builder, &arenas);
-    if let swf::Tag::DefineFont2(font) = swf_builder.tags.first().unwrap() {
-        if let swf::Tag::DefineEditText(edit_text) = swf_builder.tags.last().unwrap() {
-            callback(*font.clone(), *edit_text.clone());
-        }
-    }
-
-    Ok(())
-}
