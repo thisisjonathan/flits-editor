@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use gc_arena::Mutation;
+use gc_arena::{Collect, Mutation};
 use ruffle_render::{backend::RenderBackend, commands::CommandList, transform::TransformStack};
 use swf::CharacterId;
 
@@ -18,7 +18,7 @@ pub struct UpdateContext<'gc> {
     /// too much code to remove.
     pub gc_context: &'gc Mutation<'gc>,
 
-    pub library: Library<'gc>,
+    pub library: &'gc mut Library<'gc>,
 }
 impl<'gc> UpdateContext<'gc> {
     /// Convenience method to retrieve the current GC context. Note that explicitly writing
@@ -28,6 +28,8 @@ impl<'gc> UpdateContext<'gc> {
         self.gc_context
     }
 }
+#[derive(Collect)]
+#[collect(no_drop)]
 pub struct Library<'gc> {
     font_map: FontMap<'gc>,
     pub movie_library: MovieLibrary<'gc>,
@@ -61,6 +63,8 @@ impl<'gc> Library<'gc> {
     }
 }
 
+#[derive(Collect)]
+#[collect(no_drop)]
 pub struct MovieLibrary<'gc> {
     fonts: HashMap<CharacterId, Font<'gc>>,
 }

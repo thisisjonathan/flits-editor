@@ -126,9 +126,11 @@ pub(super) fn build_bitmap<'a>(
         let shape_id = swf_builder.next_character_id();
         if frame_count == 1 {
             swf_builder
+                .state
                 .symbol_index_to_character_id
                 .insert(symbol_index, shape_id);
             swf_builder
+                .state
                 .symbol_index_to_tag_index
                 .insert(symbol_index, swf_builder.tags.len());
         }
@@ -215,9 +217,11 @@ pub(super) fn build_bitmap<'a>(
     if frame_count > 1 {
         let movieclip_id = swf_builder.next_character_id();
         swf_builder
+            .state
             .symbol_index_to_character_id
             .insert(symbol_index, movieclip_id);
         swf_builder
+            .state
             .symbol_index_to_tag_index
             .insert(symbol_index, swf_builder.tags.len());
         let mut tags = Vec::with_capacity(frame_count as usize);

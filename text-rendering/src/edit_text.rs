@@ -23,6 +23,8 @@ pub enum AutoSizeMode {
     //Right,
 }
 
+#[derive(Clone, Collect)]
+#[collect(no_drop)]
 struct EditTextData<'gc> {
     /// The current intrinsic bounds of the text field.
     bounds: Cell<Rectangle<Twips>>,
@@ -63,6 +65,8 @@ impl EditTextData<'_> {
     }
 }
 
+#[derive(Clone, Collect)]
+#[collect(no_drop)]
 pub struct EditText<'gc>(EditTextData<'gc>);
 impl<'gc> EditText<'gc> {
     //const ANY_NEWLINE: [char; 2] = ['\n', '\r'];

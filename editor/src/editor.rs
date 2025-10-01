@@ -321,6 +321,9 @@ impl Editor {
             .extend(self.render_selection(world_to_screen_matrix));
 
         renderer.submit_frame(Color::from_rgb(0x222222, 255), commands, vec![]);
+
+        // we created this earlier in this function
+        self.text_renderer.as_mut().unwrap().finish_frame();
     }
 
     fn render_selection(&self, world_to_screen_matrix: Matrix) -> Vec<Command> {
@@ -611,24 +614,10 @@ impl Editor {
                             place_symbol.transform.clone()
                         ));
                     let text_properties = place_symbol.text.as_ref().unwrap();
-                    /*let text_rendering_result = create_temp_font_and_text_field(
-                        font,
-                        text_properties,
-                        directory.clone(),
-                        |font, edit_text| {
-                            commands.extend(
-                                flits_text_rendering::render_text(font, edit_text, renderer)
-                                    .commands,
-                            );
-                        },
-                    );*/
                     // TODO: ids should be unique for the entire project or reset when switching to a different clip
-
-                    /*let swf_edit_text = text_renderer
-                    .font_container
-                    .convert_text_field(place_symbol.symbol_index, *text_properties.clone())
-                    .unwrap();*/
                     // TODO: don't update the edit texts every frame
+                    // TODO: nested edit text works right now because we add the text right before
+                    // rendering it, but this won't work when we cache it
                     text_renderer
                         .add_edit_text(i, (place_symbol.symbol_index, *text_properties.clone()));
                     commands.extend(

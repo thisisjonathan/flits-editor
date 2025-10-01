@@ -15,6 +15,7 @@ pub(super) fn build_font<'a>(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let character_id = swf_builder.next_character_id();
     swf_builder
+        .state
         .symbol_index_to_character_id
         .insert(symbol_index, character_id);
     font_to_swf::font_to_swf(

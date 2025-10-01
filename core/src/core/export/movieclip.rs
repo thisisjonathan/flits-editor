@@ -11,9 +11,11 @@ pub(super) fn build_movieclip_outer(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let character_id = swf_builder.next_character_id();
     swf_builder
+        .state
         .symbol_index_to_character_id
         .insert(symbol_index, character_id);
     swf_builder
+        .state
         .symbol_index_to_tag_index
         .insert(symbol_index, swf_builder.tags.len());
     swf_builder.tags.push(Tag::DefineSprite(Sprite {
@@ -31,7 +33,7 @@ pub(super) fn build_movieclip_inner<'a>(
     arenas: &'a Arenas,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let inner_tags = get_placed_symbols_tags(&movieclip.place_symbols, swf_builder, arenas)?;
-    let tag = &mut swf_builder.tags[swf_builder.symbol_index_to_tag_index[&symbol_index]];
+    let tag = &mut swf_builder.tags[swf_builder.state.symbol_index_to_tag_index[&symbol_index]];
     let Tag::DefineSprite(define_sprite_tag) = tag else {
         return Err(format!(
             "The tag for the movieclip with symbol index {} is not a DefineSprite tag",
@@ -48,7 +50,7 @@ pub(super) fn build_movieclip_inner<'a>(
     // this is easier than having to remember to check a box for each one
     // TODO: is there a reason not to do this?
     swf_builder.tags.push(Tag::ExportAssets(vec![ExportedAsset {
-        id: swf_builder.symbol_index_to_character_id[&symbol_index],
+        id: swf_builder.state.symbol_index_to_character_id[&symbol_index],
         name: arenas.alloc_swf_string(movieclip.properties.name.clone()),
     }]));
 

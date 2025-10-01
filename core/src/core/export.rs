@@ -75,7 +75,7 @@ pub fn export_movie_to_swf<'a>(
 
     compile_as2(
         &movie,
-        &swf_builder.symbol_index_to_character_id,
+        &swf_builder.state.symbol_index_to_character_id,
         project_directory,
         swf_path,
     )?;
@@ -123,6 +123,10 @@ fn build_library<'a>(
 
 struct SwfBuilder<'a> {
     tags: Vec<Tag<'a>>,
+    state: SwfBuilderState,
+}
+#[derive(Clone)]
+struct SwfBuilderState {
     character_id_counter: CharacterId,
     symbol_index_to_character_id: HashMap<SymbolIndex, CharacterId>,
     symbol_index_to_tag_index: HashMap<SymbolIndex, usize>,
@@ -132,14 +136,22 @@ impl<'a> SwfBuilder<'a> {
     fn new() -> SwfBuilder<'a> {
         SwfBuilder {
             tags: vec![],
-            character_id_counter: 1,
-            symbol_index_to_character_id: HashMap::new(),
-            symbol_index_to_tag_index: HashMap::new(),
+            state: SwfBuilderState {
+                character_id_counter: 1,
+                symbol_index_to_character_id: HashMap::new(),
+                symbol_index_to_tag_index: HashMap::new(),
+            },
+        }
+    }
+    fn from_state(state: SwfBuilderState) -> Self {
+        SwfBuilder {
+            tags: vec![],
+            state,
         }
     }
     fn next_character_id(&mut self) -> CharacterId {
-        let character_id = self.character_id_counter;
-        self.character_id_counter += 1;
+        let character_id = self.state.character_id_counter;
+        self.state.character_id_counter += 1;
         character_id
     }
 }
@@ -194,6 +206,7 @@ fn get_placed_symbols_tags<'a>(
     for place_symbol in placed_symbols {
         let mut matrix: Matrix = place_symbol.transform.clone().into();
         let tag_index = swf_builder
+            .state
             .symbol_index_to_tag_index
             .get(&place_symbol.symbol_index);
 
@@ -211,6 +224,7 @@ fn get_placed_symbols_tags<'a>(
         }
 
         let mut character_id = *swf_builder
+            .state
             .symbol_index_to_character_id
             .get(&place_symbol.symbol_index)
             .ok_or_else(|| {
@@ -263,65 +277,105 @@ fn get_placed_symbols_tags<'a>(
     Ok(tags)
 }
 
-pub struct FontContainer<'a> {
-    swf_builder: SwfBuilder<'a>,
-    arenas: Arenas,
-    swf_fonts: Option<Vec<swf::Font<'a>>>,
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct OwnedFont {
+    pub version: u8,
+    pub id: CharacterId,
+    pub name: String,
+    pub language: Language,
+    pub layout: Option<FontLayout>,
+    pub glyphs: Vec<Glyph>,
+    pub flags: FontFlag,
 }
-impl<'a> FontContainer<'a> {
+
+impl<'a> From<&Box<swf::Font<'a>>> for OwnedFont {
+    fn from(value: &Box<swf::Font<'a>>) -> Self {
+        OwnedFont {
+            version: value.version,
+            id: value.id,
+            name: value.name.to_string_lossy(swf::UTF_8),
+            language: value.language,
+            layout: value.layout.clone(),
+            glyphs: value.glyphs.clone(),
+            flags: value.flags,
+        }
+    }
+}
+pub struct FontContainer {
+    swf_builder_state: SwfBuilderState,
+    arenas: Arenas,
+    owned_swf_fonts: Option<Vec<OwnedFont>>,
+}
+impl FontContainer {
     pub fn new() -> Self {
         Self {
-            swf_builder: SwfBuilder::new(),
+            swf_builder_state: SwfBuilder::new().state,
             arenas: Arenas::new(),
-            swf_fonts: None,
+            owned_swf_fonts: None,
         }
     }
     pub fn convert_fonts(
-        &'a mut self,
+        &mut self,
         fonts: &Vec<(usize, FlitsFont)>,
         directory: PathBuf,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut swf_fonts = Vec::new();
 
+        let mut swf_builder = SwfBuilder::from_state(self.swf_builder_state.clone());
+
         for (font_symbol_index, font) in fonts {
             build_font(
                 *font_symbol_index,
                 &font,
-                &mut self.swf_builder,
+                &mut swf_builder,
                 &self.arenas,
                 directory.clone(),
             )?;
-            if let swf::Tag::DefineFont2(font) =
-                &self.swf_builder.tags[self.swf_builder.tags.len() - 2]
-            {
-                swf_fonts.push(*font.clone());
+            if let swf::Tag::DefineFont2(font) = &swf_builder.tags[swf_builder.tags.len() - 2] {
+                swf_fonts.push(OwnedFont::from(font));
             }
         }
 
-        self.swf_fonts = Some(swf_fonts);
+        self.owned_swf_fonts = Some(swf_fonts);
+
+        self.swf_builder_state = swf_builder.state;
 
         Ok(())
     }
 
-    pub fn fonts(&self) -> &Vec<swf::Font<'a>> {
-        self.swf_fonts.as_ref().expect("Fonts not converted")
+    // this leaks memory and should only be called once per FontContainer
+    pub fn fonts<'a>(&'a self) -> Vec<swf::Font<'a>> {
+        self.owned_swf_fonts
+            .as_ref()
+            .expect("Fonts not converted")
+            .iter()
+            .map(|owned_font| swf::Font {
+                version: owned_font.version,
+                id: owned_font.id,
+                name: self.arenas.alloc_swf_string(owned_font.name.clone()),
+                language: owned_font.language,
+                layout: owned_font.layout.clone(),
+                glyphs: owned_font.glyphs.clone(),
+                flags: owned_font.flags,
+            })
+            .collect()
     }
 
-    pub fn convert_text_field(
+    pub fn convert_text_field<'a>(
         &'a mut self,
         font_symbol_index: usize,
         text: TextProperties,
     ) -> Result<EditText<'a>, Box<dyn std::error::Error>> {
-        let font_character_id = self.swf_builder.symbol_index_to_character_id[&font_symbol_index];
-        build_text_field(
-            font_character_id,
-            &text,
-            &mut self.swf_builder,
-            &self.arenas,
-        );
-        if let swf::Tag::DefineEditText(edit_text) = self.swf_builder.tags.last().unwrap() {
+        let mut swf_builder = SwfBuilder::from_state(self.swf_builder_state.clone());
+
+        let font_character_id = swf_builder.state.symbol_index_to_character_id[&font_symbol_index];
+        build_text_field(font_character_id, &text, &mut swf_builder, &self.arenas);
+        if let swf::Tag::DefineEditText(edit_text) = swf_builder.tags.last().unwrap() {
+            self.swf_builder_state = swf_builder.state;
             return Ok(*edit_text.clone());
         }
+
+        self.swf_builder_state = swf_builder.state;
 
         Err("EditText is not the last tag".into())
     }

@@ -14,19 +14,19 @@ impl FontsConverterBuilder {
     }
 }
 impl SwfFontsContainerBuilder for FontsConverterBuilder {
-    fn build<'a>(&self) -> Box<dyn SwfFontsContainer<'a> + 'a> {
+    fn build<'a>(&self) -> Box<dyn SwfFontsContainer + 'a> {
         Box::new(FontsConverter::new(
             self.fonts.clone(),
             self.directory.clone(),
         ))
     }
 }
-pub struct FontsConverter<'a> {
+pub struct FontsConverter {
     fonts: Vec<(usize, FlitsFont)>,
     directory: PathBuf,
-    font_container: FontContainer<'a>,
+    font_container: FontContainer,
 }
-impl<'a> FontsConverter<'a> {
+impl FontsConverter {
     pub fn new(fonts: Vec<(usize, FlitsFont)>, directory: PathBuf) -> Self {
         FontsConverter {
             fonts,
@@ -35,16 +35,16 @@ impl<'a> FontsConverter<'a> {
         }
     }
 }
-impl<'a> SwfFontsContainer<'a> for FontsConverter<'a> {
-    fn convert_fonts(&'a mut self) -> Result<(), Box<dyn std::error::Error>> {
+impl SwfFontsContainer for FontsConverter {
+    fn convert_fonts(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         self.font_container
             .convert_fonts(&self.fonts, self.directory.clone())
     }
-    fn get_fonts<'b>(&'b self) -> &'b Vec<swf::Font<'b>> {
+    fn get_fonts<'a>(&'a self) -> Vec<swf::Font<'a>> {
         self.font_container.fonts()
     }
 
-    fn convert_edit_text(
+    fn convert_edit_text<'a>(
         &'a mut self,
         properties: Box<dyn std::any::Any>,
     ) -> Result<EditText<'a>, Box<dyn std::error::Error>> {
