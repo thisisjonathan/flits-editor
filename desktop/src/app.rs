@@ -2,6 +2,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 
 use anyhow::anyhow;
 use flits_editor_lib::FlitsEvent;
+use ruffle_render::{backend::RenderBackend, quality::StageQuality};
 use ruffle_render_wgpu::{backend::WgpuRenderBackend, descriptors::Descriptors};
 use wgpu::{Backends, PowerPreference};
 use windowing::{
@@ -68,9 +69,12 @@ impl PlayerController for FlitsPlayerController {
     type Arguments = FlitsArguments;
 
     fn create(&mut self, arguments: &Self::Arguments, movie_view: MovieView) {
-        let renderer = WgpuRenderBackend::new(self.descriptors.clone(), movie_view)
+        let mut renderer = WgpuRenderBackend::new(self.descriptors.clone(), movie_view)
             .map_err(|e| anyhow!(e.to_string()))
             .expect("Couldn't create wgpu rendering backend");
+        // this sets the quality to High which turns on anti-aliasing
+        // this is the same default as in Ruffle
+        renderer.set_quality(StageQuality::default());
         self.player = Some(Mutex::new(FlitsPlayer::new(
             Box::new(renderer),
             arguments.event_loop.clone(),
