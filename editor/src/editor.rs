@@ -1316,7 +1316,7 @@ impl Editor {
     }
 
     pub(crate) fn select_all(&mut self) {
-        self.selection = (0..self.movie.get_placed_symbols(self.editing_clip).len()).collect();
+        self.set_selection((0..self.movie.get_placed_symbols(self.editing_clip).len()).collect());
     }
 
     pub fn reload_assets(&mut self) {
