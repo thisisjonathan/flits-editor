@@ -20,25 +20,29 @@ pub(super) fn build_bitmap<'a>(
     directory: PathBuf,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // TODO: the images are probably already loaded when exporting a movie you are editing, maybe reuse that?
-    let img = ImageReader::open(directory.join(bitmap.properties.path.clone()))
-        .map_err(|err| match err.kind() {
-            std::io::ErrorKind::NotFound => {
-                format!("File not found: '{}'", bitmap.properties.path.clone())
-            }
-            _ => format!(
-                "Unable to open file: '{}' Reason: {}",
-                bitmap.properties.path.clone(),
-                err
-            ),
-        })?
-        .decode()
-        .map_err(|err| {
-            format!(
-                "Error decoding '{}': {}",
-                bitmap.properties.path.clone(),
-                err
-            )
-        })?;
+    let img = ImageReader::open(
+        directory
+            .join("assets")
+            .join(bitmap.properties.path.clone()),
+    )
+    .map_err(|err| match err.kind() {
+        std::io::ErrorKind::NotFound => {
+            format!("File not found: '{}'", bitmap.properties.path.clone())
+        }
+        _ => format!(
+            "Unable to open file: '{}' Reason: {}",
+            bitmap.properties.path.clone(),
+            err
+        ),
+    })?
+    .decode()
+    .map_err(|err| {
+        format!(
+            "Error decoding '{}': {}",
+            bitmap.properties.path.clone(),
+            err
+        )
+    })?;
 
     let frame_count = match &bitmap.properties.animation {
         None => 1,

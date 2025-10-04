@@ -71,6 +71,7 @@ impl Movie {
             .iter()
             .filter_map(|symbol| match symbol {
                 Symbol::Bitmap(bitmap) => Some(bitmap.properties.path.clone()),
+                Symbol::Font(font) => Some(font.path.clone()),
                 _ => None,
             })
             .collect();
@@ -79,7 +80,6 @@ impl Movie {
         for fs_asset in fs_assets {
             let file = fs_asset.unwrap();
             let file_name = file.file_name().into_string().unwrap();
-            let file_path = format!("assets/{}", file_name);
             let is_image = file_name.ends_with(".png");
             let is_font = file_name.ends_with(".ttf");
             if !is_image && !is_font {
@@ -87,7 +87,7 @@ impl Movie {
             }
             let existing_index = existing_assets
                 .iter()
-                .position(|asset| asset == file_path.as_str());
+                .position(|asset| asset == file_name.as_str());
             if let Some(existing_index) = existing_index {
                 // asset is in the list, remove so we don't check it for all the other ones
                 existing_assets.remove(existing_index);
@@ -96,8 +96,8 @@ impl Movie {
                 if is_image {
                     self.symbols.push(Symbol::Bitmap(Bitmap {
                         properties: BitmapProperties {
-                            name: file_name,
-                            path: file_path,
+                            name: file_name.clone(),
+                            path: file_name,
                             animation: None,
                         },
                         cache: BitmapCacheStatus::Uncached,
@@ -288,7 +288,8 @@ pub struct Bitmap {
 }
 impl Bitmap {
     pub fn cache_image(&mut self, directory: &Path) {
-        self.cache = match ImageReader::open(directory.join(self.properties.path.clone())) {
+        let asset_directory = directory.join("assets");
+        self.cache = match ImageReader::open(asset_directory.join(self.properties.path.clone())) {
             Ok(reader) => match reader.decode() {
                 Ok(mut image) => match &self.properties.animation {
                     None => BitmapCacheStatus::Cached(CachedBitmap {

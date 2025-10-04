@@ -11,12 +11,12 @@
         {"Bitmap": {
             "properties": {
                 "name": "smiley.png",
-                "path": "assets/smiley.png"
+                "path": "smiley.png"
             }
         }},{"Bitmap": {
             "properties": {
                 "name": "flower.png",
-                "path": "assets/flower.png"
+                "path": "flower.png"
             }
         }},{"MovieClip": {
             "properties": {
@@ -45,7 +45,7 @@
         }},{"Bitmap": {
             "properties": {
                 "name": "play.png",
-                "path": "assets/play.png"
+                "path": "play.png"
             }
         }},{"MovieClip": {
             "properties": {
@@ -60,7 +60,7 @@
         }},{"Bitmap": {
             "properties": {
                 "name": "bouncing_ball.png",
-                "path": "assets/bouncing_ball.png",
+                "path": "bouncing_ball.png",
                 "animation": {
                     "frame_count": 6,
                     "frame_delay": 6
@@ -69,7 +69,7 @@
         }},{"Bitmap": {
             "properties": {
                 "name": "bouncing_ball.png (stop)",
-                "path": "assets/bouncing_ball.png",
+                "path": "bouncing_ball.png",
                 "animation": {
                     "frame_count": 6,
                     "frame_delay": 6,
@@ -79,12 +79,12 @@
         }},{"Bitmap": {
             "properties": {
                 "name": "tiny_square.png",
-                "path": "assets/tiny_square.png"
+                "path": "tiny_square.png"
             }
         }},{"Bitmap": {
             "properties": {
                 "name": "tiny_square_semi_transparent.png",
-                "path": "assets/tiny_square_semi_transparent.png"
+                "path": "tiny_square_semi_transparent.png"
             }
         }}
     ],
