@@ -1321,7 +1321,8 @@ impl Editor {
 
     pub fn reload_assets(&mut self) {
         self.movie.reload_assets(&self.directory);
-        // TODO: reset text rendering
+        // reset text renderer to force it to reload everything
+        self.text_renderer = None;
     }
 
     pub fn export_and_run(&mut self, event_loop: &EventLoopProxy<FlitsEvent>) {
