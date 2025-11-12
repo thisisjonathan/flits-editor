@@ -31,9 +31,7 @@ pub fn font_to_swf<'a>(
     let scaling_factor = 1024;
 
     let font_data = std::fs::read(path)?;
-    let mut face = rustybuzz::Face::from_slice(&font_data, 0).ok_or("Font doesn't have a face")?;
-    // swfmill calls this, not sure what it does
-    face.set_pixels_per_em(Some((scaling_factor as u16, scaling_factor as u16)));
+    let face = ttf_parser::Face::parse(&font_data, 0)?;
     // formula found by manually finding scaling factors for fonts with different units_per_em
     // by lining things up visually and then creating a formula that worked for both values i tested
     // (font with units_per_em 1000 and 2048, scaling factors 3.2 and 1.6)
@@ -42,50 +40,26 @@ pub fn font_to_swf<'a>(
     let shape_scaling_factor_x = 1.0 / 64.0 * shape_scaling_factor;
     let shape_scaling_factor_y = -1.0 / 64.0 * shape_scaling_factor;
 
-    let mut characters_as_utf16: Vec<u16> = characters.encode_utf16().collect();
-    // put the characters in unicode code point order
-    // TODO: handle duplicates
-    characters_as_utf16.sort_by(|a, b| a.cmp(b));
-
-    let mut glyphs = Vec::with_capacity(characters_as_utf16.len());
-    for (index, character) in characters_as_utf16.iter().enumerate() {
-        let mut buffer = rustybuzz::UnicodeBuffer::new();
-        // shape each character seperately to avoid kerning and ligatures
-        let char_string = String::from_utf16(&[*character])?;
-        buffer.push_str(&char_string);
-        let features = vec![];
-        let glyph_buffer = rustybuzz::shape(&face, &features, buffer);
-        let mut iterator = glyph_buffer
-            .glyph_infos()
-            .iter()
-            .zip(glyph_buffer.glyph_positions());
-        if iterator.len() > 1 {
-            return Err(format!(
-                "Character '{}' of font '{}' has more than one glyph.",
-                char_string, name
-            )
-            .into());
-        }
-        let (glyph_info, glyph_pos) = iterator.next().ok_or_else(|| {
-            format!(
-                "Character '{}' of font '{}' has zero glyphs.",
-                char_string, name
-            )
-        })?;
-        // we need to cast to u16 for some reason, it's what rustybuzz does: https://github.com/harfbuzz/rustybuzz/blob/51d99b83ae78e4ad8993f393f0e5ce05701ebb7e/src/hb/buffer.rs#L247
-        let glyph_id = rustybuzz::ttf_parser::GlyphId(glyph_info.glyph_id as u16);
+    let mut glyphs = Vec::with_capacity(characters.len());
+    let mut characters_vec: Vec<char> = characters.chars().collect();
+    characters_vec.sort_by(|a, b| a.cmp(b));
+    for character in characters_vec {
+        let glyph_id = face
+            .glyph_index(character)
+            .ok_or_else(|| format!("Font '{}' doesn't have a glyph for '{}'", name, character))?;
         let bounding_box = face.glyph_bounding_box(glyph_id);
         let mut builder = ShapeRecordBuilder::new(shape_scaling_factor_x, shape_scaling_factor_y);
         face.outline_glyph(glyph_id, &mut builder);
         glyphs.push(swf::Glyph {
             shape_records: builder.shape_records,
-            code: characters_as_utf16[index],
+            code: character as u16,
             // swfmill does this, but it produces way too small results:
-            // advance: 1 + (glyph_pos.x_advance >> 6) as i16,
+            // advance: 1 + (face.glyph_hor_advance(glyph_id) >> 6) as i16,
             // this is much closer for fonts with units_per_em of 1000:
-            // advance: glyph_pos.x_advance as i16,
+            // advance: face.glyph_hor_advance(glyph_id) as i16,
             // but not for fonts with units_per_em of 2048, hence this code:
-            advance: (glyph_pos.x_advance as f64 * (1030.0 / face.units_per_em() as f64)) as i16,
+            advance: (face.glyph_hor_advance(glyph_id).unwrap_or(0) as f64
+                * (1030.0 / face.units_per_em() as f64)) as i16,
             bounds: match bounding_box {
                 Some(bounding_box) => Some(Rectangle {
                     x_min: Twips::from_pixels(bounding_box.x_min as f64 * shape_scaling_factor_x),
@@ -103,20 +77,20 @@ pub fn font_to_swf<'a>(
 
     let mut font_family = face
         .names()
-        .get(rustybuzz::ttf_parser::name_id::FAMILY)
+        .get(ttf_parser::name_id::FAMILY)
         .ok_or("Unable to get font family name")?;
     // for some reason .get() doesn't always return the right result, even though it exists?!?
     // it just says "unsuppored encoding" but the name id is also different
     // get the correct one manually if that's the case
-    if font_family.name_id != rustybuzz::ttf_parser::name_id::FAMILY {
+    if font_family.name_id != ttf_parser::name_id::FAMILY {
         for name in face.names() {
-            if name.name_id == rustybuzz::ttf_parser::name_id::FAMILY {
+            if name.name_id == ttf_parser::name_id::FAMILY {
                 font_family = name;
                 break;
             }
         }
     }
-    if font_family.name_id != rustybuzz::ttf_parser::name_id::FAMILY {
+    if font_family.name_id != ttf_parser::name_id::FAMILY {
         // if we still haven' found the right thing, give up
         return Err("Unable to get font family name (even with workaround)".into());
     }
@@ -140,9 +114,10 @@ pub fn font_to_swf<'a>(
         ),
         language: swf::Language::Unknown, // swfmill doesn't seem to set this
         layout: Some(swf::FontLayout {
-            ascent: (face.ascender() as i32 * scaling_factor / face.units_per_em()) as u16,
-            descent: (-face.descender() as i32 * scaling_factor / face.units_per_em()) as u16,
-            leading: (face.line_gap() as i32 * scaling_factor / face.units_per_em()) as i16,
+            ascent: (face.ascender() as i32 * scaling_factor / face.units_per_em() as i32) as u16,
+            descent: (-face.descender() as i32 * scaling_factor / face.units_per_em() as i32)
+                as u16,
+            leading: (face.line_gap() as i32 * scaling_factor / face.units_per_em() as i32) as i16,
             kerning: vec![], // TODO: swfmill has a TODO for kerning
         }),
         glyphs,
@@ -177,7 +152,7 @@ impl ShapeRecordBuilder {
         }
     }
 }
-impl rustybuzz::ttf_parser::OutlineBuilder for ShapeRecordBuilder {
+impl ttf_parser::OutlineBuilder for ShapeRecordBuilder {
     fn move_to(&mut self, x: f32, y: f32) {
         self.last_x = x;
         self.last_y = y;
@@ -235,7 +210,7 @@ impl rustybuzz::ttf_parser::OutlineBuilder for ShapeRecordBuilder {
     }
 
     fn close(&mut self) {
-        // Flash player expects the last point to match up with the first point, otherwise it should weird lines.
+        // Flash player expects the last point to match up with the first point, otherwise it shows weird lines.
         // we don't match up exactly due to floating point math
         // compensate by finding how much the last point is off and then move it to match up
         // this is hacky but it works

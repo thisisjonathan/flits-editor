@@ -7,5 +7,5 @@ publish.workspace = true
 
 [dependencies]
 swf = { workspace = true }
-rustybuzz = "*"
+ttf-parser = "0.25.1"
 typed-arena = "2.0.2" # TODO: move to workspace
