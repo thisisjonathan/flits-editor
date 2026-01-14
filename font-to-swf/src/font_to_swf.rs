@@ -34,8 +34,8 @@ pub fn font_to_swf<'a>(
     let face = ttf_parser::Face::parse(&font_data, 0)?;
     // formula found by manually finding scaling factors for fonts with different units_per_em
     // by lining things up visually and then creating a formula that worked for both values i tested
-    // (font with units_per_em 1000 and 2048, scaling factors 3.2 and 1.6)
-    let shape_scaling_factor: f64 = -0.001527 * face.units_per_em() as f64 + 4.727;
+    // (font with units_per_em 1000 and 2048)
+    let shape_scaling_factor: f64 = scaling_factor as f64 / face.units_per_em() as f64 * 3.2;
     // dividing by 64 is what swfmill does
     let shape_scaling_factor_x = 1.0 / 64.0 * shape_scaling_factor;
     let shape_scaling_factor_y = -1.0 / 64.0 * shape_scaling_factor;
@@ -59,7 +59,8 @@ pub fn font_to_swf<'a>(
             // advance: face.glyph_hor_advance(glyph_id) as i16,
             // but not for fonts with units_per_em of 2048, hence this code:
             advance: (face.glyph_hor_advance(glyph_id).unwrap_or(0) as f64
-                * (1030.0 / face.units_per_em() as f64)) as i16,
+                * (1024.0 / face.units_per_em() as f64))
+                .ceil() as i16,
             bounds: match bounding_box {
                 Some(bounding_box) => Some(Rectangle {
                     x_min: Twips::from_pixels(bounding_box.x_min as f64 * shape_scaling_factor_x),
