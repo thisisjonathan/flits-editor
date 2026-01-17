@@ -9,7 +9,7 @@ use winit::{
 };
 
 use crate::{
-    editor::{breadcrumb_bar::BreadcrumbBar, library::Library},
+    editor::{breadcrumb_bar::BreadcrumbBar, library::Library, menu_bar::MenuBar},
     message::EditorMessage,
     message_bus::MessageBus,
     properties_panel::{MoviePropertiesPanel, PropertiesPanel},
@@ -18,6 +18,7 @@ use crate::{
 
 mod breadcrumb_bar;
 mod library;
+mod menu_bar;
 
 pub const MENU_HEIGHT: u32 = 44;
 const LIBRARY_WIDTH: u32 = 150;
@@ -60,6 +61,7 @@ pub struct Editor {
 
     selection: Selection,
 
+    menu_bar: MenuBar,
     library: Library,
     breadcrumb_bar: BreadcrumbBar,
     properties_panel: PropertiesPanel,
@@ -94,6 +96,7 @@ impl Editor {
 
             selection: Selection::default(),
 
+            menu_bar: MenuBar::default(),
             library: Library::default(),
             breadcrumb_bar: BreadcrumbBar::default(),
             properties_panel: PropertiesPanel::MovieProperties(MoviePropertiesPanel {
@@ -108,6 +111,12 @@ impl Editor {
         event_loop: &EventLoopProxy<FlitsEvent>,
     ) -> NeedsRedraw {
         let message_bus = MessageBus::new();
+
+        egui::TopBottomPanel::top("menu_bar").show(egui_ctx, |ui| {
+            self.menu_bar
+                .do_ui(ui, &self.movie, &self.selection, &message_bus);
+        });
+
         egui::SidePanel::right("library")
             .resizable(false) // resizing causes glitches
             .min_width(LIBRARY_WIDTH as f32)
