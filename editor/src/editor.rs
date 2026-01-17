@@ -1,6 +1,6 @@
 use std::{any::Any, path::PathBuf};
 
-use flits_core::{Movie, PlacedSymbolIndex, SymbolIndexOrRoot};
+use flits_core::{Movie, PlacedSymbolIndex, Symbol, SymbolIndexOrRoot};
 use ruffle_render::backend::{RenderBackend, ViewportDimensions};
 use tracing::instrument;
 use winit::{
@@ -9,9 +9,13 @@ use winit::{
 };
 
 use crate::{
-    editor::library::Library, message::EditorMessage, message_bus::MessageBus, FlitsEvent,
+    editor::{breadcrumb_bar::BreadcrumbBar, library::Library},
+    message::EditorMessage,
+    message_bus::MessageBus,
+    FlitsEvent,
 };
 
+mod breadcrumb_bar;
 mod library;
 
 pub const MENU_HEIGHT: u32 = 44;
@@ -40,7 +44,8 @@ pub struct StageSize {
 
 #[derive(Default)]
 pub struct Selection {
-    pub symbol_index: SymbolIndexOrRoot,
+    pub stage_symbol_index: SymbolIndexOrRoot,
+    pub properties_symbol_index: SymbolIndexOrRoot,
     pub placed_symbols: Vec<PlacedSymbolIndex>,
 }
 
@@ -55,6 +60,7 @@ pub struct Editor {
     selection: Selection,
 
     library: Library,
+    breadcrumb_bar: BreadcrumbBar,
 }
 impl Editor {
     pub fn new(
@@ -86,6 +92,7 @@ impl Editor {
             selection: Selection::default(),
 
             library: Library::default(),
+            breadcrumb_bar: BreadcrumbBar::default(),
         })
     }
 
@@ -103,6 +110,11 @@ impl Editor {
                     .do_ui(ui, &self.movie, &self.selection, &message_bus);
             });
 
+        egui::TopBottomPanel::top("breadcrumb_bar").show(egui_ctx, |ui| {
+            self.breadcrumb_bar
+                .do_ui(ui, &self.movie, &self.selection, &message_bus);
+        });
+
         for message in message_bus.into_vec() {
             self.handle_message(message);
         }
@@ -113,7 +125,15 @@ impl Editor {
     fn handle_message(&mut self, message: EditorMessage) {
         match message {
             EditorMessage::ChangeSelectedSymbol(symbol_index) => {
-                self.selection.symbol_index = symbol_index
+                // if root or movieclip, change the stage
+                if symbol_index.is_none_or(|symbol_index| match &self.movie.symbols[symbol_index] {
+                    Symbol::MovieClip(_movie_clip) => true,
+                    _ => false,
+                }) {
+                    self.selection.stage_symbol_index = symbol_index;
+                }
+                // always change what the properties panel selection
+                self.selection.properties_symbol_index = symbol_index;
             }
         }
     }

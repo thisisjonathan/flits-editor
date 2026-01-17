@@ -22,7 +22,7 @@ impl Library {
                 for i in 0..movie.symbols.len() {
                     let symbol = movie.symbols.get(i).unwrap();
                     let checked = selection
-                        .symbol_index
+                        .properties_symbol_index
                         .map_or(false, |symbol_index| symbol_index == i);
                     let mut text = egui::RichText::new(symbol.name());
                     if symbol.is_invalid() {
