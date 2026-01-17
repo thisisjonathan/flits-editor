@@ -156,6 +156,14 @@ impl Editor {
                 self.selection.properties_symbol_index = symbol_index;
                 self.properties_panel.update(&self.movie, &self.selection);
             }
+            EditorMessage::Event(flits_event) => {
+                self.event_loop
+                    .send_event(flits_event)
+                    .unwrap_or_else(|err| {
+                        eprintln!("Unable to send event: {}", err);
+                    });
+            }
+            EditorMessage::TODO => todo!(),
         }
     }
 

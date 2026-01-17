@@ -1,28 +1,31 @@
 use egui::Widget;
 use flits_core::Movie;
 
-use crate::{editor::Selection, message::EditorMessage, message_bus::MessageBus};
+use crate::{editor::Selection, message::EditorMessage, message_bus::MessageBus, FlitsEvent};
 
-pub struct Menu<'a> {
-    pub name: &'a str,
-    pub items: &'a [MenuItem<'a>],
+struct Menu<'a> {
+    name: &'a str,
+    items: &'a [MenuItem<'a>],
 }
 
-pub struct MenuItem<'a> {
-    pub name: &'a str,
-    pub keyboard_shortcut: Option<egui::KeyboardShortcut>,
+struct MenuItem<'a> {
+    name: &'a str,
+    keyboard_shortcut: Option<egui::KeyboardShortcut>,
+    message: fn() -> EditorMessage,
 }
 
-pub const MENUS: &[Menu] = &[
+const MENUS: &[Menu] = &[
     Menu {
         name: "File",
         items: &[
+            // TODO: New...
             MenuItem {
                 name: "Open...",
                 keyboard_shortcut: Some(egui::KeyboardShortcut::new(
                     egui::Modifiers::COMMAND,
                     egui::Key::O,
                 )),
+                message: || EditorMessage::Event(FlitsEvent::OpenFile),
             },
             MenuItem {
                 name: "Save",
@@ -30,6 +33,7 @@ pub const MENUS: &[Menu] = &[
                     egui::Modifiers::COMMAND,
                     egui::Key::S,
                 )),
+                message: || EditorMessage::TODO,
             },
             MenuItem {
                 name: "Export",
@@ -37,6 +41,7 @@ pub const MENUS: &[Menu] = &[
                     egui::Modifiers::COMMAND,
                     egui::Key::E,
                 )),
+                message: || EditorMessage::TODO,
             },
             MenuItem {
                 name: "Close",
@@ -44,6 +49,7 @@ pub const MENUS: &[Menu] = &[
                     egui::Modifiers::COMMAND,
                     egui::Key::W,
                 )),
+                message: || EditorMessage::Event(FlitsEvent::CloseFile),
             },
             MenuItem {
                 name: "Exit",
@@ -51,6 +57,7 @@ pub const MENUS: &[Menu] = &[
                     egui::Modifiers::COMMAND,
                     egui::Key::Q,
                 )),
+                message: || EditorMessage::Event(FlitsEvent::ExitRequested),
             },
         ],
     },
@@ -63,6 +70,7 @@ pub const MENUS: &[Menu] = &[
                     egui::Modifiers::COMMAND,
                     egui::Key::Z,
                 )),
+                message: || EditorMessage::TODO,
             },
             MenuItem {
                 name: "Redo",
@@ -70,6 +78,7 @@ pub const MENUS: &[Menu] = &[
                     egui::Modifiers::COMMAND,
                     egui::Key::R,
                 )),
+                message: || EditorMessage::TODO,
             },
             MenuItem {
                 name: "Delete",
@@ -77,6 +86,7 @@ pub const MENUS: &[Menu] = &[
                     egui::Modifiers::NONE,
                     egui::Key::Delete,
                 )),
+                message: || EditorMessage::TODO,
             },
             MenuItem {
                 name: "Select all",
@@ -84,6 +94,7 @@ pub const MENUS: &[Menu] = &[
                     egui::Modifiers::COMMAND,
                     egui::Key::A,
                 )),
+                message: || EditorMessage::TODO,
             },
             MenuItem {
                 name: "Reload assets",
@@ -91,6 +102,7 @@ pub const MENUS: &[Menu] = &[
                     egui::Modifiers::NONE,
                     egui::Key::F5,
                 )),
+                message: || EditorMessage::TODO,
             },
         ],
     },
@@ -103,6 +115,7 @@ pub const MENUS: &[Menu] = &[
                     egui::Modifiers::NONE,
                     egui::Key::Equals,
                 )),
+                message: || EditorMessage::TODO,
             },
             MenuItem {
                 name: "Zoom out",
@@ -110,6 +123,7 @@ pub const MENUS: &[Menu] = &[
                     egui::Modifiers::NONE,
                     egui::Key::Minus,
                 )),
+                message: || EditorMessage::TODO,
             },
             MenuItem {
                 name: "Reset zoom",
@@ -117,6 +131,7 @@ pub const MENUS: &[Menu] = &[
                     egui::Modifiers::NONE,
                     egui::Key::Num0,
                 )),
+                message: || EditorMessage::TODO,
             },
         ],
     },
@@ -128,6 +143,7 @@ pub const MENUS: &[Menu] = &[
                 egui::Modifiers::COMMAND,
                 egui::Key::Enter,
             )),
+            message: || EditorMessage::TODO,
         }],
     },
     Menu {
@@ -135,6 +151,7 @@ pub const MENUS: &[Menu] = &[
         items: &[MenuItem {
             name: "About...",
             keyboard_shortcut: None,
+            message: || EditorMessage::Event(FlitsEvent::About),
         }],
     },
 ];
@@ -161,7 +178,7 @@ impl MenuBar {
                             .ctx()
                             .input_mut(|input| input.consume_shortcut(&keyboard_shortcut))
                     {
-                        //(item.action)(self, event_loop);
+                        message_bus.publish((item.message)());
                         ui.close_menu();
                     }
                 }
@@ -178,7 +195,7 @@ impl MenuBar {
                                 button.shortcut_text(ui.ctx().format_shortcut(&keyboard_shortcut));
                         }
                         if button.ui(ui).clicked() {
-                            //(item.action)(self, event_loop);
+                            message_bus.publish((item.message)());
                             ui.close_menu();
                         }
                     }
