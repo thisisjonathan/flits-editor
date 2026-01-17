@@ -12,6 +12,7 @@ use crate::{
     editor::{breadcrumb_bar::BreadcrumbBar, library::Library},
     message::EditorMessage,
     message_bus::MessageBus,
+    properties_panel::{MoviePropertiesPanel, PropertiesPanel},
     FlitsEvent,
 };
 
@@ -61,6 +62,7 @@ pub struct Editor {
 
     library: Library,
     breadcrumb_bar: BreadcrumbBar,
+    properties_panel: PropertiesPanel,
 }
 impl Editor {
     pub fn new(
@@ -81,6 +83,7 @@ impl Editor {
         };
 
         let movie = Movie::load(project_file_path.clone())?;
+        let movie_properties = movie.properties.clone();
         Ok(Editor {
             movie,
             project_file_path,
@@ -93,6 +96,9 @@ impl Editor {
 
             library: Library::default(),
             breadcrumb_bar: BreadcrumbBar::default(),
+            properties_panel: PropertiesPanel::MovieProperties(MoviePropertiesPanel {
+                before_edit: movie_properties,
+            }),
         })
     }
 
@@ -115,6 +121,11 @@ impl Editor {
                 .do_ui(ui, &self.movie, &self.selection, &message_bus);
         });
 
+        egui::TopBottomPanel::bottom("properties").show(egui_ctx, |ui| {
+            self.properties_panel
+                .do_ui(ui, &mut self.movie, &self.selection, &message_bus);
+        });
+
         for message in message_bus.into_vec() {
             self.handle_message(message);
         }
@@ -134,6 +145,7 @@ impl Editor {
                 }
                 // always change what the properties panel selection
                 self.selection.properties_symbol_index = symbol_index;
+                self.properties_panel.update(&self.movie, &self.selection);
             }
         }
     }

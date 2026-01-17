@@ -6,7 +6,9 @@ use flits_core::{
     Symbol, SymbolIndex, SymbolIndexOrRoot, TextAlign, TextProperties,
 };
 
-use crate::edit::FontPropertiesEdit;
+use crate::{
+    edit::FontPropertiesEdit, editor::Selection, message::EditorMessage, message_bus::MessageBus,
+};
 
 use super::{
     edit::{
@@ -21,6 +23,77 @@ pub enum PropertiesPanel {
     SymbolProperties(SymbolPropertiesPanel),
     PlacedSymbolProperties(PlacedSymbolPropertiesPanel),
     MultiSelectionProperties(MultiSelectionPropertiesPanel),
+}
+impl PropertiesPanel {
+    pub fn do_ui(
+        &mut self,
+        ui: &mut egui::Ui,
+        movie: &mut Movie,
+        selection: &Selection,
+        message_bus: &MessageBus<EditorMessage>,
+    ) {
+        let edit = match self {
+            PropertiesPanel::MovieProperties(panel) => panel.do_ui(movie, ui),
+            PropertiesPanel::SymbolProperties(panel) => panel.do_ui(movie, ui),
+            PropertiesPanel::PlacedSymbolProperties(panel) => {
+                if selection.placed_symbols.len() != 1 {
+                    panic!(
+                        "Showing placed symbol properties while selection has length {}",
+                        selection.placed_symbols.len()
+                    );
+                }
+                panel.do_ui(
+                    movie,
+                    ui,
+                    selection.properties_symbol_index,
+                    *selection.placed_symbols.get(0).unwrap(),
+                )
+            }
+            PropertiesPanel::MultiSelectionProperties(panel) => panel.do_ui(ui),
+        };
+        if let Some(edit) = edit {
+            //self.do_edit(edit);
+            //needs_redraw = NeedsRedraw::Yes; // some edits cause cascading effects (for example changing the path of a bitmap)
+        }
+    }
+    pub fn update(&mut self, movie: &Movie, selection: &Selection) {
+        match selection.placed_symbols.len() {
+            0 => {
+                if let Some(editing_clip) = selection.properties_symbol_index {
+                    *self = PropertiesPanel::SymbolProperties(SymbolPropertiesPanel {
+                        symbol_index: editing_clip,
+                        before_edit: match &movie.symbols[editing_clip] {
+                            Symbol::Bitmap(bitmap) => {
+                                SymbolProperties::Bitmap(bitmap.properties.clone())
+                            }
+                            Symbol::MovieClip(movieclip) => {
+                                SymbolProperties::MovieClip(movieclip.properties.clone())
+                            }
+                            Symbol::Font(font) => SymbolProperties::Font(font.clone()),
+                        },
+                    });
+                } else {
+                    // only recreate the panel if it doesn't exist already
+                    if !matches!(self, PropertiesPanel::MovieProperties(_)) {
+                        *self = PropertiesPanel::MovieProperties(MoviePropertiesPanel {
+                            before_edit: movie.properties.clone(),
+                        });
+                    }
+                }
+            }
+            1 => {
+                let placed_symbol_index = selection.placed_symbols[0];
+                let place_symbol = &movie.get_placed_symbols(selection.properties_symbol_index)
+                    [placed_symbol_index];
+                *self = PropertiesPanel::PlacedSymbolProperties(PlacedSymbolPropertiesPanel {
+                    before_edit: place_symbol.clone(),
+                });
+            }
+            _ => {
+                *self = PropertiesPanel::MultiSelectionProperties(MultiSelectionPropertiesPanel {});
+            }
+        }
+    }
 }
 
 pub struct MoviePropertiesPanel {
