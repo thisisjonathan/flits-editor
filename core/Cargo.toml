@@ -15,5 +15,5 @@ swf = { workspace = true }
 image = "0.25.6"
 hound = "3.5.1"
 puremp3 = "0.1.0"
-typed-arena = "2.0.2"
+typed-arena = { workspace = true }
 duct = "0.13.7"

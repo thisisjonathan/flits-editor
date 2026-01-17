@@ -29,5 +29,7 @@ ruffle_render = { git = "https://github.com/ruffle-rs/ruffle", features = ["clap
 ruffle_render_wgpu = { git = "https://github.com/ruffle-rs/ruffle", features = ["clap"] }
 tracing = "0.1.41"
 
+typed-arena = "2.0.2"
+
 [profile.release]
 panic = "abort"

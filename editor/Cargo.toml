@@ -17,3 +17,4 @@ tracing = { workspace = true }
 
 undo = "0.51.0"
 ansi-parser = "0.9.1"
+typed-arena = { workspace = true }
