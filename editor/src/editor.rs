@@ -200,6 +200,12 @@ impl Editor {
                 }
             }
         }
+
+        self.event_loop
+            .send_event(FlitsEvent::UpdateTitle)
+            .unwrap_or_else(|err| {
+                eprintln!("Unable to send command output event: {}", err);
+            });
     }
 
     #[instrument(level = "debug", skip_all)]
