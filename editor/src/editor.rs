@@ -3,12 +3,14 @@ use std::{any::Any, path::PathBuf};
 use flits_core::{Movie, PlacedSymbolIndex, Symbol, SymbolIndexOrRoot};
 use ruffle_render::backend::{RenderBackend, ViewportDimensions};
 use tracing::instrument;
+use undo::Record;
 use winit::{
     event::{ElementState, MouseButton},
     event_loop::EventLoopProxy,
 };
 
 use crate::{
+    edit::{MovieEdit, MoviePropertiesOutput},
     editor::{breadcrumb_bar::BreadcrumbBar, library::Library, menu_bar::MenuBar},
     message::EditorMessage,
     message_bus::MessageBus,
@@ -60,6 +62,7 @@ pub struct Editor {
     event_loop: EventLoopProxy<FlitsEvent>,
 
     selection: Selection,
+    history: Record<MovieEdit>,
 
     menu_bar: MenuBar,
     library: Library,
@@ -95,6 +98,7 @@ impl Editor {
             event_loop,
 
             selection: Selection::default(),
+            history: Record::new(),
 
             menu_bar: MenuBar::default(),
             library: Library::default(),
@@ -152,7 +156,7 @@ impl Editor {
                 }) {
                     self.selection.stage_symbol_index = symbol_index;
                 }
-                // always change what the properties panel selection
+                // always change the properties panel selection
                 self.selection.properties_symbol_index = symbol_index;
                 self.properties_panel.update(&self.movie, &self.selection);
             }
@@ -163,7 +167,38 @@ impl Editor {
                         eprintln!("Unable to send event: {}", err);
                     });
             }
+            EditorMessage::Edit(edit) => {
+                let result = self.history.edit(&mut self.movie, edit);
+                self.update_after_edit(Some(result));
+            }
+            EditorMessage::Undo => {
+                let result = self.history.undo(&mut self.movie);
+                self.update_after_edit(result);
+            }
+            EditorMessage::Redo => {
+                let result = self.history.redo(&mut self.movie);
+                self.update_after_edit(result);
+            }
             EditorMessage::TODO => todo!(),
+        }
+    }
+    fn update_after_edit(&mut self, result: Option<MoviePropertiesOutput>) {
+        if let Some(result) = result {
+            match result {
+                MoviePropertiesOutput::Stage(editing_clip) => {
+                    // TODO: this should always change the stage
+                    self.handle_message(EditorMessage::ChangeSelectedSymbol(editing_clip));
+                }
+                MoviePropertiesOutput::Properties(editing_clip) => {
+                    self.selection.properties_symbol_index = editing_clip;
+                    self.properties_panel.update(&self.movie, &self.selection);
+                }
+                MoviePropertiesOutput::Multi(editing_clip, items) => {
+                    self.handle_message(EditorMessage::ChangeSelectedSymbol(editing_clip));
+                    // TODO
+                    //self.set_selection(items);
+                }
+            }
         }
     }
 
@@ -207,6 +242,6 @@ impl Editor {
             .unwrap_or("INVALID DIRECTORY NAME")
     }
     pub fn unsaved_changes(&self) -> bool {
-        false
+        !self.history.is_saved()
     }
 }

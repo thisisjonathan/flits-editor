@@ -52,10 +52,10 @@ impl PropertiesPanel {
             PropertiesPanel::MultiSelectionProperties(panel) => panel.do_ui(ui),
         };
         if let Some(edit) = edit {
-            //self.do_edit(edit);
-            //needs_redraw = NeedsRedraw::Yes; // some edits cause cascading effects (for example changing the path of a bitmap)
+            message_bus.publish(EditorMessage::Edit(edit));
         }
     }
+    // Note: this will recreate the panel
     pub fn update(&mut self, movie: &Movie, selection: &Selection) {
         match selection.placed_symbols.len() {
             0 => {
@@ -73,12 +73,9 @@ impl PropertiesPanel {
                         },
                     });
                 } else {
-                    // only recreate the panel if it doesn't exist already
-                    if !matches!(self, PropertiesPanel::MovieProperties(_)) {
-                        *self = PropertiesPanel::MovieProperties(MoviePropertiesPanel {
-                            before_edit: movie.properties.clone(),
-                        });
-                    }
+                    *self = PropertiesPanel::MovieProperties(MoviePropertiesPanel {
+                        before_edit: movie.properties.clone(),
+                    });
                 }
             }
             1 => {

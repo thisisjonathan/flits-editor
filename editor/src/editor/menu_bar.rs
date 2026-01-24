@@ -70,7 +70,7 @@ const MENUS: &[Menu] = &[
                     egui::Modifiers::COMMAND,
                     egui::Key::Z,
                 )),
-                message: || EditorMessage::TODO,
+                message: || EditorMessage::Undo,
             },
             MenuItem {
                 name: "Redo",
@@ -78,7 +78,7 @@ const MENUS: &[Menu] = &[
                     egui::Modifiers::COMMAND,
                     egui::Key::R,
                 )),
-                message: || EditorMessage::TODO,
+                message: || EditorMessage::Redo,
             },
             MenuItem {
                 name: "Delete",
@@ -179,6 +179,12 @@ impl MenuBar {
                             .input_mut(|input| input.consume_shortcut(&keyboard_shortcut))
                     {
                         message_bus.publish((item.message)());
+                        // TODO: reset focus when undoing/redoing
+                        /*ui.memory_mut(|mem| {
+                            if let Some(focused_widget) = mem.focused() {
+                                mem.surrender_focus(focused_widget);
+                            }
+                        });*/
                         ui.close_menu();
                     }
                 }
