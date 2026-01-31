@@ -1,17 +1,9 @@
-use flits_core::Movie;
-
-use crate::{editor::Selection, message::EditorMessage, message_bus::MessageBus};
+use crate::{editor::Context, message::EditorMessage};
 
 #[derive(Default)]
 pub struct Library {}
 impl Library {
-    pub fn do_ui(
-        &mut self,
-        ui: &mut egui::Ui,
-        movie: &Movie,
-        selection: &Selection,
-        message_bus: &MessageBus<EditorMessage>,
-    ) {
+    pub fn do_ui(&mut self, ui: &mut egui::Ui, ctx: &Context) {
         ui.heading("Library");
         if ui.button("Add MovieClip...").clicked() {
             //self.new_symbol_window = Some(NewSymbolWindow::default());
@@ -19,9 +11,10 @@ impl Library {
         egui::ScrollArea::vertical()
             .auto_shrink([false, false])
             .show(ui, |ui| {
-                for i in 0..movie.symbols.len() {
-                    let symbol = movie.symbols.get(i).unwrap();
-                    let checked = selection
+                for i in 0..ctx.movie.symbols.len() {
+                    let symbol = ctx.movie.symbols.get(i).unwrap();
+                    let checked = ctx
+                        .selection
                         .properties_symbol_index
                         .map_or(false, |symbol_index| symbol_index == i);
                     let mut text = egui::RichText::new(symbol.name());
@@ -32,8 +25,9 @@ impl Library {
                     let response = response.interact(egui::Sense::drag());
 
                     if response.clicked() {
-                        message_bus.publish(EditorMessage::ChangeSelectedSymbol(Some(i)));
-                        /*match movie.symbols[i] {
+                        ctx.message_bus
+                            .publish(EditorMessage::ChangeSelectedSymbol(Some(i)));
+                        /*match ctx.movie.symbols[i] {
                             Symbol::MovieClip(_) => {
                                 self.change_editing_clip(Some(i));
                             }
@@ -71,7 +65,7 @@ impl Library {
                                     y_scale: 1.0,
                                 },
                                 instance_name: "".into(),
-                                text: match &movie.symbols[i] {
+                                text: match &ctx.movie.symbols[i] {
                                     Symbol::Font(_) => Some(Box::new(TextProperties::new())),
                                     _ => None,
                                 },

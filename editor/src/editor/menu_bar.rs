@@ -1,7 +1,6 @@
 use egui::Widget;
-use flits_core::Movie;
 
-use crate::{editor::Selection, message::EditorMessage, message_bus::MessageBus, FlitsEvent};
+use crate::{editor::Context, message::EditorMessage, FlitsEvent};
 
 struct Menu<'a> {
     name: &'a str,
@@ -159,13 +158,7 @@ const MENUS: &[Menu] = &[
 #[derive(Default)]
 pub struct MenuBar {}
 impl MenuBar {
-    pub fn do_ui(
-        &mut self,
-        ui: &mut egui::Ui,
-        movie: &Movie,
-        selection: &Selection,
-        message_bus: &MessageBus<EditorMessage>,
-    ) {
+    pub fn do_ui(&mut self, ui: &mut egui::Ui, ctx: &Context) {
         // this isn't just text field, also buttons and such
         let is_something_focused = ui.ctx().memory(|memory| memory.focused().is_some());
         for menu in MENUS {
@@ -178,7 +171,7 @@ impl MenuBar {
                             .ctx()
                             .input_mut(|input| input.consume_shortcut(&keyboard_shortcut))
                     {
-                        message_bus.publish((item.message)());
+                        ctx.message_bus.publish((item.message)());
                         // TODO: reset focus when undoing/redoing
                         /*ui.memory_mut(|mem| {
                             if let Some(focused_widget) = mem.focused() {
@@ -201,7 +194,7 @@ impl MenuBar {
                                 button.shortcut_text(ui.ctx().format_shortcut(&keyboard_shortcut));
                         }
                         if button.ui(ui).clicked() {
-                            message_bus.publish((item.message)());
+                            ctx.message_bus.publish((item.message)());
                             ui.close_menu();
                         }
                     }

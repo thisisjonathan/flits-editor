@@ -11,7 +11,7 @@ use winit::{
 
 use crate::{
     edit::{MovieEdit, MoviePropertiesOutput},
-    editor::{breadcrumb_bar::BreadcrumbBar, library::Library, menu_bar::MenuBar},
+    editor::{breadcrumb_bar::BreadcrumbBar, library::Library, menu_bar::MenuBar, stage::Stage},
     message::EditorMessage,
     message_bus::MessageBus,
     properties_panel::{MoviePropertiesPanel, PropertiesPanel},
@@ -21,6 +21,7 @@ use crate::{
 mod breadcrumb_bar;
 mod library;
 mod menu_bar;
+mod stage;
 
 pub const MENU_HEIGHT: u32 = 44;
 const LIBRARY_WIDTH: u32 = 150;
@@ -53,6 +54,17 @@ pub struct Selection {
     pub placed_symbols: Vec<PlacedSymbolIndex>,
 }
 
+pub struct Context<'a> {
+    pub movie: &'a Movie,
+    pub selection: &'a Selection,
+    pub message_bus: &'a MessageBus<EditorMessage>,
+}
+pub struct RenderContext<'a> {
+    pub movie: &'a mut Movie,
+    pub selection: &'a Selection,
+    pub renderer: &'a mut Renderer,
+}
+
 pub struct Editor {
     movie: Movie,
     project_file_path: PathBuf,
@@ -67,6 +79,7 @@ pub struct Editor {
     menu_bar: MenuBar,
     library: Library,
     breadcrumb_bar: BreadcrumbBar,
+    stage: Stage,
     properties_panel: PropertiesPanel,
 }
 impl Editor {
@@ -92,7 +105,7 @@ impl Editor {
         Ok(Editor {
             movie,
             project_file_path,
-            directory,
+            directory: directory.clone(),
 
             viewport_dimensions,
             event_loop,
@@ -103,6 +116,7 @@ impl Editor {
             menu_bar: MenuBar::default(),
             library: Library::default(),
             breadcrumb_bar: BreadcrumbBar::default(),
+            stage: Stage::new(&movie_properties, directory),
             properties_panel: PropertiesPanel::MovieProperties(MoviePropertiesPanel {
                 before_edit: movie_properties,
             }),
@@ -115,23 +129,25 @@ impl Editor {
         event_loop: &EventLoopProxy<FlitsEvent>,
     ) -> NeedsRedraw {
         let message_bus = MessageBus::new();
+        let context = Context {
+            movie: &self.movie,
+            selection: &self.selection,
+            message_bus: &message_bus,
+        };
 
         egui::TopBottomPanel::top("menu_bar").show(egui_ctx, |ui| {
-            self.menu_bar
-                .do_ui(ui, &self.movie, &self.selection, &message_bus);
+            self.menu_bar.do_ui(ui, &context);
         });
 
         egui::SidePanel::right("library")
             .resizable(false) // resizing causes glitches
             .min_width(LIBRARY_WIDTH as f32)
             .show(egui_ctx, |ui| {
-                self.library
-                    .do_ui(ui, &self.movie, &self.selection, &message_bus);
+                self.library.do_ui(ui, &context);
             });
 
         egui::TopBottomPanel::top("breadcrumb_bar").show(egui_ctx, |ui| {
-            self.breadcrumb_bar
-                .do_ui(ui, &self.movie, &self.selection, &message_bus);
+            self.breadcrumb_bar.do_ui(ui, &context);
         });
 
         egui::TopBottomPanel::bottom("properties").show(egui_ctx, |ui| {
@@ -209,7 +225,18 @@ impl Editor {
     }
 
     #[instrument(level = "debug", skip_all)]
-    pub fn render(&mut self, renderer: &mut Renderer) {}
+    pub fn render(&mut self, renderer: &mut Renderer) {
+        let viewport_dimensions = renderer.viewport_dimensions();
+        self.viewport_dimensions = viewport_dimensions;
+        let mut context = RenderContext {
+            // movie needs to be mutable because of bitmap handles
+            movie: &mut self.movie,
+            selection: &self.selection,
+            renderer,
+        };
+
+        self.stage.render(&mut context);
+    }
 
     pub fn handle_mouse_move(&mut self, mouse_x: f64, mouse_y: f64) {}
     pub fn handle_mouse_input(
