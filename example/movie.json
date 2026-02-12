@@ -93,12 +93,12 @@
         {
             "symbol_index": 0,
             "x": 16,
-            "y": 16,
-            "instance_name": "first_flower"
+            "y": 16
         },{
             "symbol_index": 1,
             "x": 64,
-            "y": 32
+            "y": 32,
+            "instance_name": "first_flower"
         },{
             "symbol_index": 1,
             "x": 128,
