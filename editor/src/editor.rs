@@ -183,7 +183,10 @@ impl Editor {
 
     fn handle_message(&mut self, message: EditorMessage) {
         match message {
-            EditorMessage::ChangeSelectedSymbol(symbol_index) => {
+            EditorMessage::ChangeSelectedSymbol(symbol_index) => 'change_selected_symbol: {
+                if symbol_index == self.selection.stage_symbol_index {
+                    break 'change_selected_symbol;
+                }
                 // if root or movieclip, change the stage
                 if symbol_index.is_none_or(|symbol_index| match &self.movie.symbols[symbol_index] {
                     Symbol::MovieClip(_movie_clip) => true,
