@@ -1,6 +1,6 @@
 use egui::Widget;
 
-use crate::{editor::Context, message::EditorMessage, FlitsEvent};
+use crate::{editor::stage::StageMessage, editor::Context, message::EditorMessage, FlitsEvent};
 
 struct Menu<'a> {
     name: &'a str,
@@ -114,7 +114,7 @@ const MENUS: &[Menu] = &[
                     egui::Modifiers::NONE,
                     egui::Key::Equals,
                 )),
-                message: || EditorMessage::TODO,
+                message: || EditorMessage::Stage(StageMessage::ZoomIn),
             },
             MenuItem {
                 name: "Zoom out",
@@ -122,7 +122,7 @@ const MENUS: &[Menu] = &[
                     egui::Modifiers::NONE,
                     egui::Key::Minus,
                 )),
-                message: || EditorMessage::TODO,
+                message: || EditorMessage::Stage(StageMessage::ZoomOut),
             },
             MenuItem {
                 name: "Reset zoom",
@@ -130,7 +130,7 @@ const MENUS: &[Menu] = &[
                     egui::Modifiers::NONE,
                     egui::Key::Num0,
                 )),
-                message: || EditorMessage::TODO,
+                message: || EditorMessage::Stage(StageMessage::ResetZoom),
             },
         ],
     },

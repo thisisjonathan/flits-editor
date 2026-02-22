@@ -1,6 +1,6 @@
 use flits_core::{SymbolIndex, SymbolIndexOrRoot};
 
-use crate::{edit::MovieEdit, FlitsEvent};
+use crate::{edit::MovieEdit, editor::stage::StageMessage, FlitsEvent};
 
 pub enum EditorMessage {
     ChangeSelectedSymbol(SymbolIndexOrRoot),
@@ -8,6 +8,7 @@ pub enum EditorMessage {
     Edit(MovieEdit),
     Undo,
     Redo,
+    Stage(StageMessage),
     Event(FlitsEvent),
     TODO,
 }

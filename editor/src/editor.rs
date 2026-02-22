@@ -21,7 +21,7 @@ use crate::{
 mod breadcrumb_bar;
 mod library;
 mod menu_bar;
-mod stage;
+pub(crate) mod stage;
 
 pub const MENU_HEIGHT: u32 = 44;
 const LIBRARY_WIDTH: u32 = 150;
@@ -212,13 +212,6 @@ impl Editor {
                 self.selection.properties_symbol_index = self.selection.stage_symbol_index;
                 self.properties_panel.update(&self.movie, &self.selection);
             }
-            EditorMessage::Event(flits_event) => {
-                self.event_loop
-                    .send_event(flits_event)
-                    .unwrap_or_else(|err| {
-                        eprintln!("Unable to send event: {}", err);
-                    });
-            }
             EditorMessage::Edit(edit) => {
                 let result = self.history.edit(&mut self.movie, edit);
                 self.update_after_edit(Some(result));
@@ -230,6 +223,16 @@ impl Editor {
             EditorMessage::Redo => {
                 let result = self.history.redo(&mut self.movie);
                 self.update_after_edit(result);
+            }
+            EditorMessage::Stage(stage_message) => {
+                self.stage.handle_message(stage_message);
+            }
+            EditorMessage::Event(flits_event) => {
+                self.event_loop
+                    .send_event(flits_event)
+                    .unwrap_or_else(|err| {
+                        eprintln!("Unable to send event: {}", err);
+                    });
             }
             EditorMessage::TODO => todo!(),
         }

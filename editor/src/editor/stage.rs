@@ -26,6 +26,12 @@ use crate::{
     text_rendering::FontsConverterBuilder,
 };
 
+pub enum StageMessage {
+    ZoomIn,
+    ZoomOut,
+    ResetZoom,
+}
+
 #[derive(Clone, Copy)]
 struct Bounds {
     min_x: f64,
@@ -561,6 +567,22 @@ impl Stage {
             width: viewport_dimensions.width - LIBRARY_WIDTH,
             // we don't know the height of the properties panel, so just use an approximation
             height: viewport_dimensions.height - 65,
+        }
+    }
+
+    pub fn handle_message(&mut self, message: StageMessage) {
+        match message {
+            // TODO: maybe just hardcode the zoom percentages: https://www.uxpin.com/studio/blog/the-strikingly-precise-zoom/
+            // to make sure you land on nice percentages like 200%
+            StageMessage::ZoomIn => {
+                self.camera.zoom(0.1);
+            }
+            StageMessage::ZoomOut => {
+                self.camera.zoom(-0.1);
+            }
+            StageMessage::ResetZoom => {
+                self.camera.reset_zoom();
+            }
         }
     }
 
