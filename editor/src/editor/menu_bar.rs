@@ -173,6 +173,7 @@ impl MenuBar {
                     {
                         ctx.message_bus.publish((item.message)());
                         // TODO: reset focus when undoing/redoing
+                        // (this may have been fixed as a side effect of the later stages of refactoring)
                         /*ui.memory_mut(|mem| {
                             if let Some(focused_widget) = mem.focused() {
                                 mem.surrender_focus(focused_widget);

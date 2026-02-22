@@ -57,7 +57,15 @@ pub struct Selection {
 pub struct Context<'a> {
     pub movie: &'a Movie,
     pub selection: &'a Selection,
+    pub modifiers: egui::Modifiers,
     pub message_bus: &'a MessageBus<EditorMessage>,
+}
+pub struct MutableContext<'a> {
+    pub movie: &'a mut Movie,
+    pub selection: &'a Selection,
+    pub modifiers: egui::Modifiers,
+    pub message_bus: &'a MessageBus<EditorMessage>,
+    pub viewport_dimensions: ViewportDimensions,
 }
 pub struct RenderContext<'a> {
     pub movie: &'a mut Movie,
@@ -75,6 +83,7 @@ pub struct Editor {
 
     selection: Selection,
     history: Record<MovieEdit>,
+    modifiers: egui::Modifiers,
 
     menu_bar: MenuBar,
     library: Library,
@@ -112,6 +121,7 @@ impl Editor {
 
             selection: Selection::default(),
             history: Record::new(),
+            modifiers: egui::Modifiers::NONE,
 
             menu_bar: MenuBar::default(),
             library: Library::default(),
@@ -128,10 +138,13 @@ impl Editor {
         egui_ctx: &egui::Context,
         event_loop: &EventLoopProxy<FlitsEvent>,
     ) -> NeedsRedraw {
+        egui_ctx.input(|input| self.modifiers = input.modifiers);
+
         let message_bus = MessageBus::new();
         let context = Context {
             movie: &self.movie,
             selection: &self.selection,
+            modifiers: self.modifiers,
             message_bus: &message_bus,
         };
 
@@ -151,13 +164,17 @@ impl Editor {
         });
 
         egui::TopBottomPanel::bottom("properties").show(egui_ctx, |ui| {
-            self.properties_panel
-                .do_ui(ui, &mut self.movie, &self.selection, &message_bus);
+            let mut mutable_context = MutableContext {
+                movie: &mut self.movie,
+                selection: &self.selection,
+                modifiers: self.modifiers,
+                message_bus: &message_bus,
+                viewport_dimensions: self.viewport_dimensions,
+            };
+            self.properties_panel.do_ui(ui, &mut mutable_context);
         });
 
-        for message in message_bus.into_vec() {
-            self.handle_message(message);
-        }
+        self.handle_messages(message_bus);
 
         NeedsRedraw::No
     }
@@ -171,9 +188,28 @@ impl Editor {
                     _ => false,
                 }) {
                     self.selection.stage_symbol_index = symbol_index;
+
+                    let message_bus = MessageBus::new();
+                    self.stage.reset_camera(Context {
+                        movie: &self.movie,
+                        selection: &self.selection,
+                        modifiers: self.modifiers,
+                        message_bus: &message_bus,
+                    });
+                    self.handle_messages(message_bus);
+
+                    self.handle_message(EditorMessage::ChangeSelectedPlacedSymbols(Vec::new()));
                 }
+
                 // always change the properties panel selection
                 self.selection.properties_symbol_index = symbol_index;
+
+                self.selection.placed_symbols = Vec::new();
+                self.properties_panel.update(&self.movie, &self.selection);
+            }
+            EditorMessage::ChangeSelectedPlacedSymbols(items) => {
+                self.selection.placed_symbols = items;
+                self.selection.properties_symbol_index = self.selection.stage_symbol_index;
                 self.properties_panel.update(&self.movie, &self.selection);
             }
             EditorMessage::Event(flits_event) => {
@@ -211,8 +247,7 @@ impl Editor {
                 }
                 MoviePropertiesOutput::Multi(editing_clip, items) => {
                     self.handle_message(EditorMessage::ChangeSelectedSymbol(editing_clip));
-                    // TODO
-                    //self.set_selection(items);
+                    self.handle_message(EditorMessage::ChangeSelectedPlacedSymbols(items));
                 }
             }
         }
@@ -226,6 +261,10 @@ impl Editor {
 
     #[instrument(level = "debug", skip_all)]
     pub fn render(&mut self, renderer: &mut Renderer) {
+        if !self.is_editor_visible() {
+            return;
+        }
+
         let viewport_dimensions = renderer.viewport_dimensions();
         self.viewport_dimensions = viewport_dimensions;
         let mut context = RenderContext {
@@ -238,7 +277,22 @@ impl Editor {
         self.stage.render(&mut context);
     }
 
-    pub fn handle_mouse_move(&mut self, mouse_x: f64, mouse_y: f64) {}
+    pub fn handle_mouse_move(&mut self, mouse_x: f64, mouse_y: f64) {
+        if !self.is_editor_visible() {
+            return;
+        }
+        let message_bus = MessageBus::new();
+        let mut mutable_context = MutableContext {
+            movie: &mut self.movie,
+            selection: &mut self.selection,
+            modifiers: self.modifiers,
+            message_bus: &message_bus,
+            viewport_dimensions: self.viewport_dimensions,
+        };
+        self.stage
+            .handle_mouse_move(&mut mutable_context, mouse_x, mouse_y);
+        self.handle_messages(message_bus);
+    }
     pub fn handle_mouse_input(
         &mut self,
         mouse_x: f64,
@@ -246,6 +300,33 @@ impl Editor {
         button: MouseButton,
         state: ElementState,
     ) {
+        if !self.is_editor_visible() {
+            return;
+        }
+        let message_bus = MessageBus::new();
+        let mut mutable_context = MutableContext {
+            movie: &mut self.movie,
+            selection: &mut self.selection,
+            modifiers: self.modifiers,
+            message_bus: &message_bus,
+            viewport_dimensions: self.viewport_dimensions,
+        };
+        self.stage
+            .handle_mouse_input(&mut mutable_context, mouse_x, mouse_y, button, state);
+        self.handle_messages(message_bus);
+    }
+
+    fn handle_messages(&mut self, message_bus: MessageBus<EditorMessage>) {
+        for message in message_bus.into_vec() {
+            self.handle_message(message);
+        }
+    }
+
+    fn is_editor_visible(&self) -> bool {
+        /*if let Some(run_ui) = &self.run_ui {
+            return run_ui.is_editor_visible();
+        }*/
+        true
     }
 
     pub(crate) fn do_undo(&mut self) {}

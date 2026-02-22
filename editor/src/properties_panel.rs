@@ -7,7 +7,9 @@ use flits_core::{
 };
 
 use crate::{
-    edit::FontPropertiesEdit, editor::Selection, message::EditorMessage, message_bus::MessageBus,
+    edit::FontPropertiesEdit,
+    editor::{MutableContext, Selection},
+    message::EditorMessage,
 };
 
 use super::{
@@ -25,34 +27,28 @@ pub enum PropertiesPanel {
     MultiSelectionProperties(MultiSelectionPropertiesPanel),
 }
 impl PropertiesPanel {
-    pub fn do_ui(
-        &mut self,
-        ui: &mut egui::Ui,
-        movie: &mut Movie,
-        selection: &Selection,
-        message_bus: &MessageBus<EditorMessage>,
-    ) {
+    pub fn do_ui(&mut self, ui: &mut egui::Ui, ctx: &mut MutableContext) {
         let edit = match self {
-            PropertiesPanel::MovieProperties(panel) => panel.do_ui(movie, ui),
-            PropertiesPanel::SymbolProperties(panel) => panel.do_ui(movie, ui),
+            PropertiesPanel::MovieProperties(panel) => panel.do_ui(ctx.movie, ui),
+            PropertiesPanel::SymbolProperties(panel) => panel.do_ui(ctx.movie, ui),
             PropertiesPanel::PlacedSymbolProperties(panel) => {
-                if selection.placed_symbols.len() != 1 {
+                if ctx.selection.placed_symbols.len() != 1 {
                     panic!(
                         "Showing placed symbol properties while selection has length {}",
-                        selection.placed_symbols.len()
+                        ctx.selection.placed_symbols.len()
                     );
                 }
                 panel.do_ui(
-                    movie,
+                    ctx.movie,
                     ui,
-                    selection.properties_symbol_index,
-                    *selection.placed_symbols.get(0).unwrap(),
+                    ctx.selection.properties_symbol_index,
+                    *ctx.selection.placed_symbols.get(0).unwrap(),
                 )
             }
             PropertiesPanel::MultiSelectionProperties(panel) => panel.do_ui(ui),
         };
         if let Some(edit) = edit {
-            message_bus.publish(EditorMessage::Edit(edit));
+            ctx.message_bus.publish(EditorMessage::Edit(edit));
         }
     }
     // Note: this will recreate the panel

@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 
 use flits_core::{
-    BitmapCacheStatus, CachedBitmap, EditorTransform, Movie, MovieProperties, PlaceSymbol, Symbol,
-    SymbolIndexOrRoot,
+    BitmapCacheStatus, CachedBitmap, EditorTransform, Movie, MovieProperties, PlaceSymbol,
+    PlacedSymbolIndex, Symbol, SymbolIndex, SymbolIndexOrRoot,
 };
 use flits_text_rendering::TextRenderer;
 use ruffle_render::{
@@ -13,13 +13,16 @@ use ruffle_render::{
     transform::Transform,
 };
 use swf::{Color, ColorTransform, Twips};
+use winit::event::{ElementState, MouseButton};
 
 use crate::{
     camera::Camera,
+    edit::{MovieEdit, MultiEdit, MultiEditEdit, PlacedSymbolEdit},
     editor::{
-        BitmapHandleWrapper, RenderContext, Renderer, StageSize, EMPTY_CLIP_HEIGHT,
-        EMPTY_CLIP_WIDTH, LIBRARY_WIDTH,
+        BitmapHandleWrapper, Context, MutableContext, RenderContext, Renderer, StageSize,
+        EDIT_EPSILON, EMPTY_CLIP_HEIGHT, EMPTY_CLIP_WIDTH, LIBRARY_WIDTH,
     },
+    message::EditorMessage,
     text_rendering::FontsConverterBuilder,
 };
 
@@ -57,6 +60,14 @@ struct BoxSelection {
     items: Vec<usize>,
 }
 
+#[derive(Clone)]
+struct DragData {
+    symbol_start_transform: EditorTransform,
+    start_x: f64,
+    start_y: f64,
+    place_symbol_index: SymbolIndex,
+}
+
 pub struct Stage {
     camera: Camera,
     // Option because we need the renderer to intialize it
@@ -64,6 +75,9 @@ pub struct Stage {
 
     directory: PathBuf,
     box_selection: Option<BoxSelection>,
+
+    // one DragData per selected PlacedSymbol
+    drag_datas: Option<Vec<DragData>>,
 }
 impl Stage {
     pub fn new(movie_properties: &MovieProperties, directory: PathBuf) -> Self {
@@ -72,6 +86,7 @@ impl Stage {
             text_renderer: None,
             directory,
             box_selection: None,
+            drag_datas: None,
         }
     }
     pub fn render(&mut self, ctx: &mut RenderContext) {
@@ -211,7 +226,7 @@ impl Stage {
             .get_placed_symbols(ctx.selection.stage_symbol_index);
         for i in &ctx.selection.placed_symbols {
             let place_symbol = placed_symbols.get(*i).unwrap();
-            let bounds = self.bounds_of_placed_symbol(ctx, place_symbol);
+            let bounds = self.bounds_of_placed_symbol(ctx.movie, place_symbol);
             if let Some(bounds) = bounds {
                 let mut rect = self.render_selection_rectangle(world_to_screen_matrix, bounds);
                 commands.append(&mut rect);
@@ -300,12 +315,8 @@ impl Stage {
         commands
     }
 
-    fn bounds_of_placed_symbol(
-        &self,
-        ctx: &RenderContext,
-        place_symbol: &PlaceSymbol,
-    ) -> Option<Bounds> {
-        let local_bounds = self.local_bounds_of_placed_symbol(ctx, place_symbol);
+    fn bounds_of_placed_symbol(&self, movie: &Movie, place_symbol: &PlaceSymbol) -> Option<Bounds> {
+        let local_bounds = self.local_bounds_of_placed_symbol(movie, place_symbol);
         if let Some(local_bounds) = local_bounds {
             return Some(Bounds {
                 min_x: place_symbol.transform.x
@@ -323,11 +334,10 @@ impl Stage {
 
     fn local_bounds_of_placed_symbol(
         &self,
-        ctx: &RenderContext,
+        movie: &Movie,
         place_symbol: &PlaceSymbol,
     ) -> Option<Bounds> {
-        let symbol = ctx
-            .movie
+        let symbol = movie
             .symbols
             .get(place_symbol.symbol_index as usize)
             .expect("Invalid symbol placed");
@@ -357,7 +367,7 @@ impl Stage {
                     max_y: 0.0,
                 };
                 for inner_place_symbol in &movieclip.place_symbols {
-                    let bounds = self.bounds_of_placed_symbol(ctx, inner_place_symbol);
+                    let bounds = self.bounds_of_placed_symbol(movie, inner_place_symbol);
                     let Some(bounds) = bounds else {
                         continue;
                     };
@@ -551,6 +561,359 @@ impl Stage {
             width: viewport_dimensions.width - LIBRARY_WIDTH,
             // we don't know the height of the properties panel, so just use an approximation
             height: viewport_dimensions.height - 65,
+        }
+    }
+
+    pub fn handle_mouse_move(&mut self, ctx: &mut MutableContext, mouse_x: f64, mouse_y: f64) {
+        let world_space_mouse_position =
+            self.camera
+                .screen_to_world_matrix(Self::stage_size_from_viewport_dimensions(
+                    ctx.viewport_dimensions,
+                ))
+                * Matrix::translate(Twips::from_pixels(mouse_x), Twips::from_pixels(mouse_y));
+        let placed_symbols = ctx
+            .movie
+            .get_placed_symbols_mut(ctx.selection.stage_symbol_index);
+        if let Some(drag_datas) = &self.drag_datas {
+            for drag_data in drag_datas {
+                let place_symbol = placed_symbols
+                    .get_mut(drag_data.place_symbol_index)
+                    .unwrap();
+                place_symbol.transform.x = drag_data.symbol_start_transform.x
+                    + world_space_mouse_position.tx.to_pixels()
+                    - drag_data.start_x;
+                place_symbol.transform.y = drag_data.symbol_start_transform.y
+                    + world_space_mouse_position.ty.to_pixels()
+                    - drag_data.start_y;
+            }
+        }
+
+        let mut updated_selected_placed_symbols: Option<Vec<PlacedSymbolIndex>> = None;
+
+        if self.box_selection.is_some() {
+            if let Some(box_selection) = &mut self.box_selection {
+                box_selection.bounds = Bounds::from_points(
+                    box_selection.start_x,
+                    box_selection.start_y,
+                    world_space_mouse_position.tx.to_pixels(),
+                    world_space_mouse_position.ty.to_pixels(),
+                );
+            }
+            let mut items_to_add_to_selection = Vec::new();
+            let placed_symbols = ctx
+                .movie
+                .get_placed_symbols(ctx.selection.stage_symbol_index);
+            if let Some(box_selection) = &self.box_selection {
+                // add placed symbols to selection
+                for i in 0..placed_symbols.len() {
+                    if let Some(bounds) =
+                        self.bounds_of_placed_symbol(ctx.movie, &placed_symbols[i])
+                    {
+                        if box_selection.bounds.contains(&bounds) {
+                            if ctx
+                                .selection
+                                .placed_symbols
+                                .iter()
+                                .find(|index| **index == i)
+                                .is_none()
+                            {
+                                items_to_add_to_selection.push(i);
+                            }
+                        }
+                    }
+                }
+
+                // remove placed symbols from selection
+                for i in &box_selection.items {
+                    if let Some(bounds) =
+                        self.bounds_of_placed_symbol(ctx.movie, &placed_symbols[*i])
+                    {
+                        if !box_selection.bounds.contains(&bounds) {
+                            let placed_symbols_selection =
+                                match &mut updated_selected_placed_symbols {
+                                    Some(placed_symbols) => placed_symbols,
+                                    None => &mut ctx.selection.placed_symbols.clone(),
+                                };
+                            placed_symbols_selection.retain(|index| *index != *i);
+                            updated_selected_placed_symbols =
+                                Some(placed_symbols_selection.clone());
+                        }
+                    }
+                }
+            }
+            for item in items_to_add_to_selection {
+                let placed_symbols_selection = match &mut updated_selected_placed_symbols {
+                    Some(placed_symbols) => placed_symbols,
+                    None => &mut ctx.selection.placed_symbols.clone(),
+                };
+                placed_symbols_selection.push(item);
+                updated_selected_placed_symbols = Some(placed_symbols_selection.clone());
+
+                if let Some(box_selection) = &mut self.box_selection {
+                    box_selection.items.push(item);
+                }
+            }
+        }
+
+        if let Some(placed_symbols) = updated_selected_placed_symbols {
+            ctx.message_bus
+                .publish(EditorMessage::ChangeSelectedPlacedSymbols(placed_symbols));
+        }
+
+        self.camera.update_drag(mouse_x, mouse_y);
+    }
+
+    pub fn handle_mouse_input(
+        &mut self,
+        ctx: &mut MutableContext,
+        mouse_x: f64,
+        mouse_y: f64,
+        button: MouseButton,
+        state: ElementState,
+    ) {
+        let world_space_mouse_position =
+            self.camera
+                .screen_to_world_matrix(Self::stage_size_from_viewport_dimensions(
+                    ctx.viewport_dimensions,
+                ))
+                * Matrix::translate(Twips::from_pixels(mouse_x), Twips::from_pixels(mouse_y));
+        if button == MouseButton::Left && state == ElementState::Pressed {
+            let symbol_index = self.get_placed_symbol_at_position(
+                ctx.movie,
+                ctx.viewport_dimensions,
+                mouse_x,
+                mouse_y,
+                ctx.selection.stage_symbol_index,
+            );
+            if let Some(symbol_index) = symbol_index {
+                let item_already_selected = ctx.selection.placed_symbols.contains(&symbol_index);
+                let mut placed_symbols_selection = ctx.selection.placed_symbols.clone();
+                if !ctx.modifiers.shift && !item_already_selected {
+                    placed_symbols_selection = Vec::new();
+                } else if item_already_selected && ctx.modifiers.shift {
+                    placed_symbols_selection.retain(|si| *si != symbol_index);
+                }
+                if !item_already_selected {
+                    placed_symbols_selection.push(symbol_index);
+                }
+                ctx.message_bus
+                    .publish(EditorMessage::ChangeSelectedPlacedSymbols(
+                        placed_symbols_selection.clone(),
+                    ));
+
+                self.drag_datas = Some(
+                    placed_symbols_selection
+                        .iter()
+                        .map(|placed_symbol_index| {
+                            let place_symbol = &ctx
+                                .movie
+                                .get_placed_symbols(ctx.selection.stage_symbol_index)
+                                [*placed_symbol_index];
+                            DragData {
+                                symbol_start_transform: place_symbol.transform.clone(),
+                                start_x: world_space_mouse_position.tx.to_pixels(),
+                                start_y: world_space_mouse_position.ty.to_pixels(),
+                                place_symbol_index: *placed_symbol_index,
+                            }
+                        })
+                        .collect(),
+                );
+            } else {
+                if !ctx.modifiers.shift {
+                    ctx.message_bus
+                        .publish(EditorMessage::ChangeSelectedPlacedSymbols(Vec::new()));
+                }
+                let mouse_world_x = world_space_mouse_position.tx.to_pixels();
+                let mouse_world_y = world_space_mouse_position.ty.to_pixels();
+                self.box_selection = Some(BoxSelection {
+                    start_x: mouse_world_x,
+                    start_y: mouse_world_y,
+                    bounds: Bounds {
+                        min_x: mouse_world_x,
+                        min_y: mouse_world_y,
+                        max_x: mouse_world_x,
+                        max_y: mouse_world_y,
+                    },
+                    items: vec![],
+                });
+            }
+            //self.update_selection();
+        }
+        if button == MouseButton::Left && state == ElementState::Released {
+            if let Some(drag_datas) = self.drag_datas.clone() {
+                let mut edits = Vec::with_capacity(drag_datas.len());
+                for drag_data in drag_datas {
+                    let end = EditorTransform {
+                        x: drag_data.symbol_start_transform.x
+                            + world_space_mouse_position.tx.to_pixels()
+                            - drag_data.start_x,
+                        y: drag_data.symbol_start_transform.y
+                            + world_space_mouse_position.ty.to_pixels()
+                            - drag_data.start_y,
+                        x_scale: ctx
+                            .movie
+                            .get_placed_symbols(ctx.selection.stage_symbol_index)
+                            [drag_data.place_symbol_index]
+                            .transform
+                            .x_scale,
+                        y_scale: ctx
+                            .movie
+                            .get_placed_symbols(ctx.selection.stage_symbol_index)
+                            [drag_data.place_symbol_index]
+                            .transform
+                            .y_scale,
+                    };
+
+                    // only insert an edit if you actually moved the placed symbol
+                    if f64::abs(drag_data.symbol_start_transform.x - end.x) > EDIT_EPSILON
+                        || f64::abs(drag_data.symbol_start_transform.y - end.y) > EDIT_EPSILON
+                    {
+                        edits.push(MultiEditEdit::EditPlacedSymbol(PlacedSymbolEdit {
+                            editing_symbol_index: ctx.selection.stage_symbol_index,
+                            placed_symbol_index: drag_data.place_symbol_index,
+                            start: PlaceSymbol::from_transform(
+                                ctx.movie
+                                    .get_placed_symbols(ctx.selection.stage_symbol_index)
+                                    [drag_data.place_symbol_index]
+                                    .clone(),
+                                drag_data.symbol_start_transform.clone(),
+                            ),
+                            end: PlaceSymbol::from_transform(
+                                ctx.movie
+                                    .get_placed_symbols(ctx.selection.stage_symbol_index)
+                                    [drag_data.place_symbol_index]
+                                    .clone(),
+                                end,
+                            ),
+                        }));
+                    }
+                }
+                if edits.len() > 0 {
+                    ctx.message_bus
+                        .publish(EditorMessage::Edit(MovieEdit::Multi(MultiEdit {
+                            editing_symbol_index: ctx.selection.stage_symbol_index,
+                            edits,
+                        })));
+                }
+
+                self.drag_datas = None;
+            }
+            self.box_selection = None;
+        }
+        if button == MouseButton::Middle && state == ElementState::Pressed {
+            self.camera.start_drag(mouse_x, mouse_y)
+        }
+        if button == MouseButton::Middle && state == ElementState::Released {
+            self.camera.stop_drag();
+        }
+    }
+
+    fn get_placed_symbol_at_position(
+        &self,
+        movie: &Movie,
+        viewport_dimensions: ViewportDimensions,
+        x: f64,
+        y: f64,
+        symbol_index: SymbolIndexOrRoot,
+    ) -> SymbolIndexOrRoot {
+        let world_space_position =
+            self.camera
+                .screen_to_world_matrix(Self::stage_size_from_viewport_dimensions(
+                    viewport_dimensions,
+                ))
+                * Matrix::translate(Twips::from_pixels(x), Twips::from_pixels(y));
+
+        self.get_placed_symbol_at_position_local_space(
+            movie,
+            world_space_position.tx.to_pixels(),
+            world_space_position.ty.to_pixels(),
+            symbol_index,
+        )
+    }
+    fn get_placed_symbol_at_position_local_space(
+        &self,
+        movie: &Movie,
+        x: f64,
+        y: f64,
+        symbol_index: SymbolIndexOrRoot,
+    ) -> SymbolIndexOrRoot {
+        let placed_symbols = movie.get_placed_symbols(symbol_index);
+        // iterate from top to bottom to get the item that's on top
+        for i in (0..placed_symbols.len()).rev() {
+            let place_symbol = &placed_symbols[i];
+            let symbol = movie
+                .symbols
+                .get(place_symbol.symbol_index as usize)
+                .expect("Invalid symbol placed");
+            let place_symbol_x = place_symbol.transform.x;
+            let place_symbol_y = place_symbol.transform.y;
+            match symbol {
+                Symbol::Bitmap(bitmap) => {
+                    if let BitmapCacheStatus::Cached(cached_bitmap) = &bitmap.cache {
+                        let half_width = cached_bitmap.image.width() as f64
+                            * place_symbol.transform.x_scale
+                            / 2.0;
+                        let half_height = cached_bitmap.image.height() as f64
+                            * place_symbol.transform.y_scale
+                            / 2.0;
+                        if x > place_symbol_x - half_width
+                            && y > place_symbol_y - half_height
+                            && x < place_symbol_x + half_width
+                            && y < place_symbol_y + half_height
+                        {
+                            return Some(i);
+                        }
+                    }
+                }
+                Symbol::MovieClip(clip) => {
+                    if clip.place_symbols.len() == 0 {
+                        let half_width = EMPTY_CLIP_WIDTH / 2.0;
+                        let half_height = EMPTY_CLIP_HEIGHT / 2.0;
+                        if x > place_symbol_x - half_width
+                            && y > place_symbol_y - half_height
+                            && x < place_symbol_x + half_width
+                            && y < place_symbol_y + half_height
+                        {
+                            return Some(i);
+                        }
+                    }
+                    if let Some(_) = self.get_placed_symbol_at_position_local_space(
+                        movie,
+                        (x - place_symbol_x) / place_symbol.transform.x_scale,
+                        (y - place_symbol_y) / place_symbol.transform.y_scale,
+                        Some(place_symbol.symbol_index as usize),
+                    ) {
+                        return Some(i);
+                    }
+                }
+                Symbol::Font(_) => {
+                    let text_properties = place_symbol.text.as_ref().unwrap();
+                    let half_width = text_properties.width * place_symbol.transform.x_scale / 2.0;
+                    let half_height = text_properties.height * place_symbol.transform.y_scale / 2.0;
+                    if x > place_symbol_x - half_width
+                        && y > place_symbol_y - half_height
+                        && x < place_symbol_x + half_width
+                        && y < place_symbol_y + half_height
+                    {
+                        return Some(i);
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    pub fn reset_camera(&mut self, ctx: Context) {
+        if let Some(symbol_index) = ctx.selection.stage_symbol_index {
+            let Symbol::MovieClip(_) = ctx.movie.symbols[symbol_index] else {
+                // only select movieclips
+                return;
+            };
+            // center the camera on the origin when you open a movieclip
+            self.camera.reset_to_origin();
+        } else {
+            // center the camera on the stage when you open root
+            self.camera.reset_to_center_stage(&ctx.movie.properties);
         }
     }
 }
