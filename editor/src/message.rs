@@ -5,6 +5,7 @@ use crate::{edit::MovieEdit, editor::stage::StageMessage, FlitsEvent};
 pub enum EditorMessage {
     ChangeSelectedSymbol(SymbolIndexOrRoot),
     ChangeSelectedPlacedSymbols(Vec<SymbolIndex>),
+    SelectAll,
     Edit(MovieEdit),
     Undo,
     Redo,

@@ -212,6 +212,16 @@ impl Editor {
                 self.selection.properties_symbol_index = self.selection.stage_symbol_index;
                 self.properties_panel.update(&self.movie, &self.selection);
             }
+            EditorMessage::SelectAll => {
+                // TODO: queue redraw
+                self.handle_message(EditorMessage::ChangeSelectedPlacedSymbols(
+                    (0..self
+                        .movie
+                        .get_placed_symbols(self.selection.stage_symbol_index)
+                        .len())
+                        .collect(),
+                ));
+            }
             EditorMessage::Edit(edit) => {
                 let result = self.history.edit(&mut self.movie, edit);
                 self.update_after_edit(Some(result));

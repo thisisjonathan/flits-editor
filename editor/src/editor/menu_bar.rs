@@ -93,7 +93,7 @@ const MENUS: &[Menu] = &[
                     egui::Modifiers::COMMAND,
                     egui::Key::A,
                 )),
-                message: || EditorMessage::TODO,
+                message: || EditorMessage::SelectAll,
             },
             MenuItem {
                 name: "Reload assets",
