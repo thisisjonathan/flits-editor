@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use flits_core::{
     BitmapCacheStatus, CachedBitmap, EditorTransform, Movie, MovieProperties, PlaceSymbol,
-    PlacedSymbolIndex, Symbol, SymbolIndex, SymbolIndexOrRoot,
+    PlacedSymbolIndex, Symbol, SymbolIndex, SymbolIndexOrRoot, TextProperties,
 };
 use flits_text_rendering::TextRenderer;
 use ruffle_render::{
@@ -17,19 +17,21 @@ use winit::event::{ElementState, MouseButton};
 
 use crate::{
     camera::Camera,
-    edit::{MovieEdit, MultiEdit, MultiEditEdit, PlacedSymbolEdit},
+    edit::{AddPlacedSymbolEdit, MovieEdit, MultiEdit, MultiEditEdit, PlacedSymbolEdit},
     editor::{
         BitmapHandleWrapper, Context, MutableContext, RenderContext, Renderer, StageSize,
         EDIT_EPSILON, EMPTY_CLIP_HEIGHT, EMPTY_CLIP_WIDTH, LIBRARY_WIDTH,
     },
     message::EditorMessage,
     text_rendering::FontsConverterBuilder,
+    MENU_HEIGHT,
 };
 
 pub enum StageMessage {
     ZoomIn,
     ZoomOut,
     ResetZoom,
+    ReleaseSymbolDragDrop(egui::Pos2, SymbolIndex),
 }
 
 #[derive(Clone, Copy)]
@@ -570,10 +572,8 @@ impl Stage {
         }
     }
 
-    pub fn handle_message(&mut self, message: StageMessage) {
+    pub fn handle_message(&mut self, message: StageMessage, ctx: Context) {
         match message {
-            // TODO: maybe just hardcode the zoom percentages: https://www.uxpin.com/studio/blog/the-strikingly-precise-zoom/
-            // to make sure you land on nice percentages like 200%
             StageMessage::ZoomIn => {
                 self.camera.zoom(0.1);
             }
@@ -582,6 +582,47 @@ impl Stage {
             }
             StageMessage::ResetZoom => {
                 self.camera.reset_zoom();
+            }
+            StageMessage::ReleaseSymbolDragDrop(mouse_pos, symbol_index) => {
+                // TODO: handle drag that doesn't end on stage
+                let mut matrix =
+                    self.camera
+                        .screen_to_world_matrix(Self::stage_size_from_viewport_dimensions(
+                            ctx.viewport_dimensions,
+                        ))
+                        * Matrix::translate(
+                            Twips::from_pixels(mouse_pos.x as f64),
+                            Twips::from_pixels(
+                                // TODO: don't hardcode the menu height
+                                mouse_pos.y as f64 - MENU_HEIGHT as f64,
+                            ),
+                        );
+                // reset zoom (otherwise when you are zoomed in the symbol becomes smaller)
+                matrix.a = Matrix::IDENTITY.a;
+                matrix.b = Matrix::IDENTITY.b;
+                matrix.c = Matrix::IDENTITY.c;
+                matrix.d = Matrix::IDENTITY.d;
+                ctx.message_bus
+                    .publish(EditorMessage::Edit(MovieEdit::AddPlacedSymbol(
+                        AddPlacedSymbolEdit {
+                            editing_symbol_index: ctx.selection.stage_symbol_index,
+                            placed_symbol: PlaceSymbol {
+                                symbol_index,
+                                transform: EditorTransform {
+                                    x: matrix.tx.to_pixels(),
+                                    y: matrix.ty.to_pixels(),
+                                    x_scale: 1.0,
+                                    y_scale: 1.0,
+                                },
+                                instance_name: "".into(),
+                                text: match &ctx.movie.symbols[symbol_index] {
+                                    Symbol::Font(_) => Some(Box::new(TextProperties::new())),
+                                    _ => None,
+                                },
+                            },
+                            placed_symbol_index: None,
+                        },
+                    )));
             }
         }
     }

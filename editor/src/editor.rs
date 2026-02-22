@@ -59,6 +59,7 @@ pub struct Context<'a> {
     pub selection: &'a Selection,
     pub modifiers: egui::Modifiers,
     pub message_bus: &'a MessageBus<EditorMessage>,
+    pub viewport_dimensions: ViewportDimensions,
 }
 pub struct MutableContext<'a> {
     pub movie: &'a mut Movie,
@@ -146,6 +147,7 @@ impl Editor {
             selection: &self.selection,
             modifiers: self.modifiers,
             message_bus: &message_bus,
+            viewport_dimensions: self.viewport_dimensions,
         };
 
         egui::TopBottomPanel::top("menu_bar").show(egui_ctx, |ui| {
@@ -195,6 +197,7 @@ impl Editor {
                         selection: &self.selection,
                         modifiers: self.modifiers,
                         message_bus: &message_bus,
+                        viewport_dimensions: self.viewport_dimensions,
                     });
                     self.handle_messages(message_bus);
 
@@ -263,15 +266,28 @@ impl Editor {
                 self.update_after_edit(Some(result));
             }
             EditorMessage::Undo => {
+                // TODO: queue redraw
                 let result = self.history.undo(&mut self.movie);
                 self.update_after_edit(result);
             }
             EditorMessage::Redo => {
+                // TODO: queue redraw
                 let result = self.history.redo(&mut self.movie);
                 self.update_after_edit(result);
             }
             EditorMessage::Stage(stage_message) => {
-                self.stage.handle_message(stage_message);
+                let message_bus = MessageBus::new();
+                self.stage.handle_message(
+                    stage_message,
+                    Context {
+                        movie: &self.movie,
+                        selection: &self.selection,
+                        modifiers: self.modifiers,
+                        message_bus: &message_bus,
+                        viewport_dimensions: self.viewport_dimensions,
+                    },
+                );
+                self.handle_messages(message_bus);
             }
             EditorMessage::Event(flits_event) => {
                 self.event_loop

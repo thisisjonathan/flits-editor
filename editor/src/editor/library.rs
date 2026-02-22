@@ -1,4 +1,7 @@
-use crate::{editor::Context, message::EditorMessage};
+use crate::{
+    editor::{stage::StageMessage, Context},
+    message::EditorMessage,
+};
 
 #[derive(Default)]
 pub struct Library {}
@@ -27,52 +30,16 @@ impl Library {
                     if response.clicked() {
                         ctx.message_bus
                             .publish(EditorMessage::ChangeSelectedSymbol(Some(i)));
-                        /*match ctx.movie.symbols[i] {
-                            Symbol::MovieClip(_) => {
-                                self.change_editing_clip(Some(i));
-                            }
-                            _ => {
-                                self.properties_panel =
-                                    Self::create_symbol_propeties_panel(i, symbol);
-                            }
-                        }
-
-                        needs_redraw = NeedsRedraw::Yes;*/
+                        /*needs_redraw = NeedsRedraw::Yes;*/
                     } else if response.drag_stopped() {
-                        /*// TODO: handle drag that doesn't end on stage
-                        let mouse_pos = response.interact_pointer_pos().unwrap();
-                        let mut matrix = self.camera.screen_to_world_matrix(self.stage_size())
-                            * Matrix::translate(
-                                Twips::from_pixels(mouse_pos.x as f64),
-                                Twips::from_pixels(
-                                    // TODO: don't hardcode the menu height
-                                    mouse_pos.y as f64 - MENU_HEIGHT as f64,
-                                ),
-                            );
-                        // reset zoom (otherwise when you are zoomed in the symbol becomes smaller)
-                        matrix.a = Matrix::IDENTITY.a;
-                        matrix.b = Matrix::IDENTITY.b;
-                        matrix.c = Matrix::IDENTITY.c;
-                        matrix.d = Matrix::IDENTITY.d;
-                        self.do_edit(MovieEdit::AddPlacedSymbol(AddPlacedSymbolEdit {
-                            editing_symbol_index: self.editing_clip,
-                            placed_symbol: PlaceSymbol {
-                                symbol_index: i,
-                                transform: EditorTransform {
-                                    x: matrix.tx.to_pixels(),
-                                    y: matrix.ty.to_pixels(),
-                                    x_scale: 1.0,
-                                    y_scale: 1.0,
-                                },
-                                instance_name: "".into(),
-                                text: match &ctx.movie.symbols[i] {
-                                    Symbol::Font(_) => Some(Box::new(TextProperties::new())),
-                                    _ => None,
-                                },
-                            },
-                            placed_symbol_index: None,
-                        }));
-                        needs_redraw = NeedsRedraw::Yes;*/
+                        // TODO: handle drag that doesn't end on stage
+                        ctx.message_bus.publish(EditorMessage::Stage(
+                            StageMessage::ReleaseSymbolDragDrop(
+                                response.interact_pointer_pos().unwrap(),
+                                i,
+                            ),
+                        ));
+                        //needs_redraw = NeedsRedraw::Yes;
                     }
                 }
             });
