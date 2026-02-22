@@ -10,7 +10,7 @@ use winit::{
 };
 
 use crate::{
-    edit::{MovieEdit, MoviePropertiesOutput},
+    edit::{MovieEdit, MoviePropertiesOutput, MultiEdit, MultiEditEdit, RemovePlacedSymbolEdit},
     editor::{breadcrumb_bar::BreadcrumbBar, library::Library, menu_bar::MenuBar, stage::Stage},
     message::EditorMessage,
     message_bus::MessageBus,
@@ -221,6 +221,37 @@ impl Editor {
                         .len())
                         .collect(),
                 ));
+            }
+            EditorMessage::DeleteSelection => 'delete_selection: {
+                if self.selection.placed_symbols.len() == 0 {
+                    break 'delete_selection;
+                }
+                // TODO: queue redraw
+                let mut selection = self.selection.placed_symbols.clone();
+
+                // because the list is sorted and we are traversing from the end to the beginning
+                // we can safely remove placed items without changing the indices of the rest of the selection
+                selection.sort();
+
+                // reset selection before doing edits because otherwise you can delete something while it's still selected
+                self.selection.placed_symbols = Vec::new();
+                let mut edits = Vec::new();
+                for i in (0..selection.len()).rev() {
+                    let placed_symbol_index = *selection.get(i).unwrap();
+                    edits.push(MultiEditEdit::RemovePlacedSymbol(RemovePlacedSymbolEdit {
+                        editing_symbol_index: self.selection.stage_symbol_index,
+                        placed_symbol_index,
+                        placed_symbol: self
+                            .movie
+                            .get_placed_symbols(self.selection.stage_symbol_index)
+                            [placed_symbol_index]
+                            .clone(),
+                    }));
+                }
+                self.handle_message(EditorMessage::Edit(MovieEdit::Multi(MultiEdit {
+                    editing_symbol_index: self.selection.stage_symbol_index,
+                    edits,
+                })));
             }
             EditorMessage::Edit(edit) => {
                 let result = self.history.edit(&mut self.movie, edit);

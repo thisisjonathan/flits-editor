@@ -85,7 +85,7 @@ const MENUS: &[Menu] = &[
                     egui::Modifiers::NONE,
                     egui::Key::Delete,
                 )),
-                message: || EditorMessage::TODO,
+                message: || EditorMessage::DeleteSelection,
             },
             MenuItem {
                 name: "Select all",
