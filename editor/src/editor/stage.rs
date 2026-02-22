@@ -938,4 +938,7 @@ impl Stage {
             self.camera.reset_to_center_stage(&ctx.movie.properties);
         }
     }
+    pub fn reset_text_renderer(&mut self) {
+        self.text_renderer = None;
+    }
 }

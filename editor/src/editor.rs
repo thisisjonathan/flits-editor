@@ -253,6 +253,11 @@ impl Editor {
                     edits,
                 })));
             }
+            EditorMessage::ReloadAssets => {
+                self.movie.reload_assets(&self.directory);
+                // reset text renderer to force it to reload everything
+                self.stage.reset_text_renderer();
+            }
             EditorMessage::Edit(edit) => {
                 let result = self.history.edit(&mut self.movie, edit);
                 self.update_after_edit(Some(result));

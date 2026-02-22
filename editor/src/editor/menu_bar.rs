@@ -101,7 +101,7 @@ const MENUS: &[Menu] = &[
                     egui::Modifiers::NONE,
                     egui::Key::F5,
                 )),
-                message: || EditorMessage::TODO,
+                message: || EditorMessage::ReloadAssets,
             },
         ],
     },

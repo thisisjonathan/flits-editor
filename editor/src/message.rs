@@ -7,6 +7,7 @@ pub enum EditorMessage {
     ChangeSelectedPlacedSymbols(Vec<SymbolIndex>),
     SelectAll,
     DeleteSelection,
+    ReloadAssets,
     Edit(MovieEdit),
     Undo,
     Redo,
