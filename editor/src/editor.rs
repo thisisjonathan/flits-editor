@@ -14,6 +14,7 @@ use crate::{
     editor::{breadcrumb_bar::BreadcrumbBar, library::Library, menu_bar::MenuBar, stage::Stage},
     message::EditorMessage,
     message_bus::MessageBus,
+    new_symbol_window::{NewSymbolWindow, NewSymbolWindowResult},
     properties_panel::{MoviePropertiesPanel, PropertiesPanel},
     FlitsEvent,
 };
@@ -91,6 +92,7 @@ pub struct Editor {
     breadcrumb_bar: BreadcrumbBar,
     stage: Stage,
     properties_panel: PropertiesPanel,
+    new_symbol_window: Option<NewSymbolWindow>,
 }
 impl Editor {
     pub fn new(
@@ -131,6 +133,7 @@ impl Editor {
             properties_panel: PropertiesPanel::MovieProperties(MoviePropertiesPanel {
                 before_edit: movie_properties,
             }),
+            new_symbol_window: None,
         })
     }
 
@@ -176,6 +179,19 @@ impl Editor {
             self.properties_panel.do_ui(ui, &mut mutable_context);
         });
 
+        if let Some(new_symbol_window) = &mut self.new_symbol_window {
+            match new_symbol_window.do_ui(egui_ctx) {
+                NewSymbolWindowResult::Confirm(movie_edit) => {
+                    self.handle_message(EditorMessage::Edit(movie_edit));
+                    self.new_symbol_window = None;
+                }
+                NewSymbolWindowResult::Cancel => {
+                    self.new_symbol_window = None;
+                }
+                NewSymbolWindowResult::NoAction => {}
+            }
+        }
+
         self.handle_messages(message_bus);
 
         NeedsRedraw::No
@@ -183,6 +199,9 @@ impl Editor {
 
     fn handle_message(&mut self, message: EditorMessage) {
         match message {
+            EditorMessage::OpenNewSymbolWindow => {
+                self.new_symbol_window = Some(NewSymbolWindow::default());
+            }
             EditorMessage::ChangeSelectedSymbol(symbol_index) => 'change_selected_symbol: {
                 if symbol_index == self.selection.stage_symbol_index {
                     break 'change_selected_symbol;

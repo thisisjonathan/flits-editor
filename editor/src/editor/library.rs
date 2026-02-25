@@ -9,7 +9,7 @@ impl Library {
     pub fn do_ui(&mut self, ui: &mut egui::Ui, ctx: &Context) {
         ui.heading("Library");
         if ui.button("Add MovieClip...").clicked() {
-            //self.new_symbol_window = Some(NewSymbolWindow::default());
+            ctx.message_bus.publish(EditorMessage::OpenNewSymbolWindow);
         }
         egui::ScrollArea::vertical()
             .auto_shrink([false, false])
