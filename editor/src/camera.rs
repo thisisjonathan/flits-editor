@@ -74,6 +74,7 @@ impl Camera {
     pub fn reset_zoom(&mut self) {
         self.zoom_level = 1.0;
     }
+    // TODO: maybe just hardcode the zoom percentages: https://www.uxpin.com/studio/blog/the-strikingly-precise-zoom/
     pub fn zoom(&mut self, zoom_amount: f64) {
         self.zoom_level += zoom_amount;
     }

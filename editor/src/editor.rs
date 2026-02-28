@@ -471,15 +471,7 @@ impl Editor {
         true
     }
 
-    pub(crate) fn do_undo(&mut self) {}
-    pub(crate) fn do_redo(&mut self) {}
-    pub(crate) fn save(&mut self) {}
-    pub(crate) fn delete_selection(&mut self) {}
-    pub(crate) fn select_all(&mut self) {}
-
-    pub fn reload_assets(&mut self) {}
-    pub fn export_and_run(&mut self, event_loop: &EventLoopProxy<FlitsEvent>) {}
-    pub fn export_swf(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    fn export_swf(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let directory = self.directory.clone();
         let swf_path = directory.clone().join("output.swf");
         let result = self.movie.export(directory, swf_path);
@@ -489,9 +481,6 @@ impl Editor {
         };
         result
     }
-    // TODO: maybe just hardcode the zoom percentages: https://www.uxpin.com/studio/blog/the-strikingly-precise-zoom/
-    pub fn zoom(&mut self, zoom_amount: f64) {}
-    pub fn reset_zoom(&mut self) {}
     pub fn receive_command_output(&mut self, line: String) -> NeedsRedraw {
         if let Some(run_ui) = &mut self.run_ui {
             run_ui.add_line(line);

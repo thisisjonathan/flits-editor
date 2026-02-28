@@ -3,7 +3,6 @@ mod editor;
 
 mod camera;
 mod edit;
-mod menu;
 mod message;
 mod message_bus;
 mod new_symbol_window;
