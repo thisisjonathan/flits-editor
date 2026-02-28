@@ -32,7 +32,7 @@ const MENUS: &[Menu] = &[
                     egui::Modifiers::COMMAND,
                     egui::Key::S,
                 )),
-                message: || EditorMessage::TODO,
+                message: || EditorMessage::Save,
             },
             MenuItem {
                 name: "Export",

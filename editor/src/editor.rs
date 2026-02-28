@@ -199,6 +199,11 @@ impl Editor {
 
     fn handle_message(&mut self, message: EditorMessage) {
         match message {
+            EditorMessage::Save => {
+                self.movie.save(&self.project_file_path);
+                self.history.set_saved(true);
+                self.update_title();
+            }
             EditorMessage::OpenNewSymbolWindow => {
                 self.new_symbol_window = Some(NewSymbolWindow::default());
             }
@@ -339,6 +344,10 @@ impl Editor {
             }
         }
 
+        self.update_title();
+    }
+
+    fn update_title(&self) {
         self.event_loop
             .send_event(FlitsEvent::UpdateTitle)
             .unwrap_or_else(|err| {
