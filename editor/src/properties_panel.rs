@@ -195,6 +195,7 @@ impl SymbolPropertiesPanel {
                         edit1 = Some(MovieEdit::RemoveSymbol(RemoveSymbolEdit {
                             symbol_index: self.symbol_index,
                             symbol: symbol.clone_without_cache(),
+                            // TODO: actually set this
                             remove_place_symbol_edits: vec![],
                         }));
                     }
