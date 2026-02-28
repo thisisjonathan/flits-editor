@@ -142,7 +142,7 @@ const MENUS: &[Menu] = &[
                 egui::Modifiers::COMMAND,
                 egui::Key::Enter,
             )),
-            message: || EditorMessage::TODO,
+            message: || EditorMessage::Run,
         }],
     },
     Menu {

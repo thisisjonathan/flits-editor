@@ -5,6 +5,7 @@ use crate::{edit::MovieEdit, editor::stage::StageMessage, FlitsEvent};
 pub enum EditorMessage {
     Save,
     Export,
+    Run,
     OpenNewSymbolWindow,
     ChangeSelectedSymbol(SymbolIndexOrRoot),
     ChangeSelectedPlacedSymbols(Vec<SymbolIndex>),
@@ -16,5 +17,4 @@ pub enum EditorMessage {
     Redo,
     Stage(StageMessage),
     Event(FlitsEvent),
-    TODO,
 }

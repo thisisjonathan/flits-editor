@@ -1,6 +1,6 @@
 use std::{any::Any, path::PathBuf};
 
-use flits_core::{Movie, PlacedSymbolIndex, Symbol, SymbolIndexOrRoot};
+use flits_core::{run::run_movie, Movie, PlacedSymbolIndex, Symbol, SymbolIndexOrRoot};
 use ruffle_render::backend::{RenderBackend, ViewportDimensions};
 use tracing::instrument;
 use undo::Record;
@@ -16,6 +16,7 @@ use crate::{
     message_bus::MessageBus,
     new_symbol_window::{NewSymbolWindow, NewSymbolWindowResult},
     properties_panel::{MoviePropertiesPanel, PropertiesPanel},
+    run_ui::RunUi,
     FlitsEvent,
 };
 
@@ -87,6 +88,7 @@ pub struct Editor {
     history: Record<MovieEdit>,
     modifiers: egui::Modifiers,
 
+    run_ui: Option<RunUi>,
     menu_bar: MenuBar,
     library: Library,
     breadcrumb_bar: BreadcrumbBar,
@@ -128,6 +130,7 @@ impl Editor {
             history: Record::new(),
             modifiers: egui::Modifiers::NONE,
 
+            run_ui: None,
             menu_bar: MenuBar::default(),
             library: Library::default(),
             breadcrumb_bar: BreadcrumbBar::default(),
@@ -146,6 +149,13 @@ impl Editor {
         egui_ctx: &egui::Context,
         event_loop: &EventLoopProxy<FlitsEvent>,
     ) -> NeedsRedraw {
+        if let Some(run_ui) = &mut self.run_ui {
+            run_ui.do_ui(egui_ctx);
+        }
+        // don't show the editor ui when you have selected a different tab in the run ui
+        if !self.is_editor_visible() {
+            return NeedsRedraw::No;
+        }
         egui_ctx.input(|input| self.modifiers = input.modifiers);
 
         let message_bus = MessageBus::new();
@@ -203,19 +213,43 @@ impl Editor {
 
     fn handle_message(&mut self, message: EditorMessage) {
         match message {
-            EditorMessage::Export => {
-                let directory = self.directory.clone();
-                let swf_path = directory.clone().join("output.swf");
-                let result = self.movie.export(directory, swf_path);
-                self.error = match &result {
-                    Ok(_) => None,
-                    Err(err) => Some(err.to_string()),
-                };
-            }
             EditorMessage::Save => {
                 self.movie.save(&self.project_file_path);
                 self.history.set_saved(true);
                 self.update_title();
+            }
+            EditorMessage::Export => {
+                // we don't care about the result here, export_swf sets self.error
+                _ = self.export_swf();
+            }
+            EditorMessage::Run => {
+                // only run the movie if the export is successful
+                if self.export_swf().is_ok() {
+                    self.run_ui = Some(RunUi::new());
+                    let result = run_movie(
+                        &self.directory.join("output.swf"),
+                        self.event_loop.clone(),
+                        |line, event_loop| {
+                            // TODO: debounce events
+                            event_loop
+                                .send_event(FlitsEvent::CommandOutput(line))
+                                .unwrap_or_else(|err| {
+                                    eprintln!("Unable to send command output event: {}", err);
+                                });
+                        },
+                        |event_loop| {
+                            event_loop
+                                .send_event(FlitsEvent::RuffleClosed)
+                                .unwrap_or_else(|err| {
+                                    eprintln!("Unable to send command output event: {}", err);
+                                });
+                        },
+                    );
+                    self.error = match &result {
+                        Ok(_) => None,
+                        Err(err) => Some(err.to_string()),
+                    };
+                }
             }
             EditorMessage::OpenNewSymbolWindow => {
                 self.new_symbol_window = Some(NewSymbolWindow::default());
@@ -336,7 +370,6 @@ impl Editor {
                         eprintln!("Unable to send event: {}", err);
                     });
             }
-            EditorMessage::TODO => todo!(),
         }
     }
     fn update_after_edit(&mut self, result: Option<MoviePropertiesOutput>) {
@@ -432,9 +465,9 @@ impl Editor {
     }
 
     fn is_editor_visible(&self) -> bool {
-        /*if let Some(run_ui) = &self.run_ui {
+        if let Some(run_ui) = &self.run_ui {
             return run_ui.is_editor_visible();
-        }*/
+        }
         true
     }
 
@@ -447,15 +480,30 @@ impl Editor {
     pub fn reload_assets(&mut self) {}
     pub fn export_and_run(&mut self, event_loop: &EventLoopProxy<FlitsEvent>) {}
     pub fn export_swf(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        Ok(())
+        let directory = self.directory.clone();
+        let swf_path = directory.clone().join("output.swf");
+        let result = self.movie.export(directory, swf_path);
+        self.error = match &result {
+            Ok(_) => None,
+            Err(err) => Some(err.to_string()),
+        };
+        result
     }
     // TODO: maybe just hardcode the zoom percentages: https://www.uxpin.com/studio/blog/the-strikingly-precise-zoom/
     pub fn zoom(&mut self, zoom_amount: f64) {}
     pub fn reset_zoom(&mut self) {}
     pub fn receive_command_output(&mut self, line: String) -> NeedsRedraw {
+        if let Some(run_ui) = &mut self.run_ui {
+            run_ui.add_line(line);
+            if run_ui.needs_redraw_after_new_line() {
+                return NeedsRedraw::Yes;
+            }
+        }
         NeedsRedraw::No
     }
-    pub fn on_ruffle_closed(&mut self) {}
+    pub fn on_ruffle_closed(&mut self) {
+        self.run_ui = None;
+    }
     pub fn project_name(&self) -> &str {
         self.directory
             .as_path()
