@@ -40,7 +40,7 @@ const MENUS: &[Menu] = &[
                     egui::Modifiers::COMMAND,
                     egui::Key::E,
                 )),
-                message: || EditorMessage::TODO,
+                message: || EditorMessage::Export,
             },
             MenuItem {
                 name: "Close",

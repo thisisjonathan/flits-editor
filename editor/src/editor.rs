@@ -93,6 +93,8 @@ pub struct Editor {
     stage: Stage,
     properties_panel: PropertiesPanel,
     new_symbol_window: Option<NewSymbolWindow>,
+
+    error: Option<String>,
 }
 impl Editor {
     pub fn new(
@@ -134,6 +136,8 @@ impl Editor {
                 before_edit: movie_properties,
             }),
             new_symbol_window: None,
+
+            error: None,
         })
     }
 
@@ -199,6 +203,15 @@ impl Editor {
 
     fn handle_message(&mut self, message: EditorMessage) {
         match message {
+            EditorMessage::Export => {
+                let directory = self.directory.clone();
+                let swf_path = directory.clone().join("output.swf");
+                let result = self.movie.export(directory, swf_path);
+                self.error = match &result {
+                    Ok(_) => None,
+                    Err(err) => Some(err.to_string()),
+                };
+            }
             EditorMessage::Save => {
                 self.movie.save(&self.project_file_path);
                 self.history.set_saved(true);
