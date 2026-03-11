@@ -13,6 +13,7 @@ use crate::{
     edit::{MovieEdit, MoviePropertiesOutput, MultiEdit, MultiEditEdit, RemovePlacedSymbolEdit},
     editor::{
         breadcrumb_bar::BreadcrumbBar,
+        error_window::{ErrorWindow, ErrorWindowTrait},
         library::Library,
         menu_bar::MenuBar,
         new_symbol_window::{NewSymbolWindow, NewSymbolWindowResult},
@@ -26,6 +27,7 @@ use crate::{
 };
 
 mod breadcrumb_bar;
+mod error_window;
 mod library;
 mod menu_bar;
 mod new_symbol_window;
@@ -104,8 +106,7 @@ pub struct Editor {
     properties_panel: PropertiesPanel,
     new_symbol_window: Option<NewSymbolWindow>,
 
-    // TODO: show this
-    error: Option<String>,
+    error: Option<ErrorWindow>,
 }
 impl Editor {
     pub fn new(
@@ -215,6 +216,8 @@ impl Editor {
             }
         }
 
+        self.error.do_ui(egui_ctx);
+
         self.handle_messages(message_bus);
 
         NeedsRedraw::No
@@ -256,7 +259,7 @@ impl Editor {
                     );
                     self.error = match &result {
                         Ok(_) => None,
-                        Err(err) => Some(err.to_string()),
+                        Err(err) => ErrorWindow::new(err.to_string()),
                     };
                 }
             }
@@ -486,7 +489,7 @@ impl Editor {
         let result = self.movie.export(directory, swf_path);
         self.error = match &result {
             Ok(_) => None,
-            Err(err) => Some(err.to_string()),
+            Err(err) => ErrorWindow::new(err.to_string()),
         };
         result
     }
