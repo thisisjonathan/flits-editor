@@ -11,10 +11,15 @@ use winit::{
 
 use crate::{
     edit::{MovieEdit, MoviePropertiesOutput, MultiEdit, MultiEditEdit, RemovePlacedSymbolEdit},
-    editor::{breadcrumb_bar::BreadcrumbBar, library::Library, menu_bar::MenuBar, stage::Stage},
+    editor::{
+        breadcrumb_bar::BreadcrumbBar,
+        library::Library,
+        menu_bar::MenuBar,
+        new_symbol_window::{NewSymbolWindow, NewSymbolWindowResult},
+        stage::Stage,
+    },
     message::EditorMessage,
     message_bus::MessageBus,
-    new_symbol_window::{NewSymbolWindow, NewSymbolWindowResult},
     properties_panel::{MoviePropertiesPanel, PropertiesPanel},
     run_ui::RunUi,
     FlitsEvent,
@@ -23,6 +28,7 @@ use crate::{
 mod breadcrumb_bar;
 mod library;
 mod menu_bar;
+mod new_symbol_window;
 pub(crate) mod stage;
 
 pub const MENU_HEIGHT: u32 = 44;
@@ -96,6 +102,7 @@ pub struct Editor {
     properties_panel: PropertiesPanel,
     new_symbol_window: Option<NewSymbolWindow>,
 
+    // TODO: show this
     error: Option<String>,
 }
 impl Editor {

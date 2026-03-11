@@ -1,6 +1,6 @@
 use egui::Vec2;
 
-use super::edit::{AddMovieClipEdit, MovieEdit};
+use crate::edit::{AddMovieClipEdit, MovieEdit};
 
 #[derive(Default)]
 pub struct NewSymbolWindow {
