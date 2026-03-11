@@ -16,11 +16,11 @@ use crate::{
         library::Library,
         menu_bar::MenuBar,
         new_symbol_window::{NewSymbolWindow, NewSymbolWindowResult},
+        properties_panel::{MoviePropertiesPanel, PropertiesPanel},
         stage::Stage,
     },
     message::EditorMessage,
     message_bus::MessageBus,
-    properties_panel::{MoviePropertiesPanel, PropertiesPanel},
     run_ui::RunUi,
     FlitsEvent,
 };
@@ -29,6 +29,7 @@ mod breadcrumb_bar;
 mod library;
 mod menu_bar;
 mod new_symbol_window;
+mod properties_panel;
 pub(crate) mod stage;
 
 pub const MENU_HEIGHT: u32 = 44;

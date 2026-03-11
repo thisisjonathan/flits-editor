@@ -12,7 +12,7 @@ use crate::{
     message::EditorMessage,
 };
 
-use super::{
+use crate::{
     edit::{
         BitmapPropertiesEdit, MovieClipPropertiesEdit, MovieEdit, MoviePropertiesEdit,
         PlacedSymbolEdit, RemoveSymbolEdit,

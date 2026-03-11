@@ -5,7 +5,6 @@ mod camera;
 mod edit;
 mod message;
 mod message_bus;
-mod properties_panel;
 mod run_ui;
 mod text_rendering;
 
