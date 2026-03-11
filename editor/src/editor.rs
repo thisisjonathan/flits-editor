@@ -93,6 +93,7 @@ pub struct Editor {
 
     viewport_dimensions: ViewportDimensions,
     event_loop: EventLoopProxy<FlitsEvent>,
+    needs_redraw: bool,
 
     selection: Selection,
     history: Record<MovieEdit>,
@@ -135,6 +136,7 @@ impl Editor {
 
             viewport_dimensions,
             event_loop,
+            needs_redraw: false,
 
             selection: Selection::default(),
             history: Record::new(),
@@ -218,12 +220,30 @@ impl Editor {
 
         self.error.do_ui(egui_ctx);
 
+        self.needs_redraw = false;
         self.handle_messages(message_bus);
 
-        NeedsRedraw::No
+        match self.needs_redraw {
+            true => NeedsRedraw::Yes,
+            false => NeedsRedraw::No,
+        }
     }
 
     fn handle_message(&mut self, message: EditorMessage) {
+        // render runs before do_ui, so when anything drawn on the stage changes because of
+        // a message from  do_ui, a redraw needs to be requested
+        if match message {
+            EditorMessage::Edit(_) => true,
+            EditorMessage::Undo => true,
+            EditorMessage::Redo => true,
+            EditorMessage::ReloadAssets => true,
+            EditorMessage::ChangeSelectedSymbol(_) => true,
+            EditorMessage::ChangeSelectedPlacedSymbols(_) => true,
+            _ => false,
+        } {
+            self.needs_redraw = true;
+        }
+
         match message {
             EditorMessage::Save => {
                 self.movie.save(&self.project_file_path);
@@ -302,7 +322,6 @@ impl Editor {
                 self.properties_panel.update(&self.movie, &self.selection);
             }
             EditorMessage::SelectAll => {
-                // TODO: queue redraw
                 self.handle_message(EditorMessage::ChangeSelectedPlacedSymbols(
                     (0..self
                         .movie
@@ -315,7 +334,6 @@ impl Editor {
                 if self.selection.placed_symbols.len() == 0 {
                     break 'delete_selection;
                 }
-                // TODO: queue redraw
                 let mut selection = self.selection.placed_symbols.clone();
 
                 // because the list is sorted and we are traversing from the end to the beginning
@@ -352,12 +370,10 @@ impl Editor {
                 self.update_after_edit(Some(result));
             }
             EditorMessage::Undo => {
-                // TODO: queue redraw
                 let result = self.history.undo(&mut self.movie);
                 self.update_after_edit(result);
             }
             EditorMessage::Redo => {
-                // TODO: queue redraw
                 let result = self.history.redo(&mut self.movie);
                 self.update_after_edit(result);
             }
