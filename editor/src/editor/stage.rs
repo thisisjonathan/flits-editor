@@ -16,16 +16,18 @@ use swf::{Color, ColorTransform, Twips};
 use winit::event::{ElementState, MouseButton};
 
 use crate::{
-    camera::Camera,
     edit::{AddPlacedSymbolEdit, MovieEdit, MultiEdit, MultiEditEdit, PlacedSymbolEdit},
     editor::{
+        stage::{camera::Camera, text_rendering::FontsConverterBuilder},
         BitmapHandleWrapper, Context, MutableContext, RenderContext, Renderer, StageSize,
         EDIT_EPSILON, EMPTY_CLIP_HEIGHT, EMPTY_CLIP_WIDTH, LIBRARY_WIDTH,
     },
     message::EditorMessage,
-    text_rendering::FontsConverterBuilder,
     MENU_HEIGHT,
 };
+
+mod camera;
+mod text_rendering;
 
 pub enum StageMessage {
     ZoomIn,

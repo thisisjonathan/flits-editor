@@ -1,11 +1,9 @@
 mod custom_event;
 mod editor;
 
-mod camera;
 mod edit;
 mod message;
 mod message_bus;
-mod text_rendering;
 
 pub use custom_event::*;
 pub use editor::Editor;
