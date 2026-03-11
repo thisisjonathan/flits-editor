@@ -17,7 +17,7 @@ impl NewSymbolWindow {
             .collapsible(false)
             .open(&mut is_window_open)
             .show(egui_ctx, |ui| {
-                egui::Grid::new("symbol_properties_grid").show(ui, |ui| {
+                egui::Grid::new("new_symbol_grid").show(ui, |ui| {
                     ui.label("Name:");
                     let response = ui.add(
                         egui::TextEdit::singleline(&mut self.name).min_size(Vec2::new(200.0, 0.0)),
@@ -28,7 +28,9 @@ impl NewSymbolWindow {
                     }
                     let user_confirmed_form = response.lost_focus()
                         && response.ctx.input(|i| i.key_pressed(egui::Key::Enter));
-                    if response.ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
+                    if response.lost_focus()
+                        && response.ctx.input(|i| i.key_pressed(egui::Key::Escape))
+                    {
                         result = NewSymbolWindowResult::Cancel;
                     }
                     ui.end_row();
