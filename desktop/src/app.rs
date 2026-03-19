@@ -84,7 +84,7 @@ impl PlayerController for FlitsPlayerController {
 
     fn destroy(&mut self) {}
 
-    fn get(&self) -> Option<MutexGuard<FlitsPlayer>> {
+    fn get(&'_ self) -> Option<MutexGuard<'_, FlitsPlayer>> {
         match &self.player {
             None => None,
             Some(player) => Some(player.try_lock().expect("Player lock must be available")),

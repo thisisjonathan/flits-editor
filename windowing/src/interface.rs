@@ -59,7 +59,7 @@ pub trait PlayerController {
     fn create(&mut self, arguments: &Self::Arguments, movie_view: MovieView);
     fn destroy(&mut self);
 
-    fn get(&self) -> Option<MutexGuard<Self::Player>>;
+    fn get(&'_ self) -> Option<MutexGuard<'_, Self::Player>>;
 }
 
 pub struct Config<'a> {
