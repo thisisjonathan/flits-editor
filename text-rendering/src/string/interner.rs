@@ -1,12 +1,12 @@
 use core::fmt;
-use std::cell::RefCell;
+//use std::cell::RefCell;
 use std::hash::{Hash, Hasher};
 
-use gc_arena::collect::Trace;
-use gc_arena::{Collect, Gc, GcWeak};
-use hashbrown::HashSet;
+//use gc_arena::collect::Trace;
+use gc_arena::{Collect, Gc /*GcWeak*/};
+//use hashbrown::HashSet;
 
-use crate::string::{AvmStringRepr, CommonStrings, WStr};
+use crate::string::{AvmStringRepr /*, CommonStrings*/, WStr};
 
 // An interned `AvmString`, with fast by-pointer equality and hashing.
 #[derive(Copy, Clone, Collect)]
@@ -45,7 +45,7 @@ impl AvmAtom<'_> {
     }
 }
 
-#[derive(Collect)]
+/*#[derive(Collect)]
 #[collect(no_drop)]
 pub struct AvmStringInterner<'gc> {
     interned: WeakSet<'gc, AvmStringRepr<'gc>>,
@@ -238,4 +238,4 @@ unsafe impl<'gc, T> Collect<'gc> for WeakSet<'gc, T> {
             keep
         });
     }
-}
+}*/

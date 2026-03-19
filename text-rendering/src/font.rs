@@ -6,10 +6,10 @@ use ruffle_render::backend::{RenderBackend, ShapeHandle};
 use ruffle_render::transform::Transform;
 use std::cell::RefCell;
 use std::hash::{Hash, Hasher};
-use std::sync::Arc;
+//use std::sync::Arc;
 use swf::Twips;
 
-pub use swf::TextGridFit;
+//pub use swf::TextGridFit;
 
 #[derive(Clone, Eq, Collect, Debug)]
 #[collect(require_static)]
@@ -61,7 +61,7 @@ impl Hash for FontQuery {
     }
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Collect)]
+/*#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Collect)]
 #[collect(require_static)]
 pub enum DefaultFont {
     /*/// `_sans`, a Sans-Serif font (similar to Helvetica or Arial)
@@ -95,7 +95,7 @@ impl DefaultFont {
             _ => return None,
         })
     }*/
-}
+}*/
 
 fn round_to_pixel(t: Twips) -> Twips {
     Twips::from_pixels(t.to_pixels().round())
@@ -176,7 +176,7 @@ impl EvalParameters {
     }
 }*/
 
-pub struct FontFileData(Arc<dyn AsRef<[u8]>>);
+/*pub struct FontFileData(Arc<dyn AsRef<[u8]>>);
 
 impl FontFileData {
     /*pub fn new(data: impl AsRef<[u8]> + 'static) -> Self {
@@ -201,7 +201,7 @@ impl std::fmt::Debug for FontFileData {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_tuple("FontFileData").field(&"<data>").finish()
     }
-}
+}*/
 
 /// Represents a raw font file (ie .ttf).
 /// This should be shared and reused where possible, and it's reparsed every time a new glyph is required.
@@ -1084,7 +1084,7 @@ impl FontDescriptor {
     }
 }
 
-/// The text rendering engine that a text field should use.
+/*/// The text rendering engine that a text field should use.
 /// This is controlled by the "Anti-alias" setting in the Flash IDE.
 /// Using "Anti-alias for readability" switches to the "Advanced" text
 /// rendering engine.
@@ -1262,7 +1262,7 @@ impl Default for TextRenderSettings {
             sharpness: 0.0,
         }
     }
-}
+}*/
 
 /// Font set contains a set of fonts used to render text.
 ///

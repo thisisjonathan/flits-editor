@@ -155,11 +155,7 @@ impl Editor {
         })
     }
 
-    pub fn do_ui(
-        &mut self,
-        egui_ctx: &egui::Context,
-        event_loop: &EventLoopProxy<FlitsEvent>,
-    ) -> NeedsRedraw {
+    pub fn do_ui(&mut self, egui_ctx: &egui::Context) -> NeedsRedraw {
         if let Some(run_ui) = &mut self.run_ui {
             run_ui.do_ui(egui_ctx);
         }

@@ -1,11 +1,11 @@
 use gc_arena::Collect;
 use std::fmt::{Debug, Formatter};
-use std::sync::Arc;
+//use std::sync::Arc;
 use swf::HeaderExt;
-use thiserror::Error;
+//use thiserror::Error;
 
 use crate::sandbox::SandboxType;
-
+/*
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("Couldn't read SWF: {0}")]
@@ -25,7 +25,7 @@ pub enum Error {
     IOError(#[from] std::io::Error),
     /*#[error("Invalid SWF url")]
     InvalidSwfUrl,*/
-}
+}*/
 
 /*/// Whether or not to end tag decoding.
 pub enum ControlFlow {
@@ -256,9 +256,9 @@ impl SwfMovie {
         self.header.version()
     }
 
-    pub fn data(&self) -> &[u8] {
+    /*pub fn data(&self) -> &[u8] {
         &self.data
-    }
+    }*/
 
     /// Returns the suggested string encoding for the given SWF version.
     /// For SWF version 6 and higher, this is always UTF-8.
@@ -349,7 +349,7 @@ impl Debug for SwfMovie {
     }
 }
 
-/// A shared-ownership reference to some portion of an SWF datastream.
+/*/// A shared-ownership reference to some portion of an SWF datastream.
 #[derive(Debug, Clone, Collect)]
 #[collect(no_drop)]
 pub struct SwfSlice {
@@ -516,7 +516,7 @@ impl SwfSlice {
     pub fn len(&self) -> usize {
         self.end - self.start
     }*/
-}
+}*/
 
 /*/// Decode tags from a SWF stream reader.
 ///

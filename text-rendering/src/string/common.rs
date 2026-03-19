@@ -1,12 +1,12 @@
-use super::AvmAtom;
-use gc_arena::Collect;
+//use super::AvmAtom;
+//use gc_arena::Collect;
 
 macro_rules! define_common_strings {
     (
         $ascii:ident: <ASCII>,
         $($field:ident: $str:literal,)*
     ) => {
-        #[allow(non_snake_case)]
+        /*#[allow(non_snake_case)]
         #[derive(Collect)]
         #[collect(no_drop)]
         pub struct CommonStrings<'gc> {
@@ -27,11 +27,11 @@ macro_rules! define_common_strings {
                     $($field: intern_from_static($str)),*
                 }
             }*/
-        }
+        }*/
     };
 }
 
-const ASCII_CHARS_LEN: usize = 0x80;
+//const ASCII_CHARS_LEN: usize = 0x80;
 /*static ASCII_CHARS: [u8; ASCII_CHARS_LEN] = {
     let mut chs = [0; ASCII_CHARS_LEN];
     let mut i = 0;

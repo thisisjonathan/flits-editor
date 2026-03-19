@@ -1410,7 +1410,7 @@ impl<'gc> LayoutBox<'gc> {
     pub x: Twips,
 }*/
 
-pub struct LayoutBoxIter<'layout, 'gc> {
+/*pub struct LayoutBoxIter<'layout, 'gc> {
     lines_iter: Iter<'layout, LayoutLine<'gc>>,
     boxes_iter: Option<Iter<'layout, LayoutBox<'gc>>>,
 }
@@ -1435,4 +1435,4 @@ impl<'layout, 'gc> Iterator for LayoutBoxIter<'layout, 'gc> {
             }
         }
     }
-}
+}*/

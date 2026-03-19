@@ -51,7 +51,7 @@ impl FlitsPlayer {
                 welcome_screen.do_ui(egui_ctx, self.event_loop.clone())
             }
             FlitsState::Editor(editor) => {
-                needs_redraw = editor.do_ui(egui_ctx, &self.event_loop);
+                needs_redraw = editor.do_ui(egui_ctx);
             }
         }
 

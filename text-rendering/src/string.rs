@@ -10,7 +10,7 @@ use repr::AvmStringRepr;
 
 pub use ruffle_wstr::*;
 
-pub use common::CommonStrings;
+//pub use common::CommonStrings;
 pub use interner::AvmAtom;
 
 pub trait SwfStrExt {

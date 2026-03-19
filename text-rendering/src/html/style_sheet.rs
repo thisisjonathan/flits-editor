@@ -57,7 +57,7 @@ impl<'gc> StyleSheet<'gc> {
 
 //pub type CssProperties<'a> = FnvHashMap<&'a WStr, &'a WStr>;
 
-/// There's very few ways in which Flash thinks CSS is invalid.
+/*/// There's very few ways in which Flash thinks CSS is invalid.
 /// Whilst it doesn't appear to give any error to the user/developer -
 /// this could be useful for debugging.
 #[derive(Debug, thiserror::Error, PartialEq)]
@@ -73,7 +73,7 @@ pub enum CssError {
 
     #[error("Invalid property syntax: No value specified")]
     PropertyValueMissing,*/
-}
+}*/
 
 /*pub struct CssStream<'a> {
     pos: usize,
