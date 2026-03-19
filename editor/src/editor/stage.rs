@@ -730,7 +730,7 @@ impl Stage {
 
     pub fn handle_mouse_input(
         &mut self,
-        ctx: &mut MutableContext,
+        ctx: &Context,
         mouse_x: f64,
         mouse_y: f64,
         button: MouseButton,

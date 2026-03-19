@@ -76,7 +76,6 @@ pub struct Context<'a> {
 pub struct MutableContext<'a> {
     pub movie: &'a mut Movie,
     pub selection: &'a Selection,
-    pub modifiers: egui::Modifiers,
     pub message_bus: &'a MessageBus<EditorMessage>,
     pub viewport_dimensions: ViewportDimensions,
 }
@@ -198,7 +197,6 @@ impl Editor {
             let mut mutable_context = MutableContext {
                 movie: &mut self.movie,
                 selection: &self.selection,
-                modifiers: self.modifiers,
                 message_bus: &message_bus,
                 viewport_dimensions: self.viewport_dimensions,
             };
@@ -455,7 +453,6 @@ impl Editor {
         let mut mutable_context = MutableContext {
             movie: &mut self.movie,
             selection: &mut self.selection,
-            modifiers: self.modifiers,
             message_bus: &message_bus,
             viewport_dimensions: self.viewport_dimensions,
         };
@@ -474,15 +471,15 @@ impl Editor {
             return;
         }
         let message_bus = MessageBus::new();
-        let mut mutable_context = MutableContext {
-            movie: &mut self.movie,
-            selection: &mut self.selection,
+        let context = Context {
+            movie: &self.movie,
+            selection: &self.selection,
             modifiers: self.modifiers,
             message_bus: &message_bus,
             viewport_dimensions: self.viewport_dimensions,
         };
         self.stage
-            .handle_mouse_input(&mut mutable_context, mouse_x, mouse_y, button, state);
+            .handle_mouse_input(&context, mouse_x, mouse_y, button, state);
         self.handle_messages(message_bus);
     }
 
