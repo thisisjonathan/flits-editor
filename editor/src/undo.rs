@@ -1,3 +1,10 @@
+/// There are 2 types of undoable edits:
+/// # Changes
+/// Changes can be used for previewing an edit before commiting to it (adding an undo point).
+/// Changes know how to invert automatically (just go back to the previous value).
+/// # Actions
+/// Actions are for changes where the inverse needs to be implemented manually, for example adding or removing things.
+/// Actions always add a undo point and don't need to be commited.
 #[derive(Debug, Clone)]
 pub enum EditMessage<Change, Action>
 where
