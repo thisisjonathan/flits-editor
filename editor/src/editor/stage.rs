@@ -16,13 +16,15 @@ use swf::{Color, ColorTransform, Twips};
 use winit::event::{ElementState, MouseButton};
 
 use crate::{
-    edit::{AddPlacedSymbolEdit, MovieEdit, MultiEdit, MultiEditEdit, PlacedSymbolEdit},
+    edit::{AddPlacedSymbolEdit, MovieEdit},
     editor::{
         stage::{camera::Camera, text_rendering::FontsConverterBuilder},
-        BitmapHandleWrapper, Context, MutableContext, RenderContext, Renderer, StageSize,
-        EDIT_EPSILON, EMPTY_CLIP_HEIGHT, EMPTY_CLIP_WIDTH, LIBRARY_WIDTH,
+        BitmapHandleWrapper, Context, RenderContext, Renderer, StageSize, EMPTY_CLIP_HEIGHT,
+        EMPTY_CLIP_WIDTH, LIBRARY_WIDTH,
     },
+    edits::{MovieChange, PlacedSymbolChange},
     message::EditorMessage,
+    undo::EditMessage,
     MENU_HEIGHT,
 };
 
@@ -629,7 +631,7 @@ impl Stage {
         }
     }
 
-    pub fn handle_mouse_move(&mut self, ctx: &mut MutableContext, mouse_x: f64, mouse_y: f64) {
+    pub fn handle_mouse_move(&mut self, ctx: &Context, mouse_x: f64, mouse_y: f64) {
         let world_space_mouse_position =
             self.camera
                 .screen_to_world_matrix(Self::stage_size_from_viewport_dimensions(
@@ -638,19 +640,29 @@ impl Stage {
                 * Matrix::translate(Twips::from_pixels(mouse_x), Twips::from_pixels(mouse_y));
         let placed_symbols = ctx
             .movie
-            .get_placed_symbols_mut(ctx.selection.stage_symbol_index);
+            .get_placed_symbols(ctx.selection.stage_symbol_index);
         if let Some(drag_datas) = &self.drag_datas {
+            let mut changes = Vec::with_capacity(drag_datas.len());
             for drag_data in drag_datas {
-                let place_symbol = placed_symbols
-                    .get_mut(drag_data.place_symbol_index)
-                    .unwrap();
-                place_symbol.transform.x = drag_data.symbol_start_transform.x
+                let mut new_placed_symbol_data =
+                    placed_symbols[drag_data.place_symbol_index].clone();
+                new_placed_symbol_data.transform.x = drag_data.symbol_start_transform.x
                     + world_space_mouse_position.tx.to_pixels()
                     - drag_data.start_x;
-                place_symbol.transform.y = drag_data.symbol_start_transform.y
+                new_placed_symbol_data.transform.y = drag_data.symbol_start_transform.y
                     + world_space_mouse_position.ty.to_pixels()
                     - drag_data.start_y;
+                changes.push(PlacedSymbolChange {
+                    editing_symbol_index: ctx.selection.stage_symbol_index,
+                    placed_symbol_index: drag_data.place_symbol_index,
+
+                    placed_symbol: new_placed_symbol_data,
+                });
             }
+            ctx.message_bus
+                .publish(EditorMessage::NewEdit(EditMessage::Change(
+                    MovieChange::PlacedSymbols(changes),
+                )));
         }
 
         let mut updated_selected_placed_symbols: Option<Vec<PlacedSymbolIndex>> = None;
@@ -806,7 +818,10 @@ impl Stage {
         }
         if button == MouseButton::Left && state == ElementState::Released {
             if let Some(drag_datas) = self.drag_datas.clone() {
-                let mut edits = Vec::with_capacity(drag_datas.len());
+                // TODO: handle moves with tiny changes
+                ctx.message_bus
+                    .publish(EditorMessage::NewEdit(EditMessage::Commit));
+                /*let mut edits = Vec::with_capacity(drag_datas.len());
                 for drag_data in drag_datas {
                     let end = EditorTransform {
                         x: drag_data.symbol_start_transform.x
@@ -859,7 +874,7 @@ impl Stage {
                             editing_symbol_index: ctx.selection.stage_symbol_index,
                             edits,
                         })));
-                }
+                }*/
 
                 self.drag_datas = None;
             }

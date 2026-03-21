@@ -1,6 +1,12 @@
 use flits_core::{SymbolIndex, SymbolIndexOrRoot};
 
-use crate::{edit::MovieEdit, editor::stage::StageMessage, FlitsEvent};
+use crate::{
+    edit::MovieEdit,
+    editor::stage::StageMessage,
+    edits::{MovieAction, MovieChange},
+    undo::EditMessage,
+    FlitsEvent,
+};
 
 pub enum EditorMessage {
     Save,
@@ -13,8 +19,7 @@ pub enum EditorMessage {
     DeleteSelection,
     ReloadAssets,
     Edit(MovieEdit),
-    Undo,
-    Redo,
+    NewEdit(EditMessage<MovieChange, MovieAction>),
     Stage(StageMessage),
     Event(FlitsEvent),
 }

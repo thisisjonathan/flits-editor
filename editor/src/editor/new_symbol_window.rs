@@ -1,6 +1,6 @@
 use egui::Vec2;
 
-use crate::edit::{AddMovieClipEdit, MovieEdit};
+use crate::edits::MovieAction;
 
 #[derive(Default)]
 pub struct NewSymbolWindow {
@@ -40,10 +40,8 @@ impl NewSymbolWindow {
                         .clicked()
                         || (user_confirmed_form && !self.name.is_empty())
                     {
-                        result = NewSymbolWindowResult::Confirm(MovieEdit::AddMovieClip(
-                            AddMovieClipEdit {
-                                name: self.name.clone(),
-                            },
+                        result = NewSymbolWindowResult::Confirm(MovieAction::AddMovieClip(
+                            self.name.clone(),
                         ));
                     }
                     ui.end_row();
@@ -58,6 +56,6 @@ impl NewSymbolWindow {
 
 pub enum NewSymbolWindowResult {
     NoAction,
-    Confirm(MovieEdit),
+    Confirm(MovieAction),
     Cancel,
 }

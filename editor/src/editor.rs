@@ -21,8 +21,10 @@ use crate::{
         run_ui::RunUi,
         stage::Stage,
     },
+    edits::{MovieAction, MovieChange},
     message::EditorMessage,
     message_bus::MessageBus,
+    undo::{EditMessage, UndoStack},
     FlitsEvent,
 };
 
@@ -77,7 +79,6 @@ pub struct MutableContext<'a> {
     pub movie: &'a mut Movie,
     pub selection: &'a Selection,
     pub message_bus: &'a MessageBus<EditorMessage>,
-    pub viewport_dimensions: ViewportDimensions,
 }
 pub struct RenderContext<'a> {
     pub movie: &'a mut Movie,
@@ -96,6 +97,7 @@ pub struct Editor {
 
     selection: Selection,
     history: Record<MovieEdit>,
+    undo_stack: UndoStack<MovieChange, MovieAction>,
     modifiers: egui::Modifiers,
 
     run_ui: Option<RunUi>,
@@ -139,6 +141,7 @@ impl Editor {
 
             selection: Selection::default(),
             history: Record::new(),
+            undo_stack: UndoStack::new(),
             modifiers: egui::Modifiers::NONE,
 
             run_ui: None,
@@ -194,7 +197,6 @@ impl Editor {
                 movie: &mut self.movie,
                 selection: &self.selection,
                 message_bus: &message_bus,
-                viewport_dimensions: self.viewport_dimensions,
             };
             self.properties_panel.do_ui(ui, &mut mutable_context);
         });
@@ -202,7 +204,7 @@ impl Editor {
         if let Some(new_symbol_window) = &mut self.new_symbol_window {
             match new_symbol_window.do_ui(egui_ctx) {
                 NewSymbolWindowResult::Confirm(movie_edit) => {
-                    self.handle_message(EditorMessage::Edit(movie_edit));
+                    self.handle_message(EditorMessage::NewEdit(EditMessage::Action(movie_edit)));
                     self.new_symbol_window = None;
                 }
                 NewSymbolWindowResult::Cancel => {
@@ -227,9 +229,8 @@ impl Editor {
         // render runs before do_ui, so when anything drawn on the stage changes because of
         // a message from  do_ui, a redraw needs to be requested
         if match message {
+            EditorMessage::NewEdit(_) => true,
             EditorMessage::Edit(_) => true,
-            EditorMessage::Undo => true,
-            EditorMessage::Redo => true,
             EditorMessage::ReloadAssets => true,
             EditorMessage::ChangeSelectedSymbol(_) => true,
             EditorMessage::ChangeSelectedPlacedSymbols(_) => true,
@@ -359,17 +360,13 @@ impl Editor {
                 // reset text renderer to force it to reload everything
                 self.stage.reset_text_renderer();
             }
+            EditorMessage::NewEdit(edit_message) => {
+                self.undo_stack.update(&mut self.movie, edit_message);
+                // TODO: change view
+            }
             EditorMessage::Edit(edit) => {
                 let result = self.history.edit(&mut self.movie, edit);
                 self.update_after_edit(Some(result));
-            }
-            EditorMessage::Undo => {
-                let result = self.history.undo(&mut self.movie);
-                self.update_after_edit(result);
-            }
-            EditorMessage::Redo => {
-                let result = self.history.redo(&mut self.movie);
-                self.update_after_edit(result);
             }
             EditorMessage::Stage(stage_message) => {
                 let message_bus = MessageBus::new();
@@ -446,9 +443,10 @@ impl Editor {
             return;
         }
         let message_bus = MessageBus::new();
-        let mut mutable_context = MutableContext {
-            movie: &mut self.movie,
-            selection: &mut self.selection,
+        let mut mutable_context = Context {
+            movie: &self.movie,
+            selection: &self.selection,
+            modifiers: self.modifiers,
             message_bus: &message_bus,
             viewport_dimensions: self.viewport_dimensions,
         };

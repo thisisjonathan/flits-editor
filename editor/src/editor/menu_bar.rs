@@ -1,6 +1,11 @@
 use egui::Widget;
 
-use crate::{editor::stage::StageMessage, editor::Context, message::EditorMessage, FlitsEvent};
+use crate::{
+    editor::{stage::StageMessage, Context},
+    message::EditorMessage,
+    undo::EditMessage,
+    FlitsEvent,
+};
 
 struct Menu<'a> {
     name: &'a str,
@@ -69,7 +74,7 @@ const MENUS: &[Menu] = &[
                     egui::Modifiers::COMMAND,
                     egui::Key::Z,
                 )),
-                message: || EditorMessage::Undo,
+                message: || EditorMessage::NewEdit(EditMessage::Undo),
             },
             MenuItem {
                 name: "Redo",
@@ -77,7 +82,7 @@ const MENUS: &[Menu] = &[
                     egui::Modifiers::COMMAND,
                     egui::Key::R,
                 )),
-                message: || EditorMessage::Redo,
+                message: || EditorMessage::NewEdit(EditMessage::Redo),
             },
             MenuItem {
                 name: "Delete",
