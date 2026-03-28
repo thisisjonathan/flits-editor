@@ -21,7 +21,7 @@ use crate::{
         run_ui::RunUi,
         stage::Stage,
     },
-    edits::{MovieAction, MovieChange},
+    edits::{MovieAction, MovieChange, PlacedSymbolAction},
     message::EditorMessage,
     message_bus::MessageBus,
     undo::{EditMessage, UndoStack},
@@ -337,10 +337,9 @@ impl Editor {
 
                 // reset selection before doing edits because otherwise you can delete something while it's still selected
                 self.selection.placed_symbols = Vec::new();
-                let mut edits = Vec::new();
-                for i in (0..selection.len()).rev() {
-                    let placed_symbol_index = *selection.get(i).unwrap();
-                    edits.push(MultiEditEdit::RemovePlacedSymbol(RemovePlacedSymbolEdit {
+                let mut actions = Vec::new();
+                for placed_symbol_index in selection {
+                    actions.push(PlacedSymbolAction {
                         editing_symbol_index: self.selection.stage_symbol_index,
                         placed_symbol_index,
                         placed_symbol: self
@@ -348,12 +347,11 @@ impl Editor {
                             .get_placed_symbols(self.selection.stage_symbol_index)
                             [placed_symbol_index]
                             .clone(),
-                    }));
+                    });
                 }
-                self.handle_message(EditorMessage::Edit(MovieEdit::Multi(MultiEdit {
-                    editing_symbol_index: self.selection.stage_symbol_index,
-                    edits,
-                })));
+                self.handle_message(EditorMessage::NewEdit(EditMessage::Action(
+                    MovieAction::RemovePlacedSymbols(actions),
+                )));
             }
             EditorMessage::ReloadAssets => {
                 self.movie.reload_assets(&self.directory);

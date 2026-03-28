@@ -54,6 +54,9 @@ pub enum MovieAction {
     AddMovieClip(String),
     // can only be used as the inverse of AddMovieClip, because we know that it isn't used anywhere yet
     RemoveNewestMovieClip,
+
+    AddPlacedSymbols(Vec<PlacedSymbolAction>),
+    RemovePlacedSymbols(Vec<PlacedSymbolAction>),
 }
 impl ActionEdit for MovieAction {
     type Model = Movie;
@@ -72,6 +75,22 @@ impl ActionEdit for MovieAction {
             MovieAction::RemoveNewestMovieClip => {
                 model.symbols.pop();
             }
+            MovieAction::AddPlacedSymbols(actions) => {
+                for action in actions {
+                    model
+                        .get_placed_symbols_mut(action.editing_symbol_index)
+                        .insert(action.placed_symbol_index, action.placed_symbol.clone());
+                }
+            }
+            MovieAction::RemovePlacedSymbols(actions) => {
+                // iterate in reverse to make sure the indexes don't change while iterating
+                // this assumes the placed symbol indexes are sorted
+                for action in actions.iter().rev() {
+                    model
+                        .get_placed_symbols_mut(action.editing_symbol_index)
+                        .remove(action.placed_symbol_index);
+                }
+            }
         }
     }
 
@@ -79,6 +98,14 @@ impl ActionEdit for MovieAction {
         match self {
             MovieAction::AddMovieClip(_) => MovieAction::RemoveNewestMovieClip,
             MovieAction::RemoveNewestMovieClip => unreachable!("RemoveNewestMovieClip should never be inverted, it only exists to be the inverse of AddMovieClip"),
+            MovieAction::AddPlacedSymbols(actions) => MovieAction::RemovePlacedSymbols(actions),
+            MovieAction::RemovePlacedSymbols(actions) => MovieAction::AddPlacedSymbols(actions),
         }
     }
+}
+#[derive(Debug, Clone)]
+pub struct PlacedSymbolAction {
+    pub editing_symbol_index: SymbolIndexOrRoot,
+    pub placed_symbol: PlaceSymbol,
+    pub placed_symbol_index: PlacedSymbolIndex,
 }

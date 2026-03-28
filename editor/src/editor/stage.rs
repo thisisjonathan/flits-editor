@@ -16,13 +16,12 @@ use swf::{Color, ColorTransform, Twips};
 use winit::event::{ElementState, MouseButton};
 
 use crate::{
-    edit::{AddPlacedSymbolEdit, MovieEdit},
     editor::{
         stage::{camera::Camera, text_rendering::FontsConverterBuilder},
         BitmapHandleWrapper, Context, RenderContext, Renderer, StageSize, EMPTY_CLIP_HEIGHT,
         EMPTY_CLIP_WIDTH, LIBRARY_WIDTH,
     },
-    edits::{MovieChange, PlacedSymbolChange},
+    edits::{MovieAction, MovieChange, PlacedSymbolAction, PlacedSymbolChange},
     message::EditorMessage,
     undo::EditMessage,
     MENU_HEIGHT,
@@ -607,8 +606,8 @@ impl Stage {
                 matrix.c = Matrix::IDENTITY.c;
                 matrix.d = Matrix::IDENTITY.d;
                 ctx.message_bus
-                    .publish(EditorMessage::Edit(MovieEdit::AddPlacedSymbol(
-                        AddPlacedSymbolEdit {
+                    .publish(EditorMessage::NewEdit(EditMessage::Action(
+                        MovieAction::AddPlacedSymbols(vec![PlacedSymbolAction {
                             editing_symbol_index: ctx.selection.stage_symbol_index,
                             placed_symbol: PlaceSymbol {
                                 symbol_index,
@@ -624,8 +623,11 @@ impl Stage {
                                     _ => None,
                                 },
                             },
-                            placed_symbol_index: None,
-                        },
+                            placed_symbol_index: ctx
+                                .movie
+                                .get_placed_symbols(ctx.selection.stage_symbol_index)
+                                .len(),
+                        }]),
                     )));
             }
         }
