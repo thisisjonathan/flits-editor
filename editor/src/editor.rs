@@ -10,7 +10,7 @@ use winit::{
 };
 
 use crate::{
-    edit::{MovieEdit, MoviePropertiesOutput, MultiEdit, MultiEditEdit, RemovePlacedSymbolEdit},
+    edit::{MovieEdit, MoviePropertiesOutput},
     editor::{
         breadcrumb_bar::BreadcrumbBar,
         error_window::{ErrorWindow, ErrorWindowTrait},
@@ -18,6 +18,7 @@ use crate::{
         menu_bar::MenuBar,
         new_symbol_window::{NewSymbolWindow, NewSymbolWindowResult},
         properties_panel::{MoviePropertiesPanel, PropertiesPanel},
+        properties_panel2::PropertiesPanel2,
         run_ui::RunUi,
         stage::Stage,
     },
@@ -34,6 +35,7 @@ mod library;
 mod menu_bar;
 mod new_symbol_window;
 mod properties_panel;
+mod properties_panel2;
 mod run_ui;
 pub(crate) mod stage;
 
@@ -106,6 +108,7 @@ pub struct Editor {
     breadcrumb_bar: BreadcrumbBar,
     stage: Stage,
     properties_panel: PropertiesPanel,
+    properties_panel2: PropertiesPanel2,
     new_symbol_window: Option<NewSymbolWindow>,
 
     error: Option<ErrorWindow>,
@@ -152,6 +155,7 @@ impl Editor {
             properties_panel: PropertiesPanel::MovieProperties(MoviePropertiesPanel {
                 before_edit: movie_properties,
             }),
+            properties_panel2: PropertiesPanel2::default(),
             new_symbol_window: None,
 
             error: None,
@@ -192,6 +196,9 @@ impl Editor {
             self.breadcrumb_bar.do_ui(ui, &context);
         });
 
+        egui::TopBottomPanel::bottom("properties2").show(egui_ctx, |ui| {
+            self.properties_panel2.do_ui(ui, &context);
+        });
         egui::TopBottomPanel::bottom("properties").show(egui_ctx, |ui| {
             let mut mutable_context = MutableContext {
                 movie: &mut self.movie,

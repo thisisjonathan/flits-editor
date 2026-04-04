@@ -1,5 +1,5 @@
 use flits_core::{
-    Movie, MovieClip, MovieClipProperties, PlaceSymbol, PlacedSymbolIndex, Symbol,
+    Movie, MovieClip, MovieClipProperties, MovieProperties, PlaceSymbol, PlacedSymbolIndex, Symbol,
     SymbolIndexOrRoot,
 };
 
@@ -7,6 +7,7 @@ use crate::undo::{ActionEdit, ChangeEdit};
 
 #[derive(Debug, Clone)]
 pub enum MovieChange {
+    MovieProperties(MovieProperties),
     PlacedSymbols(Vec<PlacedSymbolChange>),
 }
 impl ChangeEdit for MovieChange {
@@ -14,6 +15,9 @@ impl ChangeEdit for MovieChange {
 
     fn apply(&self, model: &mut Movie) {
         match self {
+            MovieChange::MovieProperties(movie_properties) => {
+                model.properties = movie_properties.clone();
+            }
             MovieChange::PlacedSymbols(changes) => {
                 for change in changes {
                     let placed_symbols = model.get_placed_symbols_mut(change.editing_symbol_index);
@@ -26,6 +30,9 @@ impl ChangeEdit for MovieChange {
 
     fn existing_value(&self, model: &Movie) -> Self {
         match self {
+            MovieChange::MovieProperties(_) => {
+                MovieChange::MovieProperties(model.properties.clone())
+            }
             MovieChange::PlacedSymbols(changes) => {
                 let mut existing_changes = Vec::with_capacity(changes.len());
                 for change in changes {
