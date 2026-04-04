@@ -368,6 +368,7 @@ impl Editor {
             EditorMessage::NewEdit(edit_message) => {
                 self.undo_stack.update(&mut self.movie, edit_message);
                 // TODO: change view
+                // TODO: lose ui focus (that causes a bunch of edge cases)
             }
             EditorMessage::Edit(edit) => {
                 let result = self.history.edit(&mut self.movie, edit);

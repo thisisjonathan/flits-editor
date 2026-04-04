@@ -1,4 +1,4 @@
-use flits_core::{MovieProperties, PreloaderType};
+use flits_core::{EditorColor, MovieProperties, PreloaderType};
 
 use crate::{editor::Context, edits::MovieChange, message::EditorMessage, undo::EditMessage};
 
@@ -26,11 +26,13 @@ macro_rules! property {
 pub struct PropertiesPanel2 {}
 impl PropertiesPanel2 {
     pub fn do_ui(&mut self, ui: &mut egui::Ui, ctx: &Context) {
-        let properties: [Box<dyn PropertyTrait<MovieProperties>>; 4] = [
+        let properties: [Box<dyn PropertyTrait<MovieProperties>>; _] = [
             property!("Width", model, model.width),
             property!("Height", model, model.height),
             property!("Framerate", model, model.frame_rate),
             property!("Preloader", model, model.preloader),
+            // if i remember correctly, the spec specifies this as rgb. the alpha is ignored (TODO: check)
+            property!("Background color", model, model.background_color),
         ];
 
         let mut model_clone = ctx.movie.properties.clone();
@@ -119,5 +121,42 @@ where
             (self.set)(model, value);
         }
         (changed, changed)
+    }
+}
+
+impl<Model> PropertyTrait<Model> for Property<Model, EditorColor> {
+    fn do_ui(&self, ui: &mut egui::Ui, model: &mut Model) -> (bool, bool) {
+        ui.label(format!("{}:", self.name));
+
+        let original_value = (self.get)(&model);
+        let mut value = original_value.clone();
+
+        let mut color = egui::Color32::from_rgba_unmultiplied(value.r, value.g, value.b, value.a);
+        let response = egui::color_picker::color_edit_button_srgba(
+            ui,
+            &mut color,
+            // the alpha doesn't do anything for all places we currently use the color picker
+            egui::color_picker::Alpha::Opaque,
+        );
+        let color_data = color.to_srgba_unmultiplied();
+        value.r = color_data[0];
+        value.g = color_data[1];
+        value.b = color_data[2];
+        value.a = color_data[3];
+
+        let changed = value != original_value;
+        if changed {
+            (self.set)(model, value);
+        }
+
+        // response.clicked_elsewhere() is true even when you don't have the color picker selected
+        // and you click anywhere in the program
+        // TODO: this causes unnecessary commits, but a commit without changes is a noop so it might not be a problem?
+        // response.clicked_elsewhere() is false when you press escape, we need to handle that seperately
+        // might be fixed after the popup refactor in egui: https://github.com/emilk/egui/issues/5189
+        (
+            changed,
+            ui.input(|i| i.key_pressed(egui::Key::Escape)) || response.clicked_elsewhere(),
+        )
     }
 }
