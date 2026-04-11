@@ -1,55 +1,62 @@
-use flits_core::{EditorColor, MovieProperties, PreloaderType};
+use flits_core::{EditorColor, MovieProperties, PlaceSymbol, PreloaderType};
 
-use crate::{editor::Context, edits::MovieChange, message::EditorMessage, undo::EditMessage};
-
-impl EnumProperty for PreloaderType {
-    fn enumerate() -> Vec<Self> {
-        vec![
-            PreloaderType::None,
-            PreloaderType::StartAfterLoading,
-            PreloaderType::WithPlayButton,
-        ]
-    }
-}
-
-macro_rules! property {
-    ($name:literal, $model: ident, $type:expr ) => {
-        Box::new(Property {
-            name: $name.into(),
-            get: |$model: &MovieProperties| $type.clone(),
-            set: |$model: &mut MovieProperties, value| $type = value,
-        })
-    };
-}
-
-type PropertyBox<T> = Box<dyn PropertyTrait<T>>;
+use crate::{
+    editor::Context,
+    edits::{MovieAction, MovieChange, PlacedSymbolChange},
+    message::EditorMessage,
+    undo::EditMessage,
+};
 
 #[derive(Default)]
 pub struct PropertiesPanel2 {}
 impl PropertiesPanel2 {
     pub fn do_ui(&mut self, ui: &mut egui::Ui, ctx: &Context) {
-        let properties: [PropertyBox<MovieProperties>; _] = [
-            property!("Width", model, model.width),
-            property!("Height", model, model.height),
-            property!("Framerate", model, model.frame_rate),
-            // if i remember correctly, the spec specifies this as rgb. the alpha is ignored (TODO: check)
-            property!("Background color", model, model.background_color),
-            property!("Preloader", model, model.preloader),
-        ];
-
-        ui.heading("Movie properties");
-        struct PropertyContext {
-            model_clone: MovieProperties,
+        match ctx.selection.placed_symbols.len() {
+            0 => self.show_panel(ui, ctx, ctx.movie.properties.clone(), |model| {
+                EditMessage::Change(MovieChange::MovieProperties(model))
+            }),
+            1 => self.show_panel(
+                ui,
+                ctx,
+                ctx.movie
+                    .get_placed_symbols(ctx.selection.properties_symbol_index)
+                    [ctx.selection.placed_symbols[0]]
+                    .clone(),
+                |model| {
+                    EditMessage::Change(MovieChange::PlacedSymbols(vec![PlacedSymbolChange {
+                        editing_symbol_index: ctx.selection.properties_symbol_index,
+                        placed_symbol_index: ctx.selection.placed_symbols[0],
+                        placed_symbol: model,
+                    }]))
+                },
+            ),
+            _ => {
+                ui.label("Multiple items selected");
+                return;
+            }
+        }
+    }
+    fn show_panel<T: PanelType>(
+        &mut self,
+        ui: &mut egui::Ui,
+        ctx: &Context,
+        model: T,
+        edit_message: impl FnOnce(T) -> EditMessage<MovieChange, MovieAction>,
+    ) {
+        ui.heading(&model.name());
+        let properties = model.properties();
+        struct PropertyContext<T> {
+            model_clone: T,
             commit_needed: bool,
             propery_changed: bool,
         }
         let mut context = PropertyContext {
-            model_clone: ctx.movie.properties.clone(),
+            model_clone: model,
             commit_needed: false,
             propery_changed: false,
         };
         let iterator = properties.iter().map(|property| {
-            |ui: &mut egui::Ui, context: &mut PropertyContext| {
+            |ui: &mut egui::Ui, context: &mut PropertyContext<T>| {
                 let (needs_change, needs_commit) = property.do_ui(ui, &mut context.model_clone);
                 if needs_change {
                     context.propery_changed = true;
@@ -70,14 +77,70 @@ impl PropertiesPanel2 {
         if context.propery_changed {
             // only send change message when the properties actually changed
             ctx.message_bus
-                .publish(EditorMessage::NewEdit(EditMessage::Change(
-                    MovieChange::MovieProperties(context.model_clone),
-                )));
+                .publish(EditorMessage::NewEdit((edit_message)(context.model_clone)));
         }
         if context.commit_needed {
             ctx.message_bus
                 .publish(EditorMessage::NewEdit(EditMessage::Commit));
         }
+    }
+}
+
+impl EnumProperty for PreloaderType {
+    fn enumerate() -> Vec<Self> {
+        vec![
+            PreloaderType::None,
+            PreloaderType::StartAfterLoading,
+            PreloaderType::WithPlayButton,
+        ]
+    }
+}
+
+macro_rules! property {
+    ($name:literal, $model: ident, $type:expr ) => {
+        Box::new(Property {
+            name: $name.into(),
+            get: |$model: &Self| $type.clone(),
+            set: |$model: &mut Self, value| $type = value,
+        })
+    };
+}
+
+type PropertyBox<T> = Box<dyn PropertyTrait<T>>;
+trait PanelType {
+    fn name(&self) -> String;
+    fn properties(&self) -> Vec<PropertyBox<Self>>;
+}
+
+impl PanelType for MovieProperties {
+    fn name(&self) -> String {
+        "Movie properties".into()
+    }
+
+    fn properties(&self) -> Vec<PropertyBox<Self>> {
+        vec![
+            property!("Width", model, model.width),
+            property!("Height", model, model.height),
+            property!("Framerate", model, model.frame_rate),
+            // if i remember correctly, the spec specifies this as rgb. the alpha is ignored (TODO: check)
+            property!("Background color", model, model.background_color),
+            property!("Preloader", model, model.preloader),
+        ]
+    }
+}
+
+impl PanelType for PlaceSymbol {
+    fn name(&self) -> String {
+        "Placed symbol properties".into()
+    }
+
+    fn properties(&self) -> Vec<PropertyBox<Self>> {
+        vec![
+            property!("x", model, model.transform.x),
+            property!("y", model, model.transform.y),
+            property!("X scale", model, model.transform.x_scale),
+            property!("Y scale", model, model.transform.y_scale),
+        ]
     }
 }
 
