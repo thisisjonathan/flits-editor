@@ -22,44 +22,119 @@ macro_rules! property {
     };
 }
 
+type PropertyBox<T> = Box<dyn PropertyTrait<T>>;
+
 #[derive(Default)]
 pub struct PropertiesPanel2 {}
 impl PropertiesPanel2 {
     pub fn do_ui(&mut self, ui: &mut egui::Ui, ctx: &Context) {
-        let properties: [Box<dyn PropertyTrait<MovieProperties>>; _] = [
+        let properties: [PropertyBox<MovieProperties>; _] = [
             property!("Width", model, model.width),
             property!("Height", model, model.height),
             property!("Framerate", model, model.frame_rate),
-            property!("Preloader", model, model.preloader),
             // if i remember correctly, the spec specifies this as rgb. the alpha is ignored (TODO: check)
             property!("Background color", model, model.background_color),
+            property!("Preloader", model, model.preloader),
         ];
 
-        let mut model_clone = ctx.movie.properties.clone();
-        let mut commit_needed = false;
-        let mut propery_changed = false;
-        for property in properties {
-            let (needs_change, needs_commit) = property.do_ui(ui, &mut model_clone);
-            if needs_change {
-                propery_changed = true;
+        ui.heading("Movie properties");
+        struct PropertyContext {
+            model_clone: MovieProperties,
+            commit_needed: bool,
+            propery_changed: bool,
+        }
+        let mut context = PropertyContext {
+            model_clone: ctx.movie.properties.clone(),
+            commit_needed: false,
+            propery_changed: false,
+        };
+        let iterator = properties.iter().map(|property| {
+            |ui: &mut egui::Ui, context: &mut PropertyContext| {
+                let (needs_change, needs_commit) = property.do_ui(ui, &mut context.model_clone);
+                if needs_change {
+                    context.propery_changed = true;
+                }
+                if needs_commit {
+                    context.commit_needed = true;
+                }
             }
-            if needs_commit {
-                commit_needed = true;
-            }
+        });
+        // TODO: more accurate width estimate
+        if ui.available_width() > (properties.len() * 140) as f32 {
+            horizontal_layout(ui, &mut context, iterator);
+        } else {
+            // TODO: change amount of rows based on available width
+            vertical_grid_layout(ui, &mut context, iterator);
         }
 
-        if propery_changed {
+        if context.propery_changed {
             // only send change message when the properties actually changed
             ctx.message_bus
                 .publish(EditorMessage::NewEdit(EditMessage::Change(
-                    MovieChange::MovieProperties(model_clone),
+                    MovieChange::MovieProperties(context.model_clone),
                 )));
         }
-        if commit_needed {
+        if context.commit_needed {
             ctx.message_bus
                 .publish(EditorMessage::NewEdit(EditMessage::Commit));
         }
     }
+}
+
+fn grid_layout<T>(
+    ui: &mut egui::Ui,
+    context: &mut T,
+    iterator: impl ExactSizeIterator<Item = impl FnOnce(&mut egui::Ui, &mut T)>,
+) {
+    egui::Grid::new("movie_properties_grid").show(ui, |ui| {
+        let length = iterator.len();
+        for (index, callback) in iterator.enumerate() {
+            (callback)(ui, context);
+            if index == length / 2 {
+                ui.end_row();
+            }
+        }
+    });
+}
+/// A grid but vertical to let labels line up nicer
+fn vertical_grid_layout<T>(
+    ui: &mut egui::Ui,
+    context: &mut T,
+    iterator: impl ExactSizeIterator<Item = impl FnOnce(&mut egui::Ui, &mut T)>,
+) {
+    let mut iterator = iterator.peekable();
+    egui::Grid::new("movie_properties_grid").show(ui, |ui| {
+        let mut column_index = 0;
+        loop {
+            egui::Grid::new(format!("movie_properties_grid_inner_{}", column_index)).show(
+                ui,
+                |ui| {
+                    for _ in 0..2 {
+                        if let Some(callback) = iterator.next() {
+                            (callback)(ui, context);
+                            ui.end_row();
+                        }
+                    }
+                },
+            );
+            column_index += 1;
+            if iterator.peek().is_none() {
+                break;
+            }
+        }
+    });
+}
+fn horizontal_layout<T>(
+    ui: &mut egui::Ui,
+    context: &mut T,
+    iterator: impl ExactSizeIterator<Item = impl FnOnce(&mut egui::Ui, &mut T)>,
+) {
+    ui.horizontal(|ui| {
+        for callback in iterator {
+            (callback)(ui, context);
+            ui.add_space(5.0);
+        }
+    });
 }
 
 struct Property<Model, ValueType> {
