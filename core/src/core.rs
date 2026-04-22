@@ -521,6 +521,16 @@ pub enum TextAlign {
     Center,
     Justify,
 }
+impl ToString for TextAlign {
+    fn to_string(&self) -> String {
+        match self {
+            TextAlign::Left => "Left".into(),
+            TextAlign::Right => "Right".into(),
+            TextAlign::Center => "Center".into(),
+            TextAlign::Justify => "Justify".into(),
+        }
+    }
+}
 impl Into<swf::TextAlign> for TextAlign {
     fn into(self) -> swf::TextAlign {
         match self {

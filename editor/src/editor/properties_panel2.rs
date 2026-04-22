@@ -1,4 +1,4 @@
-use flits_core::{EditorColor, MovieProperties, PlaceSymbol, PreloaderType};
+use flits_core::{EditorColor, MovieProperties, PlaceSymbol, PreloaderType, TextAlign};
 
 use crate::{
     editor::Context,
@@ -95,6 +95,16 @@ impl EnumProperty for PreloaderType {
         ]
     }
 }
+impl EnumProperty for TextAlign {
+    fn enumerate() -> Vec<Self> {
+        vec![
+            TextAlign::Left,
+            TextAlign::Right,
+            TextAlign::Center,
+            TextAlign::Justify,
+        ]
+    }
+}
 
 macro_rules! property {
     ($name:literal, $model: ident, $type:expr ) => {
@@ -102,6 +112,22 @@ macro_rules! property {
             name: $name.into(),
             get: |$model: &Self| $type.clone(),
             set: |$model: &mut Self, value| $type = value,
+        })
+    };
+}
+/// A property that's inside an option. Only create the property when the option is Some.
+macro_rules! property_option {
+    ($name:literal, $model: ident, $option:expr, $inner_model: ident, $type:expr ) => {
+        Box::new(Property {
+            name: $name.into(),
+            get: |$model: &Self| {
+                let $inner_model = $option.as_ref().unwrap();
+                $type.clone()
+            },
+            set: |$model: &mut Self, value| {
+                let $inner_model = $option.as_mut().unwrap();
+                $type = value;
+            },
         })
     };
 }
@@ -135,12 +161,23 @@ impl PanelType for PlaceSymbol {
     }
 
     fn properties(&self) -> Vec<PropertyBox<Self>> {
-        vec![
+        let mut props: Vec<PropertyBox<Self>> = vec![
             property!("x", model, model.transform.x),
             property!("y", model, model.transform.y),
             property!("X scale", model, model.transform.x_scale),
             property!("Y scale", model, model.transform.y_scale),
-        ]
+            property!("Instance name", model, model.instance_name),
+        ];
+        if self.text.is_some() {
+            props.append(&mut vec![
+                property_option!("Width", model, model.text, inner_model, inner_model.width),
+                property_option!("Height", model, model.text, inner_model, inner_model.height),
+                property_option!("Size", model, model.text, inner_model, inner_model.size),
+                property_option!("Color", model, model.text, inner_model, inner_model.color),
+                property_option!("Align", model, model.text, inner_model, inner_model.align),
+            ]);
+        }
+        props
     }
 }
 
@@ -232,6 +269,19 @@ macro_rules! impl_numeric_properties {
     }
 }
 impl_numeric_properties!(for f32, f64);
+
+impl<Model> PropertyTrait<Model> for Property<Model, String> {
+    fn do_ui(&self, ui: &mut egui::Ui, model: &mut Model) -> (bool, bool) {
+        ui.label(format!("{}:", self.name));
+        let mut value = (self.get)(&model);
+        let response =
+            ui.add(egui::TextEdit::singleline(&mut value).min_size(egui::Vec2::new(200.0, 0.0)));
+        if response.changed() {
+            (self.set)(model, value);
+        }
+        (response.changed(), response.lost_focus())
+    }
+}
 
 trait EnumProperty: ToString + PartialEq + Clone
 where
