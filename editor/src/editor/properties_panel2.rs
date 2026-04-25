@@ -44,42 +44,29 @@ impl PropertiesPanel2 {
         edit_message: impl FnOnce(T) -> EditMessage<MovieChange, MovieAction>,
     ) {
         ui.heading(&model.name());
-        let properties = model.properties();
-        struct PropertyContext<T> {
-            model_clone: T,
-            commit_needed: bool,
-            propery_changed: bool,
-        }
-        let mut context = PropertyContext {
-            model_clone: model,
-            commit_needed: false,
-            propery_changed: false,
-        };
-        let iterator = properties.iter().map(|property| {
-            |ui: &mut egui::Ui, context: &mut PropertyContext<T>| {
-                let (needs_change, needs_commit) = property.do_ui(ui, &mut context.model_clone);
-                if needs_change {
-                    context.propery_changed = true;
-                }
-                if needs_commit {
-                    context.commit_needed = true;
-                }
+
+        let blocks = model.property_blocks();
+
+        let mut model_clone = model;
+        let mut commit_needed = false;
+        let mut propery_changed = false;
+
+        for (block_index, block) in blocks.iter().enumerate() {
+            let (needs_change, needs_commit) = block.do_ui(ui, &mut model_clone, block_index);
+            if needs_change {
+                propery_changed = true;
             }
-        });
-        // TODO: more accurate width estimate
-        if ui.available_width() > (properties.len() * 140) as f32 {
-            horizontal_layout(ui, &mut context, iterator);
-        } else {
-            // TODO: change amount of rows based on available width
-            vertical_grid_layout(ui, &mut context, iterator);
+            if needs_commit {
+                commit_needed = true;
+            }
         }
 
-        if context.propery_changed {
+        if propery_changed {
             // only send change message when the properties actually changed
             ctx.message_bus
-                .publish(EditorMessage::NewEdit((edit_message)(context.model_clone)));
+                .publish(EditorMessage::NewEdit((edit_message)(model_clone)));
         }
-        if context.commit_needed {
+        if commit_needed {
             ctx.message_bus
                 .publish(EditorMessage::NewEdit(EditMessage::Commit));
         }
@@ -133,9 +120,50 @@ macro_rules! property_option {
 }
 
 type PropertyBox<T> = Box<dyn PropertyTrait<T>>;
+struct Block<T: ?Sized> {
+    properties: Vec<PropertyBox<T>>,
+}
+impl<T> Block<T> {
+    fn new(properties: Vec<PropertyBox<T>>) -> Self {
+        Self { properties }
+    }
+    fn do_ui(&self, ui: &mut egui::Ui, model: &mut T, index: usize) -> (bool, bool) {
+        struct PropertyContext<T> {
+            model_clone: T,
+            commit_needed: bool,
+            propery_changed: bool,
+        }
+        let mut context = PropertyContext {
+            model_clone: model,
+            commit_needed: false,
+            propery_changed: false,
+        };
+        let iterator = self.properties.iter().map(|property| {
+            |ui: &mut egui::Ui, context: &mut PropertyContext<&mut T>| {
+                let (needs_change, needs_commit) = property.do_ui(ui, &mut context.model_clone);
+                if needs_change {
+                    context.propery_changed = true;
+                }
+                if needs_commit {
+                    context.commit_needed = true;
+                }
+            }
+        });
+        // TODO: more accurate width estimate
+        if ui.available_width() > (self.properties.len() * 140) as f32 {
+            horizontal_layout(ui, &mut context, iterator);
+        } else {
+            // TODO: change amount of rows based on available width
+            vertical_grid_layout(ui, &mut context, iterator, index);
+        }
+
+        (context.propery_changed, context.commit_needed)
+    }
+}
+
 trait PanelType {
     fn name(&self) -> String;
-    fn properties(&self) -> Vec<PropertyBox<Self>>;
+    fn property_blocks(&self) -> Vec<Block<Self>>;
 }
 
 impl PanelType for MovieProperties {
@@ -143,15 +171,15 @@ impl PanelType for MovieProperties {
         "Movie properties".into()
     }
 
-    fn properties(&self) -> Vec<PropertyBox<Self>> {
-        vec![
+    fn property_blocks(&self) -> Vec<Block<Self>> {
+        vec![Block::new(vec![
             property!("Width", model, model.width),
             property!("Height", model, model.height),
             property!("Framerate", model, model.frame_rate),
             // if i remember correctly, the spec specifies this as rgb. the alpha is ignored (TODO: check)
             property!("Background color", model, model.background_color),
             property!("Preloader", model, model.preloader),
-        ]
+        ])]
     }
 }
 
@@ -160,24 +188,25 @@ impl PanelType for PlaceSymbol {
         "Placed symbol properties".into()
     }
 
-    fn properties(&self) -> Vec<PropertyBox<Self>> {
-        let mut props: Vec<PropertyBox<Self>> = vec![
+    fn property_blocks(&self) -> Vec<Block<Self>> {
+        let mut blocks: Vec<Block<Self>> = vec![Block::new(vec![
             property!("x", model, model.transform.x),
             property!("y", model, model.transform.y),
             property!("X scale", model, model.transform.x_scale),
             property!("Y scale", model, model.transform.y_scale),
             property!("Instance name", model, model.instance_name),
-        ];
+        ])];
         if self.text.is_some() {
-            props.append(&mut vec![
+            blocks.push(Block::new(vec![
                 property_option!("Width", model, model.text, inner_model, inner_model.width),
                 property_option!("Height", model, model.text, inner_model, inner_model.height),
                 property_option!("Size", model, model.text, inner_model, inner_model.size),
                 property_option!("Color", model, model.text, inner_model, inner_model.color),
                 property_option!("Align", model, model.text, inner_model, inner_model.align),
-            ]);
+            ]));
         }
-        props
+
+        blocks
     }
 }
 
@@ -201,22 +230,24 @@ fn vertical_grid_layout<T>(
     ui: &mut egui::Ui,
     context: &mut T,
     iterator: impl ExactSizeIterator<Item = impl FnOnce(&mut egui::Ui, &mut T)>,
+    index: usize,
 ) {
     let mut iterator = iterator.peekable();
-    egui::Grid::new("movie_properties_grid").show(ui, |ui| {
+    egui::Grid::new(format!("properties_vertical_grid_layout_{}", index)).show(ui, |ui| {
         let mut column_index = 0;
         loop {
-            egui::Grid::new(format!("movie_properties_grid_inner_{}", column_index)).show(
-                ui,
-                |ui| {
-                    for _ in 0..2 {
-                        if let Some(callback) = iterator.next() {
-                            (callback)(ui, context);
-                            ui.end_row();
-                        }
+            egui::Grid::new(format!(
+                "properties_vertical_grid_layout_{}_inner_{}",
+                index, column_index
+            ))
+            .show(ui, |ui| {
+                for _ in 0..2 {
+                    if let Some(callback) = iterator.next() {
+                        (callback)(ui, context);
+                        ui.end_row();
                     }
-                },
-            );
+                }
+            });
             column_index += 1;
             if iterator.peek().is_none() {
                 break;
