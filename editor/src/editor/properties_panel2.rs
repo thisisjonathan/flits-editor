@@ -99,6 +99,7 @@ macro_rules! property {
             name: $name.into(),
             get: |$model: &Self| $type.clone(),
             set: |$model: &mut Self, value| $type = value,
+            settings: None,
         })
     };
 }
@@ -115,6 +116,7 @@ macro_rules! property_option {
                 let $inner_model = $option.as_mut().unwrap();
                 $type = value;
             },
+            settings: None,
         })
     };
 }
@@ -219,7 +221,10 @@ impl PanelType for PlaceSymbol {
                 model.text,
                 inner_model,
                 inner_model.text
-            )]));
+            )
+            .with_settings(StringPropertySettings {
+                multiline: self.text.as_ref().unwrap().is_multiline,
+            })]));
         }
 
         blocks
@@ -284,10 +289,17 @@ fn horizontal_layout<T>(
     });
 }
 
-struct Property<Model, ValueType> {
+struct Property<Model, ValueType, Settings = ()> {
     name: String,
     get: fn(model: &Model) -> ValueType,
     set: fn(model: &mut Model, value: ValueType),
+    settings: Option<Settings>,
+}
+impl<Model, ValueType, Settings> Property<Model, ValueType, Settings> {
+    fn with_settings(mut self, settings: Settings) -> Box<Self> {
+        self.settings = Some(settings);
+        Box::new(self)
+    }
 }
 
 trait PropertyTrait<Model> {
@@ -317,12 +329,24 @@ macro_rules! impl_numeric_properties {
 }
 impl_numeric_properties!(for f32, f64);
 
-impl<Model> PropertyTrait<Model> for Property<Model, String> {
+struct StringPropertySettings {
+    multiline: bool,
+}
+impl<Model> PropertyTrait<Model> for Property<Model, String, StringPropertySettings> {
     fn do_ui(&self, ui: &mut egui::Ui, model: &mut Model) -> (bool, bool) {
         ui.label(format!("{}:", self.name));
         let mut value = (self.get)(&model);
-        let response =
-            ui.add(egui::TextEdit::singleline(&mut value).min_size(egui::Vec2::new(200.0, 0.0)));
+        let response = ui.add(
+            if self
+                .settings
+                .as_ref()
+                .is_some_and(|settings| settings.multiline)
+            {
+                egui::TextEdit::multiline(&mut value).min_size(egui::Vec2::new(200.0, 0.0))
+            } else {
+                egui::TextEdit::singleline(&mut value).min_size(egui::Vec2::new(200.0, 0.0))
+            },
+        );
         if response.changed() {
             (self.set)(model, value);
         }
