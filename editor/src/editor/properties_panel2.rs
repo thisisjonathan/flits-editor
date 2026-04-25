@@ -204,6 +204,22 @@ impl PanelType for PlaceSymbol {
                 property_option!("Color", model, model.text, inner_model, inner_model.color),
                 property_option!("Align", model, model.text, inner_model, inner_model.align),
             ]));
+            blocks.push(Block::new(vec![
+                // TODO: text field that are editable but not selectable are jank, maybe don't allow that combination?
+                property_option!("Editable", model, model.text, im, im.editable),
+                property_option!("Selectable", model, model.text, im, im.selectable),
+                property_option!("Password", model, model.text, im, im.is_password),
+                property_option!("HTML", model, model.text, im, im.is_html),
+                property_option!("Multiline", model, model.text, im, im.is_multiline),
+                property_option!("Word wrap", model, model.text, im, im.word_wrap),
+            ]));
+            blocks.push(Block::new(vec![property_option!(
+                "Text",
+                model,
+                model.text,
+                inner_model,
+                inner_model.text
+            )]));
         }
 
         blocks
@@ -311,6 +327,17 @@ impl<Model> PropertyTrait<Model> for Property<Model, String> {
             (self.set)(model, value);
         }
         (response.changed(), response.lost_focus())
+    }
+}
+
+impl<Model> PropertyTrait<Model> for Property<Model, bool> {
+    fn do_ui(&self, ui: &mut egui::Ui, model: &mut Model) -> (bool, bool) {
+        let mut value = (self.get)(&model);
+        let response = ui.checkbox(&mut value, &self.name);
+        if response.changed() {
+            (self.set)(model, value);
+        }
+        (response.changed(), response.changed())
     }
 }
 
