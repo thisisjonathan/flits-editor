@@ -186,6 +186,7 @@ macro_rules! property_option {
 type PropertyBox<T> = Box<dyn PropertyTrait<T>>;
 struct Block<T: ?Sized> {
     properties: Vec<PropertyBox<T>>,
+    heading: Option<String>,
     // the condition needs to be evaluated when showing the ui because
     // it might change depending on an earlier property.
     condition: Option<fn(model: &T) -> bool>,
@@ -195,6 +196,7 @@ impl<T> Block<T> {
     fn new(properties: Vec<PropertyBox<T>>) -> Self {
         Self {
             properties,
+            heading: None,
             condition: None,
             error: None,
         }
@@ -205,6 +207,11 @@ impl<T> Block<T> {
                 return (false, false);
             }
         }
+
+        if let Some(heading) = &self.heading {
+            ui.heading(heading);
+        }
+
         struct PropertyContext<T> {
             model_clone: T,
             commit_needed: bool,
@@ -239,6 +246,10 @@ impl<T> Block<T> {
         }
 
         (context.propery_changed, context.commit_needed)
+    }
+    fn with_heading(mut self, heading: String) -> Self {
+        self.heading = Some(heading);
+        self
     }
     fn with_condition(mut self, condition: fn(model: &T) -> bool) -> Self {
         self.condition = Some(condition);
@@ -365,13 +376,16 @@ impl PanelType<()> for PlaceSymbol {
             property!("Instance name", model, model.instance_name),
         ])];
         if self.text.is_some() {
-            blocks.push(Block::new(vec![
-                property_option!("Width", model, model.text, inner_model, inner_model.width),
-                property_option!("Height", model, model.text, inner_model, inner_model.height),
-                property_option!("Size", model, model.text, inner_model, inner_model.size),
-                property_option!("Color", model, model.text, inner_model, inner_model.color),
-                property_option!("Align", model, model.text, inner_model, inner_model.align),
-            ]));
+            blocks.push(
+                Block::new(vec![
+                    property_option!("Width", model, model.text, inner_model, inner_model.width),
+                    property_option!("Height", model, model.text, inner_model, inner_model.height),
+                    property_option!("Size", model, model.text, inner_model, inner_model.size),
+                    property_option!("Color", model, model.text, inner_model, inner_model.color),
+                    property_option!("Align", model, model.text, inner_model, inner_model.align),
+                ])
+                .with_heading("Text properties".into()),
+            );
             blocks.push(Block::new(vec![
                 // TODO: text field that are editable but not selectable are jank, maybe don't allow that combination?
                 property_option!("Editable", model, model.text, im, im.editable),
