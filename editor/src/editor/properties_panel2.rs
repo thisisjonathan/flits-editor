@@ -1,5 +1,6 @@
 use flits_core::{
-    BitmapProperties, EditorColor, MovieProperties, PlaceSymbol, PreloaderType, TextAlign,
+    BitmapProperties, EditorColor, MovieClipProperties, MovieProperties, PlaceSymbol,
+    PreloaderType, TextAlign,
 };
 
 use crate::{
@@ -45,7 +46,18 @@ impl PropertiesPanel2 {
                                 },
                             },
                         ),
-                        flits_core::Symbol::MovieClip(movie_clip) => {}
+                        flits_core::Symbol::MovieClip(movie_clip) => self.show_panel(
+                            ui,
+                            ctx,
+                            movie_clip.properties.clone(),
+                            |model| {
+                                EditMessage::Change(MovieChange::MovieClipProperties(
+                                    properties_symbol_index,
+                                    model,
+                                ))
+                            },
+                            (),
+                        ),
                         flits_core::Symbol::Font(flits_font) => {}
                     }
                 }
@@ -293,6 +305,19 @@ impl PanelType<BitmapPropertiesAdditionalInfo> for BitmapProperties {
             ])
             .with_condition(|model| model.animation.is_some()),
         ]
+    }
+}
+
+impl PanelType<()> for MovieClipProperties {
+    fn name(&self) -> String {
+        "Bitmap properties".into()
+    }
+
+    fn property_blocks(&self, _additional_info: ()) -> Vec<Block<Self>> {
+        vec![Block::new(vec![
+            property!("Name", model, model.name),
+            property!("Class", model, model.class_name),
+        ])]
     }
 }
 

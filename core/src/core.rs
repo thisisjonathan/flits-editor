@@ -382,7 +382,7 @@ pub struct MovieClip {
     pub place_symbols: Vec<PlaceSymbol>,
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct MovieClipProperties {
     pub name: String,
     #[serde(default, skip_serializing_if = "is_default")]

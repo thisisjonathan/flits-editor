@@ -9,6 +9,7 @@ use crate::undo::{ActionEdit, ChangeEdit};
 pub enum MovieChange {
     MovieProperties(MovieProperties),
     BitmapProperties(SymbolIndex, BitmapProperties),
+    MovieClipProperties(SymbolIndex, MovieClipProperties),
     PlacedSymbols(Vec<PlacedSymbolChange>),
 }
 impl ChangeEdit for MovieChange {
@@ -21,7 +22,7 @@ impl ChangeEdit for MovieChange {
             }
             MovieChange::BitmapProperties(symbol_index, bitmap_properties) => {
                 let Symbol::Bitmap(bitmap) = &mut model.symbols[*symbol_index] else {
-                    panic!();
+                    panic!("Changed symbol is not a bitmap");
                 };
                 // reset cache when path changes or when animation settings change
                 // (because the same image will be interpreted differently)
@@ -32,6 +33,12 @@ impl ChangeEdit for MovieChange {
                     bitmap.invalidate_cache();
                 }
                 bitmap.properties = bitmap_properties.clone();
+            }
+            MovieChange::MovieClipProperties(symbol_index, movieclip_properties) => {
+                let Symbol::MovieClip(movieclip) = &mut model.symbols[*symbol_index] else {
+                    panic!("Changed symbol is not a movieclip");
+                };
+                movieclip.properties = movieclip_properties.clone();
             }
             MovieChange::PlacedSymbols(changes) => {
                 for change in changes {
@@ -50,9 +57,15 @@ impl ChangeEdit for MovieChange {
             }
             MovieChange::BitmapProperties(symbol_index, _) => {
                 let Symbol::Bitmap(bitmap) = &model.symbols[*symbol_index] else {
-                    panic!();
+                    panic!("Existing symbol is not a bitmap");
                 };
                 MovieChange::BitmapProperties(*symbol_index, bitmap.properties.clone())
+            }
+            MovieChange::MovieClipProperties(symbol_index, _) => {
+                let Symbol::MovieClip(movieclip) = &model.symbols[*symbol_index] else {
+                    panic!("Existing symbol is not a movieclip");
+                };
+                MovieChange::MovieClipProperties(*symbol_index, movieclip.properties.clone())
             }
             MovieChange::PlacedSymbols(changes) => {
                 let mut existing_changes = Vec::with_capacity(changes.len());
