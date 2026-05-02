@@ -1,6 +1,6 @@
 use flits_core::{
-    BitmapCacheStatus, BitmapProperties, Movie, MovieClip, MovieClipProperties, MovieProperties,
-    PlaceSymbol, PlacedSymbolIndex, Symbol, SymbolIndex, SymbolIndexOrRoot,
+    BitmapCacheStatus, BitmapProperties, FlitsFont, Movie, MovieClip, MovieClipProperties,
+    MovieProperties, PlaceSymbol, PlacedSymbolIndex, Symbol, SymbolIndex, SymbolIndexOrRoot,
 };
 
 use crate::undo::{ActionEdit, ChangeEdit};
@@ -10,6 +10,7 @@ pub enum MovieChange {
     MovieProperties(MovieProperties),
     BitmapProperties(SymbolIndex, BitmapProperties),
     MovieClipProperties(SymbolIndex, MovieClipProperties),
+    FontProperties(SymbolIndex, FlitsFont),
     PlacedSymbols(Vec<PlacedSymbolChange>),
 }
 impl ChangeEdit for MovieChange {
@@ -40,6 +41,13 @@ impl ChangeEdit for MovieChange {
                 };
                 movieclip.properties = movieclip_properties.clone();
             }
+            MovieChange::FontProperties(symbol_index, font_properties) => {
+                let Symbol::Font(font) = &mut model.symbols[*symbol_index] else {
+                    panic!("Changed symbol is not a font");
+                };
+                // TODO: reload font
+                *font = font_properties.clone();
+            }
             MovieChange::PlacedSymbols(changes) => {
                 for change in changes {
                     let placed_symbols = model.get_placed_symbols_mut(change.editing_symbol_index);
@@ -66,6 +74,12 @@ impl ChangeEdit for MovieChange {
                     panic!("Existing symbol is not a movieclip");
                 };
                 MovieChange::MovieClipProperties(*symbol_index, movieclip.properties.clone())
+            }
+            MovieChange::FontProperties(symbol_index, _) => {
+                let Symbol::Font(font) = &model.symbols[*symbol_index] else {
+                    panic!("Existing symbol is not a font");
+                };
+                MovieChange::FontProperties(*symbol_index, font.clone())
             }
             MovieChange::PlacedSymbols(changes) => {
                 let mut existing_changes = Vec::with_capacity(changes.len());

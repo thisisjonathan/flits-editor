@@ -1,5 +1,5 @@
 use flits_core::{
-    BitmapProperties, EditorColor, MovieClipProperties, MovieProperties, PlaceSymbol,
+    BitmapProperties, EditorColor, FlitsFont, MovieClipProperties, MovieProperties, PlaceSymbol,
     PreloaderType, TextAlign,
 };
 
@@ -58,7 +58,18 @@ impl PropertiesPanel2 {
                             },
                             (),
                         ),
-                        flits_core::Symbol::Font(flits_font) => {}
+                        flits_core::Symbol::Font(flits_font) => self.show_panel(
+                            ui,
+                            ctx,
+                            flits_font.clone(),
+                            |model| {
+                                EditMessage::Change(MovieChange::FontProperties(
+                                    properties_symbol_index,
+                                    model,
+                                ))
+                            },
+                            (),
+                        ),
                     }
                 }
             },
@@ -310,13 +321,32 @@ impl PanelType<BitmapPropertiesAdditionalInfo> for BitmapProperties {
 
 impl PanelType<()> for MovieClipProperties {
     fn name(&self) -> String {
-        "Bitmap properties".into()
+        "MovieClip properties".into()
     }
 
     fn property_blocks(&self, _additional_info: ()) -> Vec<Block<Self>> {
         vec![Block::new(vec![
             property!("Name", model, model.name),
             property!("Class", model, model.class_name),
+        ])]
+    }
+}
+
+impl PanelType<()> for FlitsFont {
+    fn name(&self) -> String {
+        "Font properties".into()
+    }
+
+    fn property_blocks(&self, _additional_info: ()) -> Vec<Block<Self>> {
+        vec![Block::new(vec![
+            property!("Path", model, model.path),
+            // TODO: unchecking this doesn't seem to work for some fonts?
+            property!("ASCII characters", model, model.characters.ascii),
+            property!(
+                "Additional characters",
+                model,
+                model.characters.additional_characters
+            ),
         ])]
     }
 }
