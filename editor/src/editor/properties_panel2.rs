@@ -137,6 +137,7 @@ macro_rules! property {
             get: |$model: &Self| $type.clone(),
             set: |$model: &mut Self, value| $type = value,
             settings: None,
+            invalid: false,
         })
     };
 }
@@ -154,6 +155,7 @@ macro_rules! property_option {
                 $type = value;
             },
             settings: None,
+            invalid: false,
         })
     };
 }
@@ -259,8 +261,7 @@ impl PanelType<BitmapPropertiesAdditionalInfo> for BitmapProperties {
         vec![
             Block::new(vec![
                 property!("Name", model, model.name),
-                // TODO: make red when invalid
-                property!("Path", model, model.path),
+                property!("Path", model, model.path).with_invalid(additional_info.error.is_some()),
             ])
             .with_error(additional_info.error),
             Block::new(vec![property!("Animated", model, model.animation)]),
@@ -404,10 +405,15 @@ struct Property<Model, ValueType, Settings = ()> {
     get: fn(model: &Model) -> ValueType,
     set: fn(model: &mut Model, value: ValueType),
     settings: Option<Settings>,
+    invalid: bool,
 }
 impl<Model, ValueType, Settings> Property<Model, ValueType, Settings> {
     fn with_settings(mut self, settings: Settings) -> Box<Self> {
         self.settings = Some(settings);
+        Box::new(self)
+    }
+    fn with_invalid(mut self, invalid: bool) -> Box<Self> {
+        self.invalid = invalid;
         Box::new(self)
     }
 }
@@ -446,17 +452,19 @@ impl<Model> PropertyTrait<Model> for Property<Model, String, StringPropertySetti
     fn do_ui(&self, ui: &mut egui::Ui, model: &mut Model) -> (bool, bool) {
         ui.label(format!("{}:", self.name));
         let mut value = (self.get)(&model);
-        let response = ui.add(
-            if self
-                .settings
-                .as_ref()
-                .is_some_and(|settings| settings.multiline)
-            {
-                egui::TextEdit::multiline(&mut value).min_size(egui::Vec2::new(200.0, 0.0))
-            } else {
-                egui::TextEdit::singleline(&mut value).min_size(egui::Vec2::new(200.0, 0.0))
-            },
-        );
+        let mut text_edit = if self
+            .settings
+            .as_ref()
+            .is_some_and(|settings| settings.multiline)
+        {
+            egui::TextEdit::multiline(&mut value).min_size(egui::Vec2::new(200.0, 0.0))
+        } else {
+            egui::TextEdit::singleline(&mut value).min_size(egui::Vec2::new(200.0, 0.0))
+        };
+        if self.invalid {
+            text_edit = text_edit.text_color(ui.style().visuals.error_fg_color);
+        }
+        let response = ui.add(text_edit);
         if response.changed() {
             (self.set)(model, value);
         }
