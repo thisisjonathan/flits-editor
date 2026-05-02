@@ -1,6 +1,6 @@
 use flits_core::{
-    Movie, MovieClip, MovieClipProperties, MovieProperties, PlaceSymbol, PlacedSymbolIndex, Symbol,
-    SymbolIndexOrRoot,
+    BitmapCacheStatus, BitmapProperties, Movie, MovieClip, MovieClipProperties, MovieProperties,
+    PlaceSymbol, PlacedSymbolIndex, Symbol, SymbolIndex, SymbolIndexOrRoot,
 };
 
 use crate::undo::{ActionEdit, ChangeEdit};
@@ -8,6 +8,7 @@ use crate::undo::{ActionEdit, ChangeEdit};
 #[derive(Debug, Clone)]
 pub enum MovieChange {
     MovieProperties(MovieProperties),
+    BitmapProperties(SymbolIndex, BitmapProperties),
     PlacedSymbols(Vec<PlacedSymbolChange>),
 }
 impl ChangeEdit for MovieChange {
@@ -17,6 +18,20 @@ impl ChangeEdit for MovieChange {
         match self {
             MovieChange::MovieProperties(movie_properties) => {
                 model.properties = movie_properties.clone();
+            }
+            MovieChange::BitmapProperties(symbol_index, bitmap_properties) => {
+                let Symbol::Bitmap(bitmap) = &mut model.symbols[*symbol_index] else {
+                    panic!();
+                };
+                // reset cache when path changes or when animation settings change
+                // (because the same image will be interpreted differently)
+                if bitmap.properties.path != bitmap_properties.path
+                    || bitmap.properties.animation != bitmap_properties.animation
+                {
+                    // TODO: reuse file data when animation settings change
+                    bitmap.invalidate_cache();
+                }
+                bitmap.properties = bitmap_properties.clone();
             }
             MovieChange::PlacedSymbols(changes) => {
                 for change in changes {
@@ -32,6 +47,12 @@ impl ChangeEdit for MovieChange {
         match self {
             MovieChange::MovieProperties(_) => {
                 MovieChange::MovieProperties(model.properties.clone())
+            }
+            MovieChange::BitmapProperties(symbol_index, _) => {
+                let Symbol::Bitmap(bitmap) = &model.symbols[*symbol_index] else {
+                    panic!();
+                };
+                MovieChange::BitmapProperties(*symbol_index, bitmap.properties.clone())
             }
             MovieChange::PlacedSymbols(changes) => {
                 let mut existing_changes = Vec::with_capacity(changes.len());

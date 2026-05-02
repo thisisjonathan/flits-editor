@@ -1,4 +1,6 @@
-use flits_core::{EditorColor, MovieProperties, PlaceSymbol, PreloaderType, TextAlign};
+use flits_core::{
+    BitmapProperties, EditorColor, MovieProperties, PlaceSymbol, PreloaderType, TextAlign,
+};
 
 use crate::{
     editor::Context,
@@ -7,14 +9,32 @@ use crate::{
     undo::EditMessage,
 };
 
+// TODO: high cpu usage when cursor is in field
+
 #[derive(Default)]
 pub struct PropertiesPanel2 {}
 impl PropertiesPanel2 {
     pub fn do_ui(&mut self, ui: &mut egui::Ui, ctx: &Context) {
         match ctx.selection.placed_symbols.len() {
-            0 => self.show_panel(ui, ctx, ctx.movie.properties.clone(), |model| {
-                EditMessage::Change(MovieChange::MovieProperties(model))
-            }),
+            0 => match ctx.selection.properties_symbol_index {
+                None => self.show_panel(ui, ctx, ctx.movie.properties.clone(), |model| {
+                    EditMessage::Change(MovieChange::MovieProperties(model))
+                }),
+                Some(properties_symbol_index) => {
+                    match &ctx.movie.symbols[properties_symbol_index] {
+                        flits_core::Symbol::Bitmap(bitmap) => {
+                            self.show_panel(ui, ctx, bitmap.properties.clone(), |model| {
+                                EditMessage::Change(MovieChange::BitmapProperties(
+                                    properties_symbol_index,
+                                    model,
+                                ))
+                            })
+                        }
+                        flits_core::Symbol::MovieClip(movie_clip) => {}
+                        flits_core::Symbol::Font(flits_font) => {}
+                    }
+                }
+            },
             1 => self.show_panel(
                 ui,
                 ctx,
@@ -124,12 +144,23 @@ macro_rules! property_option {
 type PropertyBox<T> = Box<dyn PropertyTrait<T>>;
 struct Block<T: ?Sized> {
     properties: Vec<PropertyBox<T>>,
+    // the condition needs to be evaluated when showing the ui because
+    // it might change depending on an earlier property.
+    condition: Option<fn(model: &T) -> bool>,
 }
 impl<T> Block<T> {
     fn new(properties: Vec<PropertyBox<T>>) -> Self {
-        Self { properties }
+        Self {
+            properties,
+            condition: None,
+        }
     }
     fn do_ui(&self, ui: &mut egui::Ui, model: &mut T, index: usize) -> (bool, bool) {
+        if let Some(condition) = self.condition {
+            if !condition(model) {
+                return (false, false);
+            }
+        }
         struct PropertyContext<T> {
             model_clone: T,
             commit_needed: bool,
@@ -161,6 +192,10 @@ impl<T> Block<T> {
 
         (context.propery_changed, context.commit_needed)
     }
+    fn with_condition(mut self, condition: fn(model: &T) -> bool) -> Self {
+        self.condition = Some(condition);
+        self
+    }
 }
 
 trait PanelType {
@@ -182,6 +217,51 @@ impl PanelType for MovieProperties {
             property!("Background color", model, model.background_color),
             property!("Preloader", model, model.preloader),
         ])]
+    }
+}
+
+impl PanelType for BitmapProperties {
+    fn name(&self) -> String {
+        "Bitmap properties".into()
+    }
+
+    fn property_blocks(&self) -> Vec<Block<Self>> {
+        vec![
+            Block::new(vec![
+                property!("Name", model, model.name),
+                // TODO: make red when invalid
+                property!("Path", model, model.path),
+            ]),
+            Block::new(vec![property!("Animated", model, model.animation)]),
+            // TODO: show error when cache is invalid
+            Block::new(vec![
+                // TODO: if the value is too big the editor crashes because the frame is less than 1px
+                // TODO: slower drag speed?
+                // TODO: minimum?
+                property_option!(
+                    "Frames",
+                    model,
+                    model.animation,
+                    inner_model,
+                    inner_model.frame_count
+                ),
+                property_option!(
+                    "Frames delay after each frame",
+                    model,
+                    model.animation,
+                    inner_model,
+                    inner_model.frame_delay
+                ),
+                property_option!(
+                    "On last frame call (e.g. 'stop' or 'removeMovieClip')",
+                    model,
+                    model.animation,
+                    inner_model,
+                    inner_model.end_action
+                ),
+            ])
+            .with_condition(|model| model.animation.is_some()),
+        ]
     }
 }
 
@@ -327,7 +407,7 @@ macro_rules! impl_numeric_properties {
         )*
     }
 }
-impl_numeric_properties!(for f32, f64);
+impl_numeric_properties!(for f32, f64, u32);
 
 struct StringPropertySettings {
     multiline: bool,
@@ -360,6 +440,21 @@ impl<Model> PropertyTrait<Model> for Property<Model, bool> {
         let response = ui.checkbox(&mut value, &self.name);
         if response.changed() {
             (self.set)(model, value);
+        }
+        (response.changed(), response.changed())
+    }
+}
+
+impl<Model, T: Default> PropertyTrait<Model> for Property<Model, Option<T>> {
+    fn do_ui(&self, ui: &mut egui::Ui, model: &mut Model) -> (bool, bool) {
+        let mut value = (self.get)(&model).is_some();
+        let response = ui.checkbox(&mut value, &self.name);
+        if response.changed() {
+            if value {
+                (self.set)(model, Some(T::default()));
+            } else {
+                (self.set)(model, None);
+            }
         }
         (response.changed(), response.changed())
     }

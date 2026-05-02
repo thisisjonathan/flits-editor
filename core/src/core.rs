@@ -336,20 +336,29 @@ impl Bitmap {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct BitmapProperties {
     pub name: String,
     pub path: String,
     #[serde(default)]
     pub animation: Option<Animation>,
 }
-#[derive(Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Animation {
     pub frame_count: u32,
     pub frame_delay: u32,
     /// empty string means no end action
     #[serde(default)]
     pub end_action: String,
+}
+impl Default for Animation {
+    fn default() -> Self {
+        Animation {
+            frame_count: 2,
+            frame_delay: 0,
+            end_action: "".into(),
+        }
+    }
 }
 
 #[derive(Default)]
