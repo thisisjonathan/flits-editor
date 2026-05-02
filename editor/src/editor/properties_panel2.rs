@@ -17,19 +17,34 @@ impl PropertiesPanel2 {
     pub fn do_ui(&mut self, ui: &mut egui::Ui, ctx: &Context) {
         match ctx.selection.placed_symbols.len() {
             0 => match ctx.selection.properties_symbol_index {
-                None => self.show_panel(ui, ctx, ctx.movie.properties.clone(), |model| {
-                    EditMessage::Change(MovieChange::MovieProperties(model))
-                }),
+                None => self.show_panel(
+                    ui,
+                    ctx,
+                    ctx.movie.properties.clone(),
+                    |model| EditMessage::Change(MovieChange::MovieProperties(model)),
+                    (),
+                ),
                 Some(properties_symbol_index) => {
                     match &ctx.movie.symbols[properties_symbol_index] {
-                        flits_core::Symbol::Bitmap(bitmap) => {
-                            self.show_panel(ui, ctx, bitmap.properties.clone(), |model| {
+                        flits_core::Symbol::Bitmap(bitmap) => self.show_panel(
+                            ui,
+                            ctx,
+                            bitmap.properties.clone(),
+                            |model| {
                                 EditMessage::Change(MovieChange::BitmapProperties(
                                     properties_symbol_index,
                                     model,
                                 ))
-                            })
-                        }
+                            },
+                            BitmapPropertiesAdditionalInfo {
+                                error: match &bitmap.cache {
+                                    flits_core::BitmapCacheStatus::Invalid(error) => {
+                                        Some(error.clone())
+                                    }
+                                    _ => None,
+                                },
+                            },
+                        ),
                         flits_core::Symbol::MovieClip(movie_clip) => {}
                         flits_core::Symbol::Font(flits_font) => {}
                     }
@@ -49,6 +64,7 @@ impl PropertiesPanel2 {
                         placed_symbol: model,
                     }]))
                 },
+                (),
             ),
             _ => {
                 ui.label("Multiple items selected");
@@ -56,16 +72,17 @@ impl PropertiesPanel2 {
             }
         }
     }
-    fn show_panel<T: PanelType>(
+    fn show_panel<T: PanelType<I>, I>(
         &mut self,
         ui: &mut egui::Ui,
         ctx: &Context,
         model: T,
         edit_message: impl FnOnce(T) -> EditMessage<MovieChange, MovieAction>,
+        additional_info: I,
     ) {
         ui.heading(&model.name());
 
-        let blocks = model.property_blocks();
+        let blocks = model.property_blocks(additional_info);
 
         let mut model_clone = model;
         let mut commit_needed = false;
@@ -147,12 +164,14 @@ struct Block<T: ?Sized> {
     // the condition needs to be evaluated when showing the ui because
     // it might change depending on an earlier property.
     condition: Option<fn(model: &T) -> bool>,
+    error: Option<String>,
 }
 impl<T> Block<T> {
     fn new(properties: Vec<PropertyBox<T>>) -> Self {
         Self {
             properties,
             condition: None,
+            error: None,
         }
     }
     fn do_ui(&self, ui: &mut egui::Ui, model: &mut T, index: usize) -> (bool, bool) {
@@ -190,25 +209,33 @@ impl<T> Block<T> {
             vertical_grid_layout(ui, &mut context, iterator, index);
         }
 
+        if let Some(error) = &self.error {
+            ui.colored_label(ui.style().visuals.error_fg_color, error);
+        }
+
         (context.propery_changed, context.commit_needed)
     }
     fn with_condition(mut self, condition: fn(model: &T) -> bool) -> Self {
         self.condition = Some(condition);
         self
     }
+    fn with_error(mut self, error: Option<String>) -> Self {
+        self.error = error;
+        self
+    }
 }
 
-trait PanelType {
+trait PanelType<I> {
     fn name(&self) -> String;
-    fn property_blocks(&self) -> Vec<Block<Self>>;
+    fn property_blocks(&self, additional_info: I) -> Vec<Block<Self>>;
 }
 
-impl PanelType for MovieProperties {
+impl PanelType<()> for MovieProperties {
     fn name(&self) -> String {
         "Movie properties".into()
     }
 
-    fn property_blocks(&self) -> Vec<Block<Self>> {
+    fn property_blocks(&self, _additional_info: ()) -> Vec<Block<Self>> {
         vec![Block::new(vec![
             property!("Width", model, model.width),
             property!("Height", model, model.height),
@@ -220,20 +247,23 @@ impl PanelType for MovieProperties {
     }
 }
 
-impl PanelType for BitmapProperties {
+struct BitmapPropertiesAdditionalInfo {
+    error: Option<String>,
+}
+impl PanelType<BitmapPropertiesAdditionalInfo> for BitmapProperties {
     fn name(&self) -> String {
         "Bitmap properties".into()
     }
 
-    fn property_blocks(&self) -> Vec<Block<Self>> {
+    fn property_blocks(&self, additional_info: BitmapPropertiesAdditionalInfo) -> Vec<Block<Self>> {
         vec![
             Block::new(vec![
                 property!("Name", model, model.name),
                 // TODO: make red when invalid
                 property!("Path", model, model.path),
-            ]),
+            ])
+            .with_error(additional_info.error),
             Block::new(vec![property!("Animated", model, model.animation)]),
-            // TODO: show error when cache is invalid
             Block::new(vec![
                 // TODO: if the value is too big the editor crashes because the frame is less than 1px
                 // TODO: slower drag speed?
@@ -265,12 +295,12 @@ impl PanelType for BitmapProperties {
     }
 }
 
-impl PanelType for PlaceSymbol {
+impl PanelType<()> for PlaceSymbol {
     fn name(&self) -> String {
         "Placed symbol properties".into()
     }
 
-    fn property_blocks(&self) -> Vec<Block<Self>> {
+    fn property_blocks(&self, _additional_info: ()) -> Vec<Block<Self>> {
         let mut blocks: Vec<Block<Self>> = vec![Block::new(vec![
             property!("x", model, model.transform.x),
             property!("y", model, model.transform.y),
