@@ -343,7 +343,7 @@ impl Editor {
                 selection.sort();
 
                 // reset selection before doing edits because otherwise you can delete something while it's still selected
-                self.selection.placed_symbols = Vec::new();
+                self.handle_message(EditorMessage::ChangeSelectedPlacedSymbols(Vec::new()));
                 let mut actions = Vec::new();
                 for placed_symbol_index in selection {
                     actions.push(PlacedSymbolAction {
