@@ -212,6 +212,8 @@ impl<T> Block<T> {
             ui.heading(heading);
         }
 
+        // TODO: button to remove symbol
+
         struct PropertyContext<T> {
             model_clone: T,
             commit_needed: bool,
@@ -300,16 +302,15 @@ impl PanelType<BitmapPropertiesAdditionalInfo> for BitmapProperties {
             .with_error(additional_info.error),
             Block::new(vec![property!("Animated", model, model.animation)]),
             Block::new(vec![
-                // TODO: if the value is too big the editor crashes because the frame is less than 1px
                 // TODO: slower drag speed?
-                // TODO: minimum?
                 property_option!(
                     "Frames",
                     model,
                     model.animation,
                     inner_model,
                     inner_model.frame_count
-                ),
+                )
+                .with_settings(NumericPropertySettings { minimum: Some(1) }),
                 property_option!(
                     "Frames delay after each frame",
                     model,
@@ -490,16 +491,29 @@ impl<Model, ValueType, Settings> Property<Model, ValueType, Settings> {
 trait PropertyTrait<Model> {
     fn do_ui(&self, ui: &mut egui::Ui, model: &mut Model) -> (bool, bool);
 }
+
+struct NumericPropertySettings<T> {
+    minimum: Option<T>,
+}
 // we need to implement these all seperately instead of using a trait to make prove
 // the implementation doesn't overlap with EnumProperty
 macro_rules! impl_numeric_properties {
     (for $($t:ty),+) => {
         $(
-            impl<Model> PropertyTrait<Model> for Property<Model, $t> {
+            impl<Model> PropertyTrait<Model> for Property<Model, $t, NumericPropertySettings<$t>> {
                 fn do_ui(&self, ui: &mut egui::Ui, model: &mut Model) -> (bool, bool) {
                     ui.label(format!("{}:", self.name));
                     let mut value = (self.get)(&model);
-                    let response = ui.add(egui::DragValue::new(&mut value));
+                    let mut drag_value = egui::DragValue::new(&mut value);
+
+                    if let Some(settings) = self.settings.as_ref() {
+                        if let Some(minimum) = settings.minimum {
+                            let max = <$t>::MAX;
+                            drag_value = drag_value.range(minimum..=max);
+                        }
+                    }
+
+                    let response = ui.add(drag_value);
                     if response.changed() {
                         (self.set)(model, value);
                     }
