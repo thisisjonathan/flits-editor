@@ -126,9 +126,27 @@ where
             self.time = new_time;
             if let Some(mut player) = self.player.get() {
                 player.tick(dt as f64 / 1_000_000.0);
-                self.next_frame_time = match player.time_til_next_frame() {
-                    Some(time_til_next_frame) => Some(new_time + time_til_next_frame),
-                    None => None,
+                // this logic is different from Ruffle, they don't properly update based on the gui
+                // it still ends up working for them somehow
+                // get the wait time for both the gui and the player and take the maximum
+                let gui_time_til_next_frame = self.gui.time_til_next_frame();
+                let mut time_til_next_frame =
+                    if gui_time_til_next_frame > std::time::Duration::from_secs(100_000) {
+                        None
+                    } else {
+                        Some(gui_time_til_next_frame)
+                    };
+                if let Some(player_time_til_next_frame) = player.time_til_next_frame() {
+                    if let Some(inner_time_til_next_frame) = time_til_next_frame {
+                        if player_time_til_next_frame > inner_time_til_next_frame {
+                            time_til_next_frame = Some(player_time_til_next_frame);
+                        }
+                    }
+                }
+                if let Some(inner_time_til_next_frame) = time_til_next_frame {
+                    self.next_frame_time = Some(new_time + inner_time_til_next_frame);
+                } else {
+                    self.next_frame_time = None;
                 }
             } else {
                 self.next_frame_time = None;
@@ -141,8 +159,13 @@ where
         // only place where we're setting control flow, and events cancel wait.
         // Note: the control flow might be set to `ControlFlow::WaitUntil` with a
         // timestamp in the past! Take that into consideration when changing this code.
+        // TODO: when moving the mouse on linux x11, it end up rerendering the frame with only microseconds inbetween
+        // this causes high resource usage
         if let Some(next_frame_time) = self.next_frame_time {
             event_loop.set_control_flow(ControlFlow::WaitUntil(next_frame_time));
+        } else {
+            // Ruffle doesn't do this, don't know how their event loop works correctly
+            event_loop.set_control_flow(ControlFlow::Wait);
         }
     }
 

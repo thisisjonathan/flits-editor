@@ -407,11 +407,20 @@ impl<G: RuffleGui> GuiController<G> {
         self.window.pre_present_notify();
         surface_texture.present();
 
+        // actually update the last_update time
+        // ruffle doesn't do this, it seems their needs_render function is broken
+        // but it somehow ends up working
+        self.last_update = Instant::now();
+
         needs_redraw
     }
 
     pub fn needs_render(&self) -> bool {
         Instant::now().duration_since(self.last_update) >= self.repaint_after
+    }
+
+    pub fn time_til_next_frame(&self) -> Duration {
+        self.repaint_after
     }
 
     pub fn set_ime_allowed(&self, allowed: bool) {
