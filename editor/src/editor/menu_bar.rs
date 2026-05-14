@@ -152,11 +152,18 @@ const MENUS: &[Menu] = &[
     },
     Menu {
         name: "Help",
-        items: &[MenuItem {
-            name: "About...",
-            keyboard_shortcut: None,
-            message: || EditorMessage::Event(FlitsEvent::About),
-        }],
+        items: &[
+            MenuItem {
+                name: "About...",
+                keyboard_shortcut: None,
+                message: || EditorMessage::Event(FlitsEvent::About),
+            },
+            MenuItem {
+                name: "Debug undo...",
+                keyboard_shortcut: None,
+                message: || EditorMessage::ShowUndoDebugUi,
+            },
+        ],
     },
 ];
 

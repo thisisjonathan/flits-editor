@@ -112,6 +112,7 @@ pub struct Editor {
     new_symbol_window: Option<NewSymbolWindow>,
 
     error: Option<ErrorWindow>,
+    show_undo_debug_ui: bool,
 }
 impl Editor {
     pub fn new(
@@ -159,6 +160,7 @@ impl Editor {
             new_symbol_window: None,
 
             error: None,
+            show_undo_debug_ui: false,
         })
     }
 
@@ -199,17 +201,9 @@ impl Editor {
         egui::TopBottomPanel::bottom("properties2").show(egui_ctx, |ui| {
             self.properties_panel2.do_ui(ui, &context);
         });
-        egui::TopBottomPanel::bottom("properties").show(egui_ctx, |ui| {
-            let mut mutable_context = MutableContext {
-                movie: &mut self.movie,
-                selection: &self.selection,
-                message_bus: &message_bus,
-            };
-            self.properties_panel.do_ui(ui, &mut mutable_context);
-        });
 
         if let Some(new_symbol_window) = &mut self.new_symbol_window {
-            match new_symbol_window.do_ui(egui_ctx) {
+            match new_symbol_window.do_ui(egui_ctx, &context) {
                 NewSymbolWindowResult::Confirm(movie_edit) => {
                     self.handle_message(EditorMessage::NewEdit(EditMessage::Action(movie_edit)));
                     self.new_symbol_window = None;
@@ -219,6 +213,23 @@ impl Editor {
                 }
                 NewSymbolWindowResult::NoAction => {}
             }
+        }
+
+        egui::TopBottomPanel::bottom("properties").show(egui_ctx, |ui| {
+            let mut mutable_context = MutableContext {
+                movie: &mut self.movie,
+                selection: &self.selection,
+                message_bus: &message_bus,
+            };
+            self.properties_panel.do_ui(ui, &mut mutable_context);
+        });
+
+        if self.show_undo_debug_ui {
+            egui::Window::new("Undo debug")
+                .open(&mut self.show_undo_debug_ui)
+                .show(egui_ctx, |ui| {
+                    self.undo_stack.debug_ui(ui);
+                });
         }
 
         self.error.do_ui(egui_ctx);
@@ -394,6 +405,9 @@ impl Editor {
                     .unwrap_or_else(|err| {
                         eprintln!("Unable to send event: {}", err);
                     });
+            }
+            EditorMessage::ShowUndoDebugUi => {
+                self.show_undo_debug_ui = true;
             }
         }
     }

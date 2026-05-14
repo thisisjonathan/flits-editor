@@ -22,4 +22,6 @@ pub enum EditorMessage {
     NewEdit(EditMessage<MovieChange, MovieAction>),
     Stage(StageMessage),
     Event(FlitsEvent),
+
+    ShowUndoDebugUi,
 }

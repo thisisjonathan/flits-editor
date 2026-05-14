@@ -125,4 +125,18 @@ impl<Change: ChangeEdit, Action: ActionEdit<Model = Change::Model>> UndoStack<Ch
             }
         }
     }
+
+    pub fn debug_ui(&self, ui: &mut egui::Ui) {
+        egui::ScrollArea::vertical().show(ui, |ui| {
+            ui.label(format!("Preview edit: {:#?}", self.preview_edit));
+            ui.heading("Undo");
+            for edit in &self.undo_stack {
+                ui.label(format!("{:#?}", edit));
+            }
+            ui.heading("Redo");
+            for edit in &self.redo_stack {
+                ui.label(format!("{:#?}", edit));
+            }
+        });
+    }
 }
